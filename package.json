@@ -1,0 +1,26 @@
+{
+  "name": "xue-cyber-neko",
+  "version": "0.1.0",
+  "description": "雪澜赛博猫娘 - Live2D 桌面 AI 桌宠",
+  "main": "./out/main/index.js",
+  "author": "Xue_CyberNeko Contributors",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
+    "postinstall": "node scripts/ensure-electron.js"
+  },
+  "dependencies": {
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "electron": "^34.0.0",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.7.3",
+    "vite": "^5.4.14",
+    "vue-tsc": "^2.2.0"
+  }
+}
