@@ -12,7 +12,10 @@ const isLoading = ref(true)
 
 let app: Application | null = null
 let model: Live2DModel | null = null
-let resizeHandler: (() => void) | null = null
+let resizeObserver: ResizeObserver | null = null
+let resizeTimer: ReturnType<typeof setTimeout> | null = null
+let baseModelWidth = 0
+let baseModelHeight = 0
 
 declare global {
   interface Window {
@@ -48,17 +51,43 @@ function loadCubismCore(): Promise<void> {
   })
 }
 
-function layoutModel(): void {
+function resetInteractionState(): void {
   if (!app || !model) return
 
+  const interaction = app.renderer.plugins.interaction
+  if (!interaction) return
+
+  // 窗口缩放后清除悬停追踪，避免 InteractionManager 访问失效状态
+  model.trackedPointers = {}
+  interaction.cursor = null
+  interaction.currentCursorMode = null
+}
+
+function layoutModel(): void {
+  if (!app || !model || baseModelWidth <= 0 || baseModelHeight <= 0) return
+
   const padding = 48
-  const availableWidth = app.screen.width - padding * 2
-  const availableHeight = app.screen.height - padding * 2
-  const scale = Math.min(availableWidth / model.width, availableHeight / model.height) * 0.95
+  const availableWidth = Math.max(app.screen.width - padding * 2, 1)
+  const availableHeight = Math.max(app.screen.height - padding * 2, 1)
+
+  // 必须用模型原始尺寸，不能用 model.width（已含当前 scale，会越缩越小）
+  const scale =
+    Math.min(availableWidth / baseModelWidth, availableHeight / baseModelHeight) * 0.95
 
   model.scale.set(scale)
   model.position.set(app.screen.width / 2, app.screen.height / 2)
-  model.anchor.set(0.5, 0.5)
+}
+
+function scheduleLayout(): void {
+  if (resizeTimer) {
+    clearTimeout(resizeTimer)
+  }
+
+  resizeTimer = setTimeout(() => {
+    layoutModel()
+    resetInteractionState()
+    resizeTimer = null
+  }, 80)
 }
 
 function startIdleMotion(): void {
@@ -123,12 +152,18 @@ async function initLive2D(): Promise<void> {
       autoUpdate: true
     })
 
+    baseModelWidth = model.internalModel.width
+    baseModelHeight = model.internalModel.height
+    model.anchor.set(0.5, 0.5)
+
     app.stage.addChild(model)
     layoutModel()
     startIdleMotion()
 
-    resizeHandler = layoutModel
-    app.renderer.on('resize', resizeHandler)
+    resizeObserver = new ResizeObserver(() => {
+      scheduleLayout()
+    })
+    resizeObserver.observe(container)
 
     model.on('pointertap', handlePointerTap)
     model.on('hit', (hitAreas: string[]) => {
@@ -150,12 +185,18 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (resizeTimer) {
+    clearTimeout(resizeTimer)
+    resizeTimer = null
+  }
+
+  resizeObserver?.disconnect()
+  resizeObserver = null
+
   if (app?.view) {
     ;(app.view as HTMLCanvasElement).removeEventListener('contextmenu', handleContextMenu)
   }
-  if (app?.renderer && resizeHandler) {
-    app.renderer.off('resize', resizeHandler)
-  }
+
   model?.destroy()
   app?.destroy(true, { children: true })
   model = null
