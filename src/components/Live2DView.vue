@@ -1,16 +1,52 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import * as PIXI from 'pixi.js'
-import { Live2DModel } from 'pixi-live2d-display/cubism4'
+import type { Application } from 'pixi.js'
+import type { Live2DModel } from 'pixi-live2d-display/cubism4'
 
 const MODEL_URL = '/models/Haru/Haru.model3.json'
+const CUBISM_CORE_URL = '/live2d/live2dcubismcore.min.js'
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const loadError = ref('')
 const isLoading = ref(true)
 
-let app: PIXI.Application | null = null
+let app: Application | null = null
 let model: Live2DModel | null = null
+let resizeHandler: (() => void) | null = null
+
+declare global {
+  interface Window {
+    Live2DCubismCore?: unknown
+  }
+}
+
+function loadCubismCore(): Promise<void> {
+  if (window.Live2DCubismCore) {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[src="${CUBISM_CORE_URL}"]`
+    )
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true })
+      existing.addEventListener(
+        'error',
+        () => reject(new Error('Cubism Core 脚本加载失败')),
+        { once: true }
+      )
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = CUBISM_CORE_URL
+    script.async = false
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('Cubism Core 脚本加载失败'))
+    document.head.appendChild(script)
+  })
+}
 
 function layoutModel(): void {
   if (!app || !model) return
@@ -29,7 +65,6 @@ function startIdleMotion(): void {
   if (!model) return
 
   try {
-    // Haru 模型的待机动作组名为 Idle，会随机播放并自动循环
     model.motion('Idle')
   } catch (error) {
     console.warn('[Live2D] 待机动作启动失败，模型将保持静态呼吸动画', error)
@@ -56,21 +91,30 @@ async function initLive2D(): Promise<void> {
   const container = containerRef.value
   if (!container) return
 
-  Live2DModel.registerTicker(PIXI.Ticker)
-
-  app = new PIXI.Application({
-    backgroundAlpha: 0,
-    resizeTo: container,
-    antialias: true,
-    resolution: window.devicePixelRatio || 1,
-    autoDensity: true
-  })
-
-  container.appendChild(app.view as HTMLCanvasElement)
-  ;(app.view as HTMLCanvasElement).addEventListener('contextmenu', handleContextMenu)
-
   try {
-    model = await Live2DModel.from(MODEL_URL, {
+    await loadCubismCore()
+
+    if (!window.Live2DCubismCore) {
+      throw new Error('Cubism Core 未正确初始化')
+    }
+
+    const PIXI = await import('pixi.js')
+    const { Live2DModel: Live2DModelClass } = await import('pixi-live2d-display/cubism4')
+
+    Live2DModelClass.registerTicker(PIXI.Ticker)
+
+    app = new PIXI.Application({
+      backgroundAlpha: 0,
+      resizeTo: container,
+      antialias: true,
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true
+    })
+
+    container.appendChild(app.view as HTMLCanvasElement)
+    ;(app.view as HTMLCanvasElement).addEventListener('contextmenu', handleContextMenu)
+
+    model = await Live2DModelClass.from(MODEL_URL, {
       autoInteract: true,
       autoUpdate: true
     })
@@ -79,10 +123,10 @@ async function initLive2D(): Promise<void> {
     layoutModel()
     startIdleMotion()
 
-    app.renderer.on('resize', layoutModel)
+    resizeHandler = layoutModel
+    app.renderer.on('resize', resizeHandler)
 
     model.on('pointertap', handlePointerTap)
-
     model.on('hit', (hitAreas: string[]) => {
       console.log('[Live2D] 点击部位:', hitAreas.join(', '))
     })
@@ -92,8 +136,8 @@ async function initLive2D(): Promise<void> {
   } catch (error) {
     isLoading.value = false
     loadError.value =
-      'Live2D 模型加载失败。请先在项目根目录执行 npm run setup:model 下载官方 Haru 示例模型。'
-    console.error('[Live2D] 模型加载失败:', error)
+      'Live2D 加载失败。请执行 npm run setup:model 下载模型与 Cubism Core，然后重启 npm run dev。'
+    console.error('[Live2D] 初始化失败:', error)
   }
 }
 
@@ -104,6 +148,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (app?.view) {
     ;(app.view as HTMLCanvasElement).removeEventListener('contextmenu', handleContextMenu)
+  }
+  if (app?.renderer && resizeHandler) {
+    app.renderer.off('resize', resizeHandler)
   }
   model?.destroy()
   app?.destroy(true, { children: true })

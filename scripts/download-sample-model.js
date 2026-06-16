@@ -111,6 +111,9 @@ async function main() {
   }
 
   console.log(`[setup:model] 完成，共 ${files.length + 1} 个文件 -> public/models/Haru/`)
+
+  const { ensureCubismCore } = require('./ensure-cubism-core')
+  await ensureCubismCore()
 }
 
 main().catch((error) => {

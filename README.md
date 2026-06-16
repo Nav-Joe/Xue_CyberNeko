@@ -56,6 +56,15 @@ npm install
 
 项目已配置国内镜像（`.npmrc`）和 `postinstall` 自动检测脚本，正常 `npm install` 应能自动修复。
 
+### 常见问题：窗口一片空白
+
+缺少 Live2D Cubism Core 运行时会导致 Vue 无法加载 Live2D 模块，窗口全白。执行：
+
+```bash
+npm run setup:model
+npm run dev
+```
+
 ## 常用命令
 
 | 命令 | 作用 |
