@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import type { Application, IPointData } from 'pixi.js'
+import type { Application } from 'pixi.js'
 import type { Live2DModel } from 'pixi-live2d-display/cubism4'
 
 const MODEL_URL = '/models/Haru/Haru.model3.json'
@@ -18,7 +18,7 @@ let resizeTimer: ReturnType<typeof setTimeout> | null = null
 let baseModelWidth = 0
 let baseModelHeight = 0
 
-const pointerPosition: IPointData = { x: 0, y: 0 }
+let pointerPosition: import('pixi.js').Point | null = null
 
 declare global {
   interface Window {
@@ -54,8 +54,10 @@ function loadCubismCore(): Promise<void> {
   })
 }
 
-function mapPointerToGlobal(event: PointerEvent): IPointData {
-  if (!app) return pointerPosition
+function mapPointerToGlobal(event: PointerEvent): import('pixi.js').Point {
+  if (!app || !pointerPosition) {
+    throw new Error('Pixi 未初始化')
+  }
 
   const interaction = app.renderer.plugins.interaction
   interaction.mapPositionToPoint(pointerPosition, event.clientX, event.clientY)
@@ -161,6 +163,8 @@ async function initLive2D(): Promise<void> {
 
     const PIXI = await import('pixi.js')
     const { Live2DModel: Live2DModelClass } = await import('pixi-live2d-display/cubism4')
+
+    pointerPosition = new PIXI.Point()
 
     Live2DModelClass.registerTicker(PIXI.Ticker)
 
