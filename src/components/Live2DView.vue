@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import type { Application } from 'pixi.js'
+import type { Application, IPointData } from 'pixi.js'
 import type { Live2DModel } from 'pixi-live2d-display/cubism4'
 
 const MODEL_URL = '/models/Haru/Haru.model3.json'
@@ -12,10 +12,13 @@ const isLoading = ref(true)
 
 let app: Application | null = null
 let model: Live2DModel | null = null
+let canvasEl: HTMLCanvasElement | null = null
 let resizeObserver: ResizeObserver | null = null
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
 let baseModelWidth = 0
 let baseModelHeight = 0
+
+const pointerPosition: IPointData = { x: 0, y: 0 }
 
 declare global {
   interface Window {
@@ -51,16 +54,17 @@ function loadCubismCore(): Promise<void> {
   })
 }
 
-function resetInteractionState(): void {
-  if (!app || !model) return
+function mapPointerToGlobal(event: PointerEvent): IPointData {
+  if (!app) return pointerPosition
 
   const interaction = app.renderer.plugins.interaction
-  if (!interaction) return
+  interaction.mapPositionToPoint(pointerPosition, event.clientX, event.clientY)
+  return pointerPosition
+}
 
-  // 窗口缩放后清除悬停追踪，避免 InteractionManager 访问失效状态
-  model.trackedPointers = {}
-  interaction.cursor = null
-  interaction.currentCursorMode = null
+function isPointerOnModel(event: PointerEvent): boolean {
+  if (!model) return false
+  return model.containsPoint(mapPointerToGlobal(event))
 }
 
 function layoutModel(): void {
@@ -70,7 +74,6 @@ function layoutModel(): void {
   const availableWidth = Math.max(app.screen.width - padding * 2, 1)
   const availableHeight = Math.max(app.screen.height - padding * 2, 1)
 
-  // 必须用模型原始尺寸，不能用 model.width（已含当前 scale，会越缩越小）
   const scale =
     Math.min(availableWidth / baseModelWidth, availableHeight / baseModelHeight) * 0.95
 
@@ -85,7 +88,6 @@ function scheduleLayout(): void {
 
   resizeTimer = setTimeout(() => {
     layoutModel()
-    resetInteractionState()
     resizeTimer = null
   }, 80)
 }
@@ -102,18 +104,44 @@ function startIdleMotion(): void {
 
 function handleContextMenu(event: MouseEvent): void {
   event.preventDefault()
-  if (!app || !model) return
+  if (!isPointerOnModel(event as PointerEvent)) return
 
-  const bounds = model.getBounds()
-  const point = app.renderer.plugins.interaction.mouse.global
+  alert('雪澜赛博猫娘\n\n· 设置（里程碑 7）\n· 聊天（里程碑 3）\n\n右键菜单占位，后续会换成正式 UI')
+}
 
-  if (bounds.contains(point.x, point.y)) {
-    alert('雪澜赛博猫娘\n\n· 设置（里程碑 7）\n· 聊天（里程碑 3）\n\n右键菜单占位，后续会换成正式 UI')
+function handleCanvasPointerDown(event: PointerEvent): void {
+  if (!model || event.button !== 0) return
+
+  const point = mapPointerToGlobal(event)
+  if (!model.containsPoint(point)) return
+
+  model.tap(point.x, point.y)
+  console.log('喵')
+}
+
+function handleCanvasPointerMove(event: PointerEvent): void {
+  if (!model) return
+
+  const point = mapPointerToGlobal(event)
+  if (model.containsPoint(point)) {
+    model.focus(point.x, point.y)
   }
 }
 
-function handlePointerTap(): void {
-  console.log('喵')
+function bindCanvasEvents(): void {
+  if (!canvasEl) return
+
+  canvasEl.addEventListener('contextmenu', handleContextMenu)
+  canvasEl.addEventListener('pointerdown', handleCanvasPointerDown)
+  canvasEl.addEventListener('pointermove', handleCanvasPointerMove)
+}
+
+function unbindCanvasEvents(): void {
+  if (!canvasEl) return
+
+  canvasEl.removeEventListener('contextmenu', handleContextMenu)
+  canvasEl.removeEventListener('pointerdown', handleCanvasPointerDown)
+  canvasEl.removeEventListener('pointermove', handleCanvasPointerMove)
 }
 
 async function initLive2D(): Promise<void> {
@@ -144,28 +172,33 @@ async function initLive2D(): Promise<void> {
       autoDensity: true
     })
 
-    container.appendChild(app.view as HTMLCanvasElement)
-    ;(app.view as HTMLCanvasElement).addEventListener('contextmenu', handleContextMenu)
+    canvasEl = app.view as HTMLCanvasElement
+    container.appendChild(canvasEl)
+
+    // 关闭 Pixi 内置交互，避免 Live2D 模型与 InteractionManager 的 trackedPointers 冲突
+    app.stage.interactive = false
+    app.stage.interactiveChildren = false
 
     model = await Live2DModelClass.from(MODEL_URL, {
-      autoInteract: true,
+      autoInteract: false,
       autoUpdate: true
     })
 
     baseModelWidth = model.internalModel.width
     baseModelHeight = model.internalModel.height
     model.anchor.set(0.5, 0.5)
+    model.interactive = false
 
     app.stage.addChild(model)
     layoutModel()
     startIdleMotion()
+    bindCanvasEvents()
 
     resizeObserver = new ResizeObserver(() => {
       scheduleLayout()
     })
     resizeObserver.observe(container)
 
-    model.on('pointertap', handlePointerTap)
     model.on('hit', (hitAreas: string[]) => {
       console.log('[Live2D] 点击部位:', hitAreas.join(', '))
     })
@@ -193,9 +226,8 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
 
-  if (app?.view) {
-    ;(app.view as HTMLCanvasElement).removeEventListener('contextmenu', handleContextMenu)
-  }
+  unbindCanvasEvents()
+  canvasEl = null
 
   model?.destroy()
   app?.destroy(true, { children: true })
