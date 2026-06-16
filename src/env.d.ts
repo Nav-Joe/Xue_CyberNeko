@@ -6,8 +6,14 @@ declare module '*.vue' {
   export default component
 }
 
+type WindowType = 'pet' | 'home'
+
 interface ElectronAPI {
   platform: NodeJS.Platform
+  getWindowType: () => WindowType
+  setIgnoreMouseEvents: (ignore: boolean) => void
+  openHome: () => void
+  quitApp: () => void
 }
 
 interface Window {

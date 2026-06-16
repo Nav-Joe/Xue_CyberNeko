@@ -20,4 +20,10 @@ body,
 
 body {
   overflow: hidden;
+  background: transparent;
+}
+
+/* 「家」窗口使用渐变背景，由 HomeView 自行绘制 */
+body:has(.home) {
+  background: #f8fafc;
 }

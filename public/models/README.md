@@ -4,16 +4,47 @@
 
 ## 首次使用
 
-在项目根目录执行：
-
 ```bash
 npm run setup:model
 ```
 
 将自动下载 Live2D 官方免费示例 **Haru** 到 `Haru/` 子目录。
 
-## 模型来源
+## 如何替换为自己的模型？
+
+1. 准备一个 **Cubism 3/4** 模型文件夹（含 `*.model3.json`）
+2. 放到 `public/models/你的模型名/` 下
+3. 修改 `src/components/Live2DView.vue` 里的 `MODEL_URL` 指向新路径
+
+例如：`/models/MyNeko/MyNeko.model3.json`
+
+## 模型从哪里获取？
+
+### 免费 / 学习用
+
+| 来源 | 说明 |
+|------|------|
+| [Live2D 官方示例](https://www.live2d.com/download/sample-data/) | Haru 等官方免费素材，适合开发测试 |
+| [CubismWebSamples](https://github.com/Live2D/CubismWebSamples) | 与官方示例相同，可脚本下载 |
+| 开源仓库 | GitHub 搜索 `live2d model3.json`（注意许可证） |
+
+### 付费购买（个人 / 商用需看授权）
+
+| 平台 | 链接 | 说明 |
+|------|------|------|
+| **nizima**（Live2D 官方） | https://nizima.com/ | 官方模型市场，质量高，授权清晰 |
+| **BOOTH** | https://booth.pm/ | 日本创作者平台，大量 Live2D 模型 |
+| **Eikanyalive** 等国内代理 | 搜索「Live2D 模型 购买」 | 部分 BOOTH 模型的国内代购 |
+
+### 购买时注意
+
+- 确认是 **Cubism 3/4**（`.model3.json`），不是旧版 Cubism 2
+- 阅读 **使用范围**：个人学习 / 直播 / 商用 / 二次发布 各不同
+- 商用或开源项目发布前，务必确认模型授权允许
+- 本项目默认 MIT 开源，**不要使用禁止二次分发或禁止开源的模型**
+
+## 当前默认模型
 
 - 名称：Haru（官方 Cubism 4 示例）
-- 许可：Live2D 免费素材，仅供学习/测试，商用请查阅 Live2D 官方条款
+- 许可：Live2D 免费素材，仅供学习/测试
 - 仓库：https://github.com/Live2D/CubismWebSamples

@@ -1,5 +1,9 @@
 import { createApp } from 'vue'
-import App from './App.vue'
+import PetApp from './PetApp.vue'
+import HomeApp from './HomeApp.vue'
 import './styles/main.css'
 
-createApp(App).mount('#app')
+const windowType = window.electronAPI?.getWindowType() ?? 'pet'
+const RootApp = windowType === 'home' ? HomeApp : PetApp
+
+createApp(RootApp).mount('#app')

@@ -3,6 +3,17 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import type { Application } from 'pixi.js'
 import type { Live2DModel } from 'pixi-live2d-display/cubism4'
 
+const props = withDefaults(
+  defineProps<{
+    mode?: 'pet' | 'dev'
+  }>(),
+  { mode: 'pet' }
+)
+
+const emit = defineEmits<{
+  openMenu: [payload: { x: number; y: number }]
+}>()
+
 const MODEL_URL = '/models/Haru/Haru.model3.json'
 const CUBISM_CORE_URL = '/live2d/live2dcubismcore.min.js'
 
@@ -17,7 +28,7 @@ let resizeObserver: ResizeObserver | null = null
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
 let baseModelWidth = 0
 let baseModelHeight = 0
-
+let lastMouseIgnore: boolean | null = null
 let pointerPosition: import('pixi.js').Point | null = null
 
 declare global {
@@ -25,6 +36,8 @@ declare global {
     Live2DCubismCore?: unknown
   }
 }
+
+const isPetMode = () => props.mode === 'pet'
 
 function loadCubismCore(): Promise<void> {
   if (window.Live2DCubismCore) {
@@ -69,15 +82,23 @@ function isPointerOnModel(event: PointerEvent): boolean {
   return model.containsPoint(mapPointerToGlobal(event))
 }
 
+function setMouseIgnore(ignore: boolean): void {
+  if (!isPetMode() || !window.electronAPI?.setIgnoreMouseEvents) return
+  if (lastMouseIgnore === ignore) return
+  lastMouseIgnore = ignore
+  window.electronAPI.setIgnoreMouseEvents(ignore)
+}
+
 function layoutModel(): void {
   if (!app || !model || baseModelWidth <= 0 || baseModelHeight <= 0) return
 
-  const padding = 48
+  const padding = isPetMode() ? 12 : 48
   const availableWidth = Math.max(app.screen.width - padding * 2, 1)
   const availableHeight = Math.max(app.screen.height - padding * 2, 1)
 
   const scale =
-    Math.min(availableWidth / baseModelWidth, availableHeight / baseModelHeight) * 0.95
+    Math.min(availableWidth / baseModelWidth, availableHeight / baseModelHeight) *
+    (isPetMode() ? 1 : 0.95)
 
   model.scale.set(scale)
   model.position.set(app.screen.width / 2, app.screen.height / 2)
@@ -100,7 +121,7 @@ function startIdleMotion(): void {
   try {
     model.motion('Idle')
   } catch (error) {
-    console.warn('[Live2D] 待机动作启动失败，模型将保持静态呼吸动画', error)
+    console.warn('[Live2D] 待机动作启动失败', error)
   }
 }
 
@@ -108,7 +129,13 @@ function handleContextMenu(event: MouseEvent): void {
   event.preventDefault()
   if (!isPointerOnModel(event as PointerEvent)) return
 
-  alert('雪澜赛博猫娘\n\n· 设置（里程碑 7）\n· 聊天（里程碑 3）\n\n右键菜单占位，后续会换成正式 UI')
+  if (isPetMode()) {
+    setMouseIgnore(false)
+    emit('openMenu', { x: event.clientX, y: event.clientY })
+    return
+  }
+
+  alert('雪澜赛博猫娘\n\n右键菜单开发模式占位')
 }
 
 function handleCanvasPointerDown(event: PointerEvent): void {
@@ -125,8 +152,14 @@ function handleCanvasPointerMove(event: PointerEvent): void {
   if (!model) return
 
   const point = mapPointerToGlobal(event)
-  if (model.containsPoint(point)) {
+  const onModel = model.containsPoint(point)
+
+  if (onModel) {
     model.focus(point.x, point.y)
+  }
+
+  if (isPetMode()) {
+    setMouseIgnore(!onModel)
   }
 }
 
@@ -165,7 +198,6 @@ async function initLive2D(): Promise<void> {
     const { Live2DModel: Live2DModelClass } = await import('pixi-live2d-display/cubism4')
 
     pointerPosition = new PIXI.Point()
-
     Live2DModelClass.registerTicker(PIXI.Ticker)
 
     app = new PIXI.Application({
@@ -179,7 +211,6 @@ async function initLive2D(): Promise<void> {
     canvasEl = app.view as HTMLCanvasElement
     container.appendChild(canvasEl)
 
-    // 关闭 Pixi 内置交互，避免 Live2D 模型与 InteractionManager 的 trackedPointers 冲突
     app.stage.interactive = false
     app.stage.interactiveChildren = false
 
@@ -197,6 +228,10 @@ async function initLive2D(): Promise<void> {
     layoutModel()
     startIdleMotion()
     bindCanvasEvents()
+
+    if (isPetMode()) {
+      setMouseIgnore(true)
+    }
 
     resizeObserver = new ResizeObserver(() => {
       scheduleLayout()
@@ -229,7 +264,6 @@ onBeforeUnmount(() => {
 
   resizeObserver?.disconnect()
   resizeObserver = null
-
   unbindCanvasEvents()
   canvasEl = null
 
@@ -241,14 +275,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="live2d-view">
+  <div class="live2d-view" :class="{ 'live2d-view--pet': mode === 'pet' }">
     <div ref="containerRef" class="live2d-canvas" />
 
     <div v-if="isLoading" class="overlay">正在唤醒猫娘...</div>
-
     <p v-if="loadError" class="error">{{ loadError }}</p>
-
-    <p v-else-if="!isLoading" class="hint">左键点击模型 · 右键打开菜单 · 打开开发者工具看控制台「喵」</p>
   </div>
 </template>
 
@@ -258,6 +289,10 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+
+.live2d-view--pet {
+  background: transparent;
 }
 
 .live2d-canvas {
@@ -278,33 +313,21 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   color: #6b7280;
-  font-size: 16px;
+  font-size: 14px;
   pointer-events: none;
 }
 
 .error {
   position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 24px;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
   margin: 0;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: rgba(254, 226, 226, 0.92);
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(254, 226, 226, 0.95);
   color: #b91c1c;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.hint {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 16px;
-  margin: 0;
-  text-align: center;
-  color: #9ca3af;
-  font-size: 13px;
-  pointer-events: none;
+  font-size: 12px;
+  line-height: 1.5;
 }
 </style>

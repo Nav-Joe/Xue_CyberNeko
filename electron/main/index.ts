@@ -1,19 +1,55 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'path'
 
+let petWindow: BrowserWindow | null = null
+let homeWindow: BrowserWindow | null = null
+let isQuitting = false
+
+function getRendererUrl(hash = ''): string {
+  const base = process.env['ELECTRON_RENDERER_URL']
+  if (base) {
+    return hash ? `${base}#${hash}` : base
+  }
+  return join(__dirname, '../renderer/index.html')
+}
+
+function loadRenderer(win: BrowserWindow, hash = ''): void {
+  const url = getRendererUrl(hash)
+  if (process.env['ELECTRON_RENDERER_URL']) {
+    void win.loadURL(url)
+  } else {
+    if (hash) {
+      void win.loadFile(url, { hash })
+    } else {
+      void win.loadFile(url)
+    }
+  }
+}
+
 /**
- * 创建主窗口。
- * Electron 应用启动后，由主进程负责创建桌面窗口并加载前端页面。
+ * 桌宠窗口：透明、无边框、置顶，桌面上只显示 Live2D 模型。
  */
-function createWindow(): void {
-  const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
-    minWidth: 640,
-    minHeight: 480,
+function createPetWindow(): void {
+  const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize
+
+  petWindow = new BrowserWindow({
+    width: 360,
+    height: 480,
+    x: screenW - 380,
+    y: screenH - 500,
     show: false,
+    frame: false,
+    transparent: true,
+    resizable: true,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    hasShadow: false,
     autoHideMenuBar: true,
     title: '雪澜赛博猫娘',
+    backgroundColor: '#00000000',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -21,25 +57,92 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+  petWindow.on('ready-to-show', () => {
+    petWindow?.show()
+    // 默认鼠标穿透，渲染进程在指针移到模型上时会关闭穿透
+    petWindow?.setIgnoreMouseEvents(true, { forward: true })
   })
 
-  // 开发模式：加载 Vite 开发服务器地址
-  if (process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    // 生产模式：加载打包后的静态 HTML
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
+  petWindow.on('closed', () => {
+    petWindow = null
+  })
+
+  loadRenderer(petWindow, 'pet')
 }
 
+/**
+ * 「家」窗口：普通窗口，用于聊天、设置、背景等（默认隐藏）。
+ */
+function createHomeWindow(): void {
+  if (homeWindow) {
+    homeWindow.show()
+    homeWindow.focus()
+    return
+  }
+
+  homeWindow = new BrowserWindow({
+    width: 900,
+    height: 670,
+    minWidth: 640,
+    minHeight: 480,
+    show: false,
+    autoHideMenuBar: true,
+    title: '雪澜的家',
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  })
+
+  homeWindow.on('ready-to-show', () => {
+    homeWindow?.show()
+    homeWindow?.focus()
+  })
+
+  homeWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault()
+      homeWindow?.hide()
+    }
+  })
+
+  homeWindow.on('closed', () => {
+    homeWindow = null
+  })
+
+  loadRenderer(homeWindow, 'home')
+}
+
+function registerIpc(): void {
+  ipcMain.on('set-ignore-mouse-events', (event, ignore: boolean) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && win === petWindow) {
+      win.setIgnoreMouseEvents(ignore, { forward: true })
+    }
+  })
+
+  ipcMain.on('open-home', () => {
+    createHomeWindow()
+  })
+
+  ipcMain.on('quit-app', () => {
+    isQuitting = true
+    app.quit()
+  })
+}
+
+app.on('before-quit', () => {
+  isQuitting = true
+})
+
 app.whenReady().then(() => {
-  createWindow()
+  registerIpc()
+  createPetWindow()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+    if (!petWindow) {
+      createPetWindow()
     }
   })
 })
