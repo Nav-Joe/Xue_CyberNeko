@@ -98,6 +98,10 @@ async function initLive2D(): Promise<void> {
       throw new Error('Cubism Core 未正确初始化')
     }
 
+    const { ShaderSystem } = await import('@pixi/core')
+    const { install: installUnsafeEval } = await import('@pixi/unsafe-eval')
+    installUnsafeEval({ ShaderSystem })
+
     const PIXI = await import('pixi.js')
     const { Live2DModel: Live2DModelClass } = await import('pixi-live2d-display/cubism4')
 

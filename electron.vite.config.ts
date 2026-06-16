@@ -39,7 +39,7 @@ export default defineConfig({
       })
     ],
     optimizeDeps: {
-      include: ['url', '@pixi/utils'],
+      include: ['url', '@pixi/utils', '@pixi/unsafe-eval'],
       exclude: ['pixi-live2d-display']
     }
   }
