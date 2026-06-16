@@ -27,3 +27,6 @@ Thumbs.db
 
 # 本地开发文档（不上传）
 docs/
+
+# Live2D 模型文件（体积大，用 npm run setup:model 下载）
+public/models/Haru/

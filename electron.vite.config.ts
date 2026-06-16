@@ -31,6 +31,9 @@ export default defineConfig({
         '@renderer': resolve('src')
       }
     },
-    plugins: [vue()]
+    plugins: [vue()],
+    optimizeDeps: {
+      exclude: ['pixi-live2d-display']
+    }
   }
 })

@@ -7,7 +7,7 @@
 | 里程碑 | 目标 | 状态 |
 |--------|------|------|
 | **0** | 环境与骨架（Electron + Vue3 + TS） | ✅ 已完成 |
-| **1** | 让猫娘动起来（Live2D + 点击交互） | ⬜ 待开发 |
+| **1** | 让猫娘动起来（Live2D + 点击交互） | ✅ 已完成 |
 | **2** | 预置语料库 + TTS 语音朗读 | ⬜ 待开发 |
 | **3** | 对话能力（文字聊天 + Ollama） | ⬜ 待开发 |
 | **4** | 记忆系统（RAG + 对话总结） | ⬜ 待开发 |
@@ -15,7 +15,8 @@
 | **6** | 主动行为 & 屏幕感知（窗口检测） | ⬜ 待开发 |
 | **7** | 完善设置与打包发布（v1.0） | ⬜ 待开发 |
 
-**里程碑 0 交付内容：** 可运行的桌面窗口骨架（主进程 / 预加载 / Vue 渲染进程），尚无 Live2D、AI 与语音功能。
+**里程碑 1 交付内容：** Live2D 官方 Haru 示例模型、待机动画、左键控制台输出「喵」、右键 alert 菜单占位。
+
 ## 环境要求
 
 - Node.js 20+（推荐 LTS）
@@ -31,11 +32,14 @@ cd Xue_CyberNeko
 # 2. 安装依赖（首次运行需要几分钟）
 npm install
 
-# 3. 启动开发模式
+# 3. 下载 Live2D 示例模型（首次必须执行）
+npm run setup:model
+
+# 4. 启动开发模式
 npm run dev
 ```
 
-成功后会弹出一个桌面窗口，显示「雪澜赛博猫娘 · 项目骨架已就绪」。
+成功后会弹出窗口，显示 Live2D 猫娘（Haru）并播放待机动画。
 
 ### 常见问题：`Error: Electron uninstall`
 
@@ -59,6 +63,7 @@ npm install
 | `npm run dev` | 开发模式，支持热更新 |
 | `npm run build` | 打包应用 |
 | `npm run preview` | 预览打包结果 |
+| `npm run setup:model` | 下载 Live2D 官方 Haru 示例模型 |
 | `npm run typecheck` | TypeScript 类型检查 |
 
 ## 项目结构
@@ -66,7 +71,11 @@ npm install
 ```
 Xue_CyberNeko/
 ├── electron/          # Electron 主进程 & 预加载脚本
-├── src/               # Vue 3 前端界面
+├── src/
+│   ├── components/
+│   │   └── Live2DView.vue   # Live2D 渲染与交互
+│   └── App.vue
+├── public/models/           # Live2D 模型（npm run setup:model 下载）
 ├── index.html         # 前端入口 HTML
 ├── electron.vite.config.ts
 └── package.json
