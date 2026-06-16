@@ -1,6 +1,7 @@
 import { resolve } from 'path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 export default defineConfig({
   main: {
@@ -31,8 +32,14 @@ export default defineConfig({
         '@renderer': resolve('src')
       }
     },
-    plugins: [vue()],
+    plugins: [
+      vue(),
+      nodePolyfills({
+        include: ['url']
+      })
+    ],
     optimizeDeps: {
+      include: ['url', '@pixi/utils'],
       exclude: ['pixi-live2d-display']
     }
   }
