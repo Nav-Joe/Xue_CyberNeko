@@ -11,7 +11,8 @@
     "preview": "electron-vite preview",
     "typecheck": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
     "postinstall": "node scripts/ensure-electron.js && node scripts/ensure-cubism-core.js",
-    "setup:model": "node scripts/download-sample-model.js"
+    "setup:model": "node scripts/download-sample-model.js",
+    "tts": "python tts_voice/tts_server.py"
   },
   "dependencies": {
     "@pixi/unsafe-eval": "^6.5.10",

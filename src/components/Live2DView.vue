@@ -2,10 +2,11 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import type { Application } from 'pixi.js'
 import type { Live2DModel } from 'pixi-live2d-display/cubism4'
+import { handleModelTap } from '../services/interaction'
 
 const props = withDefaults(
   defineProps<{
-    mode?: 'pet' | 'dev'
+    mode?: 'pet' | 'home' | 'dev'
   }>(),
   { mode: 'pet' }
 )
@@ -40,7 +41,12 @@ const DRAG_THRESHOLD = 8
 let pointerActive = false
 let dragStarted = false
 let dragStartScreen = { x: 0, y: 0 }
-let dragStartWindow = { x: 0, y: 0 }
+/** 按下时指针在窗口内的偏移，用于 screenX/Y 反算窗口左上角 */
+let dragPointerOffset = { x: 0, y: 0 }
+let activePointerId: number | null = null
+let lastLayoutWidth = 0
+let lastLayoutHeight = 0
+let lastHitAreas: string[] = []
 
 declare global {
   interface Window {
@@ -49,6 +55,8 @@ declare global {
 }
 
 const isPetMode = () => props.mode === 'pet'
+const isHomeMode = () => props.mode === 'home'
+const usesFixedCanvas = () => isPetMode()
 const canDragPet = () => isPetMode() && !homeVisible.value
 
 function updateCanvasCursor(onModel: boolean): void {
@@ -114,20 +122,32 @@ function setMouseIgnore(ignore: boolean): void {
 
 function layoutModel(): void {
   if (!app || !model || baseModelWidth <= 0 || baseModelHeight <= 0) return
+  if (dragStarted || isDragging.value) return
 
-  const padding = isPetMode() ? 12 : 48
+  const padding = isPetMode() ? 12 : isHomeMode() ? 8 : 48
   const availableWidth = Math.max(app.screen.width - padding * 2, 1)
   const availableHeight = Math.max(app.screen.height - padding * 2, 1)
 
+  const scaleFactor = isPetMode() ? 1 : isHomeMode() ? 1 : 0.95
   const scale =
-    Math.min(availableWidth / baseModelWidth, availableHeight / baseModelHeight) *
-    (isPetMode() ? 1 : 0.95)
+    Math.min(availableWidth / baseModelWidth, availableHeight / baseModelHeight) * scaleFactor
 
   model.scale.set(scale)
   model.position.set(app.screen.width / 2, app.screen.height / 2)
+  lastLayoutWidth = app.screen.width
+  lastLayoutHeight = app.screen.height
 }
 
-function scheduleLayout(): void {
+function scheduleLayout(width: number, height: number): void {
+  if (dragStarted || isDragging.value) return
+  if (
+    lastLayoutWidth > 0 &&
+    Math.abs(width - lastLayoutWidth) < 1 &&
+    Math.abs(height - lastLayoutHeight) < 1
+  ) {
+    return
+  }
+
   if (resizeTimer) {
     clearTimeout(resizeTimer)
   }
@@ -136,6 +156,24 @@ function scheduleLayout(): void {
     layoutModel()
     resizeTimer = null
   }, 80)
+}
+
+function movePetWindowToScreenPoint(screenX: number, screenY: number): void {
+  window.electronAPI.setPetWindowPosition(
+    Math.round(screenX - dragPointerOffset.x),
+    Math.round(screenY - dragPointerOffset.y)
+  )
+}
+
+function releasePointerCapture(): void {
+  if (activePointerId === null || !canvasEl) return
+
+  try {
+    canvasEl.releasePointerCapture(activePointerId)
+  } catch {
+    // 指针已释放时忽略
+  }
+  activePointerId = null
 }
 
 function startIdleMotion(): void {
@@ -158,6 +196,11 @@ function handleContextMenu(event: MouseEvent): void {
     return
   }
 
+  if (isHomeMode()) {
+    event.preventDefault()
+    return
+  }
+
   alert('雪澜赛博猫娘\n\n右键菜单开发模式占位')
 }
 
@@ -170,11 +213,11 @@ function handleCanvasPointerDown(event: PointerEvent): void {
   pointerActive = true
   dragStarted = false
   dragStartScreen = { x: event.screenX, y: event.screenY }
+  dragPointerOffset = { x: event.clientX, y: event.clientY }
+  activePointerId = event.pointerId
 
   if (canDragPet()) {
-    void window.electronAPI.getPetWindowPosition().then((pos) => {
-      dragStartWindow = pos
-    })
+    canvasEl?.setPointerCapture(event.pointerId)
     setMouseIgnore(false)
   }
 }
@@ -200,10 +243,7 @@ function handleCanvasPointerMove(event: PointerEvent): void {
       }
 
       if (dragStarted) {
-        window.electronAPI.setPetWindowPosition(
-          dragStartWindow.x + dx,
-          dragStartWindow.y + dy
-        )
+        movePetWindowToScreenPoint(event.screenX, event.screenY)
         setMouseIgnore(false)
         updateCanvasCursor(true)
         return
@@ -217,15 +257,23 @@ function handleCanvasPointerMove(event: PointerEvent): void {
   }
 }
 
-async function handleCanvasPointerUp(event: PointerEvent): Promise<void> {
+function handleCanvasPointerUp(event: PointerEvent): void {
   if (!model || !pointerActive) return
+
+  releasePointerCapture()
 
   const point = mapPointerToGlobal(event)
   const onModel = model.containsPoint(point)
 
   if (!dragStarted && onModel && event.button === 0) {
     model.tap(point.x, point.y)
-    console.log('喵')
+    void handleModelTap({
+      model,
+      pointX: point.x,
+      pointY: point.y,
+      hitAreas: lastHitAreas.length > 0 ? lastHitAreas : ['Body'],
+      isHome: isHomeMode()
+    })
   }
 
   pointerActive = false
@@ -240,7 +288,7 @@ async function handleCanvasPointerUp(event: PointerEvent): Promise<void> {
 
 function handleWindowPointerUp(event: PointerEvent): void {
   if (pointerActive) {
-    void handleCanvasPointerUp(event)
+    handleCanvasPointerUp(event)
   }
 }
 
@@ -287,12 +335,17 @@ async function initLive2D(): Promise<void> {
     pointerPosition = new PIXI.Point()
     Live2DModelClass.registerTicker(PIXI.Ticker)
 
+    const viewWidth = Math.max(container.clientWidth, 1)
+    const viewHeight = Math.max(container.clientHeight, 1)
+
     app = new PIXI.Application({
+      width: viewWidth,
+      height: viewHeight,
       backgroundAlpha: 0,
-      resizeTo: container,
       antialias: true,
       resolution: window.devicePixelRatio || 1,
-      autoDensity: true
+      autoDensity: true,
+      ...(usesFixedCanvas() ? {} : { resizeTo: container })
     })
 
     canvasEl = app.view as HTMLCanvasElement
@@ -320,13 +373,18 @@ async function initLive2D(): Promise<void> {
       setMouseIgnore(true)
     }
 
-    resizeObserver = new ResizeObserver(() => {
-      scheduleLayout()
-    })
-    resizeObserver.observe(container)
+    if (!usesFixedCanvas()) {
+      resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0]
+        if (!entry) return
+        scheduleLayout(entry.contentRect.width, entry.contentRect.height)
+      })
+      resizeObserver.observe(container)
+    }
 
     model.on('hit', (hitAreas: string[]) => {
-      console.log('[Live2D] 点击部位:', hitAreas.join(', '))
+      lastHitAreas = hitAreas
+      console.log('[Live2D] HitArea:', hitAreas.join(', '))
     })
 
     isLoading.value = false
@@ -374,7 +432,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="live2d-view" :class="{ 'live2d-view--pet': mode === 'pet' }">
+  <div
+    class="live2d-view"
+    :class="{
+      'live2d-view--pet': mode === 'pet',
+      'live2d-view--home': mode === 'home'
+    }"
+  >
     <div ref="containerRef" class="live2d-canvas" />
 
     <div v-if="isLoading" class="overlay">正在唤醒猫娘...</div>
@@ -392,6 +456,17 @@ onBeforeUnmount(() => {
 
 .live2d-view--pet {
   background: transparent;
+}
+
+.live2d-view--home {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+    0 12px 40px rgba(15, 23, 42, 0.06);
 }
 
 .live2d-canvas {

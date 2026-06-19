@@ -26,7 +26,20 @@ function loadRenderer(win: BrowserWindow, hash = ''): void {
   }
 }
 
+function setPetWindowAtHome(atHome: boolean): void {
+  if (!petWindow) return
+
+  if (atHome) {
+    petWindow.hide()
+    return
+  }
+
+  petWindow.show()
+  petWindow.setIgnoreMouseEvents(true, { forward: true })
+}
+
 function notifyHomeVisibility(visible: boolean): void {
+  setPetWindowAtHome(visible)
   petWindow?.webContents.send('home-visibility-changed', visible)
 }
 
@@ -66,7 +79,7 @@ function createPetWindow(): void {
     show: false,
     frame: false,
     transparent: true,
-    resizable: true,
+    resizable: false,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,

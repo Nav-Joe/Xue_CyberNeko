@@ -43,6 +43,12 @@ npm run setup:model
 - 商用或开源项目发布前，务必确认模型授权允许
 - 本项目默认 MIT 开源，**不要使用禁止二次分发或禁止开源的模型**
 
+## 点击部位与语料（里程碑 2）
+
+- 模型 `*.model3.json` 里的 `HitAreas` 必须在 **Live2D Cubism Editor** 中绘制，不能只改 JSON 增加 head/hand 等。
+- 若只有 `Body`（如 hiyori），项目会用 **点击坐标** 虚拟划分 head/arms/body/legs，对应 `src/data/corpus.json` 各分区。
+- 替换模型后若有多 HitArea，控制台仍会显示 Live2D 原始 HitArea 名称，语料按虚拟坐标 + 分区选取。
+
 ## 当前默认模型
 
 - 名称：Haru（官方 Cubism 4 示例）

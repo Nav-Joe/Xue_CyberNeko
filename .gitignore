@@ -30,3 +30,7 @@ docs/
 
 # Live2D 模型文件（体积大，用 npm run setup:model 下载）
 public/models/Haru/
+public/models/hiyori_pro/
+
+# TTS 训练权重（本地放置，不上传）
+tts_voice/*.pth
