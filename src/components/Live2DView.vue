@@ -14,12 +14,14 @@ const emit = defineEmits<{
   openMenu: [payload: { x: number; y: number }]
 }>()
 
-const MODEL_URL = '/models/Haru/Haru.model3.json'
+const MODEL_URL = '/models/hiyori_pro/runtime/hiyori_pro_t11.model3.json'
 const CUBISM_CORE_URL = '/live2d/live2dcubismcore.min.js'
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const loadError = ref('')
 const isLoading = ref(true)
+const isDragging = ref(false)
+const homeVisible = ref(false)
 
 let app: Application | null = null
 let model: Live2DModel | null = null
@@ -30,6 +32,15 @@ let baseModelWidth = 0
 let baseModelHeight = 0
 let lastMouseIgnore: boolean | null = null
 let pointerPosition: import('pixi.js').Point | null = null
+let unbindHomeListener: (() => void) | null = null
+
+/** 移动超过该像素才视为拖拽，避免与点击「喵」冲突 */
+const DRAG_THRESHOLD = 8
+
+let pointerActive = false
+let dragStarted = false
+let dragStartScreen = { x: 0, y: 0 }
+let dragStartWindow = { x: 0, y: 0 }
 
 declare global {
   interface Window {
@@ -38,6 +49,18 @@ declare global {
 }
 
 const isPetMode = () => props.mode === 'pet'
+const canDragPet = () => isPetMode() && !homeVisible.value
+
+function updateCanvasCursor(onModel: boolean): void {
+  if (!canvasEl || !isPetMode()) return
+  if (isDragging.value) {
+    canvasEl.style.cursor = 'grabbing'
+  } else if (onModel && canDragPet()) {
+    canvasEl.style.cursor = 'grab'
+  } else {
+    canvasEl.style.cursor = 'default'
+  }
+}
 
 function loadCubismCore(): Promise<void> {
   if (window.Live2DCubismCore) {
@@ -144,8 +167,16 @@ function handleCanvasPointerDown(event: PointerEvent): void {
   const point = mapPointerToGlobal(event)
   if (!model.containsPoint(point)) return
 
-  model.tap(point.x, point.y)
-  console.log('喵')
+  pointerActive = true
+  dragStarted = false
+  dragStartScreen = { x: event.screenX, y: event.screenY }
+
+  if (canDragPet()) {
+    void window.electronAPI.getPetWindowPosition().then((pos) => {
+      dragStartWindow = pos
+    })
+    setMouseIgnore(false)
+  }
 }
 
 function handleCanvasPointerMove(event: PointerEvent): void {
@@ -159,7 +190,57 @@ function handleCanvasPointerMove(event: PointerEvent): void {
   }
 
   if (isPetMode()) {
-    setMouseIgnore(!onModel)
+    if (pointerActive && canDragPet()) {
+      const dx = event.screenX - dragStartScreen.x
+      const dy = event.screenY - dragStartScreen.y
+
+      if (!dragStarted && Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
+        dragStarted = true
+        isDragging.value = true
+      }
+
+      if (dragStarted) {
+        window.electronAPI.setPetWindowPosition(
+          dragStartWindow.x + dx,
+          dragStartWindow.y + dy
+        )
+        setMouseIgnore(false)
+        updateCanvasCursor(true)
+        return
+      }
+    }
+
+    if (!pointerActive) {
+      setMouseIgnore(!onModel)
+    }
+    updateCanvasCursor(onModel)
+  }
+}
+
+async function handleCanvasPointerUp(event: PointerEvent): Promise<void> {
+  if (!model || !pointerActive) return
+
+  const point = mapPointerToGlobal(event)
+  const onModel = model.containsPoint(point)
+
+  if (!dragStarted && onModel && event.button === 0) {
+    model.tap(point.x, point.y)
+    console.log('喵')
+  }
+
+  pointerActive = false
+  dragStarted = false
+  isDragging.value = false
+  updateCanvasCursor(onModel)
+
+  if (isPetMode() && !onModel) {
+    setMouseIgnore(true)
+  }
+}
+
+function handleWindowPointerUp(event: PointerEvent): void {
+  if (pointerActive) {
+    void handleCanvasPointerUp(event)
   }
 }
 
@@ -169,6 +250,9 @@ function bindCanvasEvents(): void {
   canvasEl.addEventListener('contextmenu', handleContextMenu)
   canvasEl.addEventListener('pointerdown', handleCanvasPointerDown)
   canvasEl.addEventListener('pointermove', handleCanvasPointerMove)
+  canvasEl.addEventListener('pointerup', handleCanvasPointerUp)
+  canvasEl.addEventListener('pointercancel', handleCanvasPointerUp)
+  window.addEventListener('pointerup', handleWindowPointerUp)
 }
 
 function unbindCanvasEvents(): void {
@@ -177,6 +261,9 @@ function unbindCanvasEvents(): void {
   canvasEl.removeEventListener('contextmenu', handleContextMenu)
   canvasEl.removeEventListener('pointerdown', handleCanvasPointerDown)
   canvasEl.removeEventListener('pointermove', handleCanvasPointerMove)
+  canvasEl.removeEventListener('pointerup', handleCanvasPointerUp)
+  canvasEl.removeEventListener('pointercancel', handleCanvasPointerUp)
+  window.removeEventListener('pointerup', handleWindowPointerUp)
 }
 
 async function initLive2D(): Promise<void> {
@@ -253,10 +340,22 @@ async function initLive2D(): Promise<void> {
 }
 
 onMounted(() => {
+  if (isPetMode() && window.electronAPI?.onHomeVisibilityChanged) {
+    unbindHomeListener = window.electronAPI.onHomeVisibilityChanged((visible) => {
+      homeVisible.value = visible
+      if (visible) {
+        pointerActive = false
+        dragStarted = false
+        isDragging.value = false
+      }
+    })
+  }
   void initLive2D()
 })
 
 onBeforeUnmount(() => {
+  unbindHomeListener?.()
+  unbindHomeListener = null
   if (resizeTimer) {
     clearTimeout(resizeTimer)
     resizeTimer = null

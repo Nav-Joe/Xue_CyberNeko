@@ -12,6 +12,9 @@ interface ElectronAPI {
   platform: NodeJS.Platform
   getWindowType: () => WindowType
   setIgnoreMouseEvents: (ignore: boolean) => void
+  getPetWindowPosition: () => Promise<{ x: number; y: number }>
+  setPetWindowPosition: (x: number, y: number) => void
+  onHomeVisibilityChanged: (callback: (visible: boolean) => void) => () => void
   openHome: () => void
   quitApp: () => void
 }

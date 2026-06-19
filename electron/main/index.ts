@@ -26,6 +26,32 @@ function loadRenderer(win: BrowserWindow, hash = ''): void {
   }
 }
 
+function notifyHomeVisibility(visible: boolean): void {
+  petWindow?.webContents.send('home-visibility-changed', visible)
+}
+
+function bindHomeWindowEvents(win: BrowserWindow): void {
+  win.on('show', () => {
+    notifyHomeVisibility(true)
+  })
+
+  win.on('hide', () => {
+    notifyHomeVisibility(false)
+  })
+
+  win.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault()
+      win.hide()
+    }
+  })
+
+  win.on('closed', () => {
+    homeWindow = null
+    notifyHomeVisibility(false)
+  })
+}
+
 /**
  * 桌宠窗口：透明、无边框、置顶，桌面上只显示 Live2D 模型。
  */
@@ -59,7 +85,6 @@ function createPetWindow(): void {
 
   petWindow.on('ready-to-show', () => {
     petWindow?.show()
-    // 默认鼠标穿透，渲染进程在指针移到模型上时会关闭穿透
     petWindow?.setIgnoreMouseEvents(true, { forward: true })
   })
 
@@ -95,20 +120,11 @@ function createHomeWindow(): void {
     }
   })
 
+  bindHomeWindowEvents(homeWindow)
+
   homeWindow.on('ready-to-show', () => {
     homeWindow?.show()
     homeWindow?.focus()
-  })
-
-  homeWindow.on('close', (event) => {
-    if (!isQuitting) {
-      event.preventDefault()
-      homeWindow?.hide()
-    }
-  })
-
-  homeWindow.on('closed', () => {
-    homeWindow = null
   })
 
   loadRenderer(homeWindow, 'home')
@@ -120,6 +136,18 @@ function registerIpc(): void {
     if (win && win === petWindow) {
       win.setIgnoreMouseEvents(ignore, { forward: true })
     }
+  })
+
+  ipcMain.handle('get-pet-window-position', () => {
+    if (!petWindow) {
+      return { x: 0, y: 0 }
+    }
+    const [x, y] = petWindow.getPosition()
+    return { x, y }
+  })
+
+  ipcMain.on('set-pet-window-position', (_event, x: number, y: number) => {
+    petWindow?.setPosition(Math.round(x), Math.round(y))
   })
 
   ipcMain.on('open-home', () => {
