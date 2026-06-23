@@ -1,0 +1,21 @@
+# TTS 引擎配置
+# 修改 engine 后需重启 TTS 服务（关闭 TTS 窗口并重新运行 启动.bat）
+# 环境变量 TTS_ENGINE 可临时覆盖 engine 字段（优先级最高）
+
+engine: bert_vits2
+
+engines:
+  qwen:
+    config_path: qwen_config.json
+
+  bert_vits2:
+    # 权重与推理 config（相对 tts_voice/）
+    config_path: bert/config.json
+    model_path: bert/G_xxx.pth #（你自己的声音配置权重）
+    # Bert-VITS2 源码目录（须含 infer.py），不是仅放 .pth 的文件夹
+    root: ../Bert-VITS2
+
+  style_bert_vits2:
+    config_path: 
+    model_path: 
+    root: 

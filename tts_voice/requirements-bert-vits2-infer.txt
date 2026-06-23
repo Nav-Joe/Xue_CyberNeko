@@ -1,0 +1,22 @@
+# Inference-only deps for Bert-VITS2 v2.3 (Chinese TTS on Windows)
+# Full training deps: Bert-VITS2/requirements.txt
+librosa==0.9.2
+numpy>=1.26,<2
+scipy
+transformers
+soxr
+jieba
+pypinyin
+cn2an
+Unidecode
+PyYAML
+loguru
+protobuf
+sentencepiece
+num2words
+g2p_en
+langid
+pyopenjtalk-prebuilt
+jaconv
+vector-quantize-pytorch
+huggingface_hub

@@ -1,10 +1,7 @@
-# TTS 服务 Python 依赖（Bert-VITS2 本体需单独克隆并 pip install -r requirements.txt）
+# TTS server deps (install Bert-VITS2 + PyTorch separately)
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 pydantic>=2.0.0
-numpy>=1.26.0
 scipy>=1.11.0
 soundfile>=0.12.1
-
-# torch 请按你的 CUDA/CPU 环境安装，例如:
-# pip install torch --index-url https://download.pytorch.org/whl/cu124
+pyyaml>=6.0.0

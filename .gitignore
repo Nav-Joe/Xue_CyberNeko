@@ -9,28 +9,65 @@ dist/
 *.log
 npm-debug.log*
 
-# Editor
+# Editor / IDE
 .vscode/*
 !.vscode/extensions.json
 .idea/
+.cursor/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Env
+# Env & local runtime
 .env
 .env.*
+.venv/
+.runtime/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
 
 # TypeScript
 *.tsbuildinfo
 
-# 本地开发文档（不上传）
+# ── 本地私人文档（不上传）──
 docs/
 
-# Live2D 模型文件（体积大，用 npm run setup:model 下载）
-public/models/Haru/
-public/models/hiyori_pro/
+# ── 个人测试脚本（不上传）──
+测试Qwen3.0_tts引擎.bat
+scripts/qwen3-tts/
 
-# TTS 训练权重（本地放置，不上传）
+# ── Live2D 模型（npm run setup:model 下载；README 保留）──
+public/models/hiyori_pro/
+public/models/**/
+!public/models/README.md
+
+# ── 精选触摸音频：manifest + .wav 入库；用户本地追加的 wav 也可提交 ──
+# （不忽略 public/touch_clips/*.wav）
+
+# ── TTS 私有权重（本地放置）──
 tts_voice/*.pth
+tts_voice/bert/
+tts_voice/config.json
+
+# ── 音色工坊：官方 default_sample 参考音入库；运行时缓存不入库 ──
+# other_custom_cache / custom_sample 仅保留 README 占位；引擎预热产物见下方 ** 规则
+voice_forge/other_custom_cache/**/*
+!voice_forge/other_custom_cache/README.md
+voice_forge/**/touch_cache/
+voice_forge/**/touch_cache.json
+voice_forge/**/corpus.snapshot.json
+voice_forge/custom_sample/**/*
+!voice_forge/custom_sample/README.md
+
+# ── 本地 TTS / 触摸模式覆盖 ──
+.runtime/tts-backend.env
+.runtime/touch-mode.env
+.runtime/corpus.custom.json
+切换TTS引擎.bat
+
+# ── 外部克隆的大体积依赖 ──
+Bert-VITS2/
+Qwen3_TTS/

@@ -1,21 +1,34 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import type { Application } from 'pixi.js'
 import type { Live2DModel } from 'pixi-live2d-display/cubism4'
 import { handleModelTap } from '../services/interaction'
+import {
+  applyOpaqueHitArea,
+  extractOpaqueHitData,
+  hitTestOpaquePoint,
+  opaqueLocalRect,
+  type OpaqueHitData
+} from '../services/live2dOpaqueBounds'
+import { computePetFrameFromOpaqueBounds, PET_FRAME_PADDING } from '../services/petWindowSize'
+import { configureQuietIdle, QUIET_IDLE_MODEL_OPTIONS } from '../services/live2dIdle'
+import { registerLive2DModelForLipSync, unregisterLive2DModelForLipSync } from '../services/live2dLipSync'
 
 const props = withDefaults(
   defineProps<{
     mode?: 'pet' | 'home' | 'dev'
+    /** 菜单打开时为 true：禁用触摸反馈，并保持窗口可点击 */
+    interactionLocked?: boolean
   }>(),
-  { mode: 'pet' }
+  { mode: 'pet', interactionLocked: false }
 )
 
 const emit = defineEmits<{
   openMenu: [payload: { x: number; y: number }]
+  petFrameReady: [payload: { width: number; height: number }]
 }>()
 
-const MODEL_URL = '/models/hiyori_pro/runtime/hiyori_pro_t11.model3.json'
+const DEFAULT_MODEL_URL = '/models/hiyori_pro/runtime/hiyori_pro_t11.model3.json'
 const CUBISM_CORE_URL = '/live2d/live2dcubismcore.min.js'
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -47,11 +60,30 @@ let activePointerId: number | null = null
 let lastLayoutWidth = 0
 let lastLayoutHeight = 0
 let lastHitAreas: string[] = []
+let fixedCanvasWidth = 0
+let fixedCanvasHeight = 0
+let petModelScale = 1
+let petResizeGuard: (() => void) | null = null
+let opaqueHitData: OpaqueHitData | null = null
 
 declare global {
   interface Window {
     Live2DCubismCore?: unknown
   }
+}
+
+async function resolveModelUrl(): Promise<string> {
+  if (window.electronAPI?.getLive2DModelUrl) {
+    try {
+      const url = await window.electronAPI.getLive2DModelUrl()
+      if (url) {
+        return url
+      }
+    } catch (error) {
+      console.warn('[Live2D] 读取模型路径失败，使用默认路径', error)
+    }
+  }
+  return DEFAULT_MODEL_URL
 }
 
 const isPetMode = () => props.mode === 'pet'
@@ -109,26 +141,87 @@ function mapPointerToGlobal(event: PointerEvent): import('pixi.js').Point {
 }
 
 function isPointerOnModel(event: PointerEvent): boolean {
-  if (!model) return false
-  return model.containsPoint(mapPointerToGlobal(event))
+  if (!model || !pointerPosition) return false
+  const point = mapPointerToGlobal(event)
+  if (opaqueHitData) {
+    return hitTestOpaquePoint(model, point.x, point.y, opaqueHitData)
+  }
+  return model.containsPoint(point)
 }
 
 function setMouseIgnore(ignore: boolean): void {
   if (!isPetMode() || !window.electronAPI?.setIgnoreMouseEvents) return
+  if (props.interactionLocked) {
+    ignore = false
+  }
   if (lastMouseIgnore === ignore) return
   lastMouseIgnore = ignore
   window.electronAPI.setIgnoreMouseEvents(ignore)
+}
+
+/** 菜单关闭后重置穿透缓存，避免 lastMouseIgnore 与 Electron 实际状态不一致 */
+watch(
+  () => props.interactionLocked,
+  (locked, wasLocked) => {
+    if (!isPetMode() || locked || wasLocked === undefined) return
+    lastMouseIgnore = null
+  }
+)
+
+function updateModelMotionFrame(): void {
+  if (!model) return
+  model.update(33)
+}
+
+/** 桌宠：按不透明包围盒对齐窗口内边距 */
+function layoutPetModel(): void {
+  if (!app || !model) return
+
+  model.anchor.set(0.5, 0.5)
+  model.scale.set(petModelScale)
+
+  if (opaqueHitData) {
+    const local = opaqueLocalRect(opaqueHitData, 0.5, 0.5)
+    const scale = petModelScale
+    const pad = PET_FRAME_PADDING
+    model.position.set(
+      app.screen.width / 2 - local.centerX * scale,
+      app.screen.height - pad.bottom - local.bottom * scale
+    )
+  } else {
+    model.position.set(app.screen.width / 2, app.screen.height / 2)
+  }
+
+  lastLayoutWidth = app.screen.width
+  lastLayoutHeight = app.screen.height
+
+  if (import.meta.env.DEV && opaqueHitData) {
+    const local = opaqueLocalRect(opaqueHitData, 0.5, 0.5)
+    console.debug(
+      '[Live2D] pet layout',
+      `win=${app.screen.width}x${app.screen.height}`,
+      `scale=${petModelScale.toFixed(3)}`,
+      `opaque=${opaqueHitData.bounds.width}x${opaqueHitData.bounds.height}`,
+      `pos=${model.position.x.toFixed(0)},${model.position.y.toFixed(0)}`,
+      `localBottom=${local.bottom.toFixed(0)}`
+    )
+  }
 }
 
 function layoutModel(): void {
   if (!app || !model || baseModelWidth <= 0 || baseModelHeight <= 0) return
   if (dragStarted || isDragging.value) return
 
-  const padding = isPetMode() ? 12 : isHomeMode() ? 8 : 48
+  if (isPetMode()) {
+    layoutPetModel()
+    return
+  }
+
+  const padding = isHomeMode() ? 8 : 48
   const availableWidth = Math.max(app.screen.width - padding * 2, 1)
   const availableHeight = Math.max(app.screen.height - padding * 2, 1)
 
-  const scaleFactor = isPetMode() ? 1 : isHomeMode() ? 1 : 0.95
+  const scaleFactor = isHomeMode() ? 1 : 0.95
   const scale =
     Math.min(availableWidth / baseModelWidth, availableHeight / baseModelHeight) * scaleFactor
 
@@ -136,6 +229,37 @@ function layoutModel(): void {
   model.position.set(app.screen.width / 2, app.screen.height / 2)
   lastLayoutWidth = app.screen.width
   lastLayoutHeight = app.screen.height
+}
+
+async function applyPetFrameFromModel(): Promise<void> {
+  if (!model) return
+
+  const opaqueWidth = opaqueHitData?.bounds.width ?? Math.round(baseModelWidth * 0.55)
+  const opaqueHeight = opaqueHitData?.bounds.height ?? Math.round(baseModelHeight * 0.88)
+
+  const frame = computePetFrameFromOpaqueBounds(opaqueWidth, opaqueHeight)
+  petModelScale = frame.scale
+
+  if (window.electronAPI?.setPetWindowSize) {
+    const applied = await window.electronAPI.setPetWindowSize(frame.width, frame.height)
+    fixedCanvasWidth = applied.width
+    fixedCanvasHeight = applied.height
+  } else {
+    fixedCanvasWidth = frame.width
+    fixedCanvasHeight = frame.height
+  }
+
+  if (app) {
+    app.renderer.resize(fixedCanvasWidth, fixedCanvasHeight)
+  }
+
+  console.log(
+    `[Live2D] 桌宠窗口 ${fixedCanvasWidth}x${fixedCanvasHeight}，` +
+      `不透明区域 ${opaqueWidth}x${opaqueHeight}，` +
+      `scale=${petModelScale.toFixed(3)}`
+  )
+
+  emit('petFrameReady', { width: fixedCanvasWidth, height: fixedCanvasHeight })
 }
 
 function scheduleLayout(width: number, height: number): void {
@@ -176,16 +300,6 @@ function releasePointerCapture(): void {
   activePointerId = null
 }
 
-function startIdleMotion(): void {
-  if (!model) return
-
-  try {
-    model.motion('Idle')
-  } catch (error) {
-    console.warn('[Live2D] 待机动作启动失败', error)
-  }
-}
-
 function handleContextMenu(event: MouseEvent): void {
   event.preventDefault()
   if (!isPointerOnModel(event as PointerEvent)) return
@@ -205,10 +319,13 @@ function handleContextMenu(event: MouseEvent): void {
 }
 
 function handleCanvasPointerDown(event: PointerEvent): void {
-  if (!model || event.button !== 0) return
+  if (!model || event.button !== 0 || props.interactionLocked) return
 
   const point = mapPointerToGlobal(event)
-  if (!model.containsPoint(point)) return
+  const onModel = opaqueHitData
+    ? hitTestOpaquePoint(model, point.x, point.y, opaqueHitData)
+    : model.containsPoint(point)
+  if (!onModel) return
 
   pointerActive = true
   dragStarted = false
@@ -226,13 +343,19 @@ function handleCanvasPointerMove(event: PointerEvent): void {
   if (!model) return
 
   const point = mapPointerToGlobal(event)
-  const onModel = model.containsPoint(point)
+  const onModel = opaqueHitData
+    ? hitTestOpaquePoint(model, point.x, point.y, opaqueHitData)
+    : model.containsPoint(point)
 
   if (onModel) {
     model.focus(point.x, point.y)
   }
 
   if (isPetMode()) {
+    if (props.interactionLocked) {
+      return
+    }
+
     if (pointerActive && canDragPet()) {
       const dx = event.screenX - dragStartScreen.x
       const dy = event.screenY - dragStartScreen.y
@@ -263,7 +386,9 @@ function handleCanvasPointerUp(event: PointerEvent): void {
   releasePointerCapture()
 
   const point = mapPointerToGlobal(event)
-  const onModel = model.containsPoint(point)
+  const onModel = opaqueHitData
+    ? hitTestOpaquePoint(model, point.x, point.y, opaqueHitData)
+    : model.containsPoint(point)
 
   if (!dragStarted && onModel && event.button === 0) {
     model.tap(point.x, point.y)
@@ -272,7 +397,8 @@ function handleCanvasPointerUp(event: PointerEvent): void {
       pointX: point.x,
       pointY: point.y,
       hitAreas: lastHitAreas.length > 0 ? lastHitAreas : ['Body'],
-      isHome: isHomeMode()
+      isHome: isHomeMode(),
+      opaqueHitData
     })
   }
 
@@ -338,6 +464,9 @@ async function initLive2D(): Promise<void> {
     const viewWidth = Math.max(container.clientWidth, 1)
     const viewHeight = Math.max(container.clientHeight, 1)
 
+    fixedCanvasWidth = viewWidth
+    fixedCanvasHeight = viewHeight
+
     app = new PIXI.Application({
       width: viewWidth,
       height: viewHeight,
@@ -354,10 +483,8 @@ async function initLive2D(): Promise<void> {
     app.stage.interactive = false
     app.stage.interactiveChildren = false
 
-    model = await Live2DModelClass.from(MODEL_URL, {
-      autoInteract: false,
-      autoUpdate: true
-    })
+    const modelUrl = await resolveModelUrl()
+    model = await Live2DModelClass.from(modelUrl, QUIET_IDLE_MODEL_OPTIONS)
 
     baseModelWidth = model.internalModel.width
     baseModelHeight = model.internalModel.height
@@ -365,12 +492,47 @@ async function initLive2D(): Promise<void> {
     model.interactive = false
 
     app.stage.addChild(model)
+
+    configureQuietIdle(model)
+    registerLive2DModelForLipSync(model)
+    updateModelMotionFrame()
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    updateModelMotionFrame()
+
+    opaqueHitData = await extractOpaqueHitData(app, model, updateModelMotionFrame)
+    if (opaqueHitData) {
+      applyOpaqueHitArea(model, opaqueHitData, PIXI.Rectangle)
+      console.log(
+        `[Live2D] 不透明包围盒 ${opaqueHitData.bounds.width}x${opaqueHitData.bounds.height}` +
+          ` @ (${opaqueHitData.bounds.x}, ${opaqueHitData.bounds.y})，` +
+          `画布 ${opaqueHitData.canvasWidth}x${opaqueHitData.canvasHeight}`
+      )
+    } else {
+      console.warn('[Live2D] 无法读取不透明像素，回退到整画布')
+    }
+
+    if (isPetMode()) {
+      await applyPetFrameFromModel()
+    }
+
     layoutModel()
-    startIdleMotion()
     bindCanvasEvents()
 
     if (isPetMode()) {
       setMouseIgnore(true)
+      petResizeGuard = (): void => {
+        if (!app || fixedCanvasWidth <= 0 || fixedCanvasHeight <= 0) return
+        if (
+          Math.abs(app.screen.width - fixedCanvasWidth) > 1 ||
+          Math.abs(app.screen.height - fixedCanvasHeight) > 1
+        ) {
+          app.renderer.resize(fixedCanvasWidth, fixedCanvasHeight)
+          if (!dragStarted && !isDragging.value) {
+            layoutPetModel()
+          }
+        }
+      }
+      window.addEventListener('resize', petResizeGuard)
     }
 
     if (!usesFixedCanvas()) {
@@ -422,8 +584,13 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
   unbindCanvasEvents()
+  if (petResizeGuard) {
+    window.removeEventListener('resize', petResizeGuard)
+    petResizeGuard = null
+  }
   canvasEl = null
 
+  unregisterLive2DModelForLipSync()
   model?.destroy()
   app?.destroy(true, { children: true })
   model = null

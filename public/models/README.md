@@ -1,6 +1,6 @@
 # Live2D 模型目录
 
-本目录存放 Live2D 模型文件（体积较大，默认不上传 Git）。
+本目录存放 Live2D 模型（体积大，**不入库**）。
 
 ## 首次使用
 
@@ -8,49 +8,40 @@
 npm run setup:model
 ```
 
-将自动下载 Live2D 官方免费示例 **Haru** 到 `Haru/` 子目录。
+将下载 Live2D 官方免费样例 **桃濑日和 PRO（hiyori_pro）** 到 `hiyori_pro/` 子目录。  
+来源：https://www.live2d.com/download/sample-data/（Cubism 官方无偿素材）
+
+首次安装 / 启动时也会半引导检测；缺模型会提示运行上述命令。
+
+## 默认路径
+
+- 磁盘：`public/models/hiyori_pro/runtime/hiyori_pro_t11.model3.json`
+- 代码：`scripts/live2d-model.js`、`electron/main/live2dModel.ts` 中 `DEFAULT_MODEL_REL`
 
 ## 如何替换为自己的模型？
 
-1. 准备一个 **Cubism 3/4** 模型文件夹（含 `*.model3.json`）
+1. 准备 **Cubism 3/4** 模型（含 `*.model3.json`）
 2. 放到 `public/models/你的模型名/` 下
-3. 修改 `src/components/Live2DView.vue` 里的 `MODEL_URL` 指向新路径
+3. 修改 `scripts/live2d-model.js` 的 `DEFAULT_MODEL_REL`，或让目录扫描自动发现
 
-例如：`/models/MyNeko/MyNeko.model3.json`
+例如 Web 路径：`/models/MyNeko/MyNeko.model3.json`
 
-## 模型从哪里获取？
+## 模型来源
 
-### 免费 / 学习用
-
-| 来源 | 说明 |
+| 类型 | 说明 |
 |------|------|
-| [Live2D 官方示例](https://www.live2d.com/download/sample-data/) | Haru 等官方免费素材，适合开发测试 |
-| [CubismWebSamples](https://github.com/Live2D/CubismWebSamples) | 与官方示例相同，可脚本下载 |
-| 开源仓库 | GitHub 搜索 `live2d model3.json`（注意许可证） |
+| [Live2D 官方样例](https://www.live2d.com/download/sample-data/) | hiyori / Haru 等，适合开发 |
+| [nizima](https://nizima.com/) / [BOOTH](https://booth.pm/) | 付费模型，注意授权范围 |
 
-### 付费购买（个人 / 商用需看授权）
+替换前请确认许可证允许你的使用方式（开源发布尤其注意）。
 
-| 平台 | 链接 | 说明 |
-|------|------|------|
-| **nizima**（Live2D 官方） | https://nizima.com/ | 官方模型市场，质量高，授权清晰 |
-| **BOOTH** | https://booth.pm/ | 日本创作者平台，大量 Live2D 模型 |
-| **Eikanyalive** 等国内代理 | 搜索「Live2D 模型 购买」 | 部分 BOOTH 模型的国内代购 |
+## 点击部位与语料
 
-### 购买时注意
+- **HitArea** 需在 Cubism Editor 中绘制；hiyori 样例通常只有 `Body`。
+- 项目用 **点击坐标** 虚拟划分 `head / arms / body / legs / tail`（见 `src/services/bodyPart.ts`）。
+- 语料分区见 `src/data/corpus.json`；某区为空时回退到 `body`。
 
-- 确认是 **Cubism 3/4**（`.model3.json`），不是旧版 Cubism 2
-- 阅读 **使用范围**：个人学习 / 直播 / 商用 / 二次发布 各不同
-- 商用或开源项目发布前，务必确认模型授权允许
-- 本项目默认 MIT 开源，**不要使用禁止二次分发或禁止开源的模型**
+## 当前默认
 
-## 点击部位与语料（里程碑 2）
-
-- 模型 `*.model3.json` 里的 `HitAreas` 必须在 **Live2D Cubism Editor** 中绘制，不能只改 JSON 增加 head/hand 等。
-- 若只有 `Body`（如 hiyori），项目会用 **点击坐标** 虚拟划分 head/arms/body/legs，对应 `src/data/corpus.json` 各分区。
-- 替换模型后若有多 HitArea，控制台仍会显示 Live2D 原始 HitArea 名称，语料按虚拟坐标 + 分区选取。
-
-## 当前默认模型
-
-- 名称：Haru（官方 Cubism 4 示例）
-- 许可：Live2D 免费素材，仅供学习/测试
-- 仓库：https://github.com/Live2D/CubismWebSamples
+- 名称：桃濑日和 PRO（hiyori_pro）
+- 许可：Live2D 官方无偿素材，仅供学习/测试

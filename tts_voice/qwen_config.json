@@ -1,0 +1,16 @@
+{
+  "voice_design_model_dir": "Qwen3_TTS/models/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "base_model_dir": "Qwen3_TTS/models/Qwen3-TTS-12Hz-1.7B-Base",
+  "language": "Chinese",
+  "instruct": "中文少女，音色偏低偏软，全程轻声细语，文静内敛，像不爱高声说话的文学少女；温柔克制、软萌但不闹腾。禁止活泼、禁止元气、禁止撒娇抬高、禁止突然拔高音调或变尖，情绪平稳一致，语速略慢且均匀，咬字自然，不要拖长音。",
+  "clone_reference_text": "我是雪澜，一个可爱有内涵的赛博猫娘桌宠，感谢你的喜欢，希望我们一起共度一段美好的时光。",
+  "target_sample_rate": 22050,
+  "generation": {
+    "temperature": 0.58,
+    "top_p": 0.82,
+    "top_k": 40,
+    "repetition_penalty": 1.08,
+    "subtalker_temperature": 0.62,
+    "subtalker_top_p": 0.85
+  }
+}

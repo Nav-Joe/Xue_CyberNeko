@@ -1,8 +1,13 @@
 import type { Live2DModel } from 'pixi-live2d-display/cubism4'
 import { resolveBodyPart } from './bodyPart'
 import { pickCorpusLine } from './corpus'
-import { speakText } from './ttsPlayer'
+import { isCustomCorpusTouchEnabled } from './touchModeSettings'
+import { playRandomTouchClip } from './touchClipPlayer'
+import { isRealtimeInferenceEnabled } from './ttsSettings'
+import { isRealtimeTouchBusy, speakText } from './ttsPlayer'
 import type { BodyPart } from '../types/corpus'
+
+import type { OpaqueHitData } from './live2dOpaqueBounds'
 
 export interface ModelTapPayload {
   model: Live2DModel
@@ -10,6 +15,7 @@ export interface ModelTapPayload {
   pointY: number
   hitAreas: string[]
   isHome: boolean
+  opaqueHitData?: OpaqueHitData | null
 }
 
 export async function handleModelTap(payload: ModelTapPayload): Promise<void> {
@@ -17,8 +23,25 @@ export async function handleModelTap(payload: ModelTapPayload): Promise<void> {
     payload.model,
     payload.pointX,
     payload.pointY,
-    payload.hitAreas
+    payload.hitAreas,
+    payload.opaqueHitData
   )
+
+  const hitLabel = payload.hitAreas.join(', ') || 'unknown'
+
+  if (!isCustomCorpusTouchEnabled()) {
+    console.log(`[Live2D] 点击 HitArea: ${hitLabel} → 虚拟部位: ${virtualPart} → 音色工坊/精选音频`)
+    const played = await playRandomTouchClip()
+    if (!played) {
+      console.warn('[交互] 精选音频库为空或播放失败，请配置 public/touch_clips/')
+    }
+    return
+  }
+
+  if (isRealtimeInferenceEnabled() && isRealtimeTouchBusy()) {
+    console.info('[交互] 实时推理进行中，已忽略重复点击')
+    return
+  }
 
   const picked = pickCorpusLine(virtualPart)
   if (!picked) {
@@ -26,7 +49,6 @@ export async function handleModelTap(payload: ModelTapPayload): Promise<void> {
     return
   }
 
-  const hitLabel = payload.hitAreas.join(', ') || 'unknown'
   const prefix = payload.isHome ? '喵~' : '喵'
   const partNote =
     picked.fallback && virtualPart !== picked.part

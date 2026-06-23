@@ -1,35 +1,112 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 >nul
 title 雪澜赛博猫娘 - 首次安装
 
 cd /d "%~dp0.."
 
-call "%~dp0win\check-node.cmd"
-if errorlevel 1 exit /b 1
+call "%~dp0win\check-setup-complete.cmd"
+if not errorlevel 1 goto :already_done
 
 echo.
 echo ========================================
 echo   雪澜赛博猫娘 - 首次安装
-echo   1. npm install
-echo   2. 下载 Live2D 示例模型
+echo   将依次安装：
+echo     - Node.js 依赖
+echo     - Python 虚拟环境 ^(.venv^)
+echo     - Qwen3-TTS 引擎依赖与 PyTorch
+echo     - Qwen3 模型：VoiceDesign 1.7B + Base 1.7B
+echo.
+echo   Live2D 模型将在安装完成后引导下载（桃濑日和）
 echo ========================================
 echo.
 
-call npm install
-if errorlevel 1 (
-  call "%~dp0win\pause-on-error.cmd" "npm install 失败"
-  exit /b 1
-)
+echo [步骤 1/4] 检测运行环境...
+echo.
 
-call npm run setup:model
+call "%~dp0win\check-node.cmd"
+if errorlevel 1 exit /b 1
+
+for /f "delims=" %%V in ('node --version 2^>^&1') do echo [通过] Node.js %%V
+
+call "%~dp0win\check-python.cmd"
+if errorlevel 1 exit /b 1
+
+echo.
+call "%~dp0win\check-disk-space.cmd" 15
+if errorlevel 1 exit /b 1
+
+echo.
+echo [步骤 2/4] 安装 Node 依赖...
+echo.
+
+call "%~dp0win\check-disk-space.cmd" 3
+if errorlevel 1 exit /b 1
+
+call npm install
+if errorlevel 1 exit /b 1
+
+echo.
+echo [步骤 3/4] 创建 Python 虚拟环境 ^(.venv^)...
+echo.
+
+call "%~dp0win\check-disk-space.cmd" 6
+if errorlevel 1 exit /b 1
+
+call "%~dp0win\ensure-venv.cmd"
+if errorlevel 1 exit /b 1
+
+echo.
+echo [步骤 4/4] 安装 TTS / Qwen3-TTS 依赖与 PyTorch...
+echo.
+
+call "%~dp0win\check-disk-space.cmd" 8
+if errorlevel 1 exit /b 1
+
+call "%~dp0win\install-tts-deps.cmd"
+if errorlevel 1 exit /b 1
+
+echo.
+echo [附加] 下载 Qwen3 语音模型权重（ModelScope，体积较大）...
+echo.
+
+call "%~dp0win\check-disk-space.cmd" 10
+if errorlevel 1 exit /b 1
+
+call "%~dp0win\install-qwen-models.cmd"
+if errorlevel 1 exit /b 1
+
+call "%~dp0win\check-setup-complete.cmd"
 if errorlevel 1 (
-  call "%~dp0win\pause-on-error.cmd" "模型下载失败"
+  echo [错误] 安装流程结束但校验未通过，请查看上方报错后重试。
   exit /b 1
 )
 
 echo.
-echo [完成] 安装完毕。请双击「启动开发.bat」开始测试。
+call "%~dp0win\prompt-live2d-model.cmd"
+if errorlevel 1 (
+  echo [警告] Live2D 模型尚未就绪，可先关闭本窗口，放置模型后再启动。
+)
+
+echo.
+echo ========================================
+echo   [完成] 首次安装已全部就绪。
+echo   请关闭本窗口，双击「启动.bat」运行桌宠。
+echo ========================================
+echo.
+pause
+exit /b 0
+
+:already_done
+echo.
+echo ========================================
+echo   检测到已完成首次安装（所需环境均已就绪）
+echo.
+echo   无需重复安装。请关闭本窗口。
+echo   双击「启动.bat」即可运行桌宠。
+echo ========================================
+echo.
+echo   Qwen 模型下载见首次安装提示，或 scripts\win\install-qwen-models.cmd
 echo.
 pause
 exit /b 0
