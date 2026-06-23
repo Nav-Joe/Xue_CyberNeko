@@ -4,12 +4,16 @@ import {
   BODY_PART_HINTS,
   BODY_PART_LABELS,
   BODY_PART_ORDER,
+  CORPUS_PREWARM_HINT,
+  CORPUS_PREWARM_UNCHANGED_HINT,
   SAVE_AND_PREWARM_LABEL
 } from '../constants/voiceForge'
 import {
+  corpusEquals,
   getDefaultCorpusSnapshot,
+  normalizeCorpusForCompare,
   setRuntimeCorpus,
-  validateCorpusData
+  validateCorpusSource
 } from '../services/corpus'
 import { setTouchFeedbackMode } from '../services/touchModeSettings'
 import type { BodyPart, CorpusData } from '../types/corpus'
@@ -25,7 +29,25 @@ const active = ref(false)
 const corpus = reactive<CorpusData>(getDefaultCorpusSnapshot())
 const baseline = ref<CorpusData>(getDefaultCorpusSnapshot())
 
-const hasChanges = computed(() => JSON.stringify(corpus) !== JSON.stringify(baseline.value))
+const corpusChanged = computed(() => !corpusEquals(corpus, baseline.value))
+
+const canApplyCorpusPrewarm = computed(() => {
+  if (!corpusChanged.value) {
+    return false
+  }
+  return validateCorpusSource(corpus).ok
+})
+
+const corpusPrewarmDisabledReason = computed(() => {
+  if (!corpusChanged.value) {
+    return CORPUS_PREWARM_UNCHANGED_HINT
+  }
+  const validated = validateCorpusSource(corpus)
+  if (!validated.ok) {
+    return validated.error
+  }
+  return ''
+})
 
 function addLine(part: BodyPart): void {
   corpus[part].push('')
@@ -45,7 +67,7 @@ async function refreshState(): Promise<void> {
     const config = await window.electronAPI.readTouchConfig()
     active.value = config.mode === 'alt_engine_corpus'
     Object.assign(corpus, config.corpus)
-    baseline.value = structuredClone(config.corpus)
+    baseline.value = normalizeCorpusForCompare(config.corpus)
     if (active.value) {
       setRuntimeCorpus(config.corpus)
     }
@@ -57,11 +79,11 @@ async function refreshState(): Promise<void> {
 }
 
 async function applyAndPrewarm(): Promise<void> {
-  if (saving.value || loading.value) {
+  if (saving.value || loading.value || !canApplyCorpusPrewarm.value) {
     return
   }
 
-  const validated = validateCorpusData(corpus)
+  const validated = validateCorpusSource(corpus)
   if (!validated.ok) {
     error.value = validated.error
     return
@@ -87,7 +109,7 @@ async function applyAndPrewarm(): Promise<void> {
     const result = await window.electronAPI.applyAltEngineCorpus(validated.data)
     setTouchFeedbackMode(result.mode)
     setRuntimeCorpus(validated.data)
-    baseline.value = structuredClone(validated.data)
+    baseline.value = normalizeCorpusForCompare(validated.data)
     active.value = true
 
     if (!window.electronAPI.beginVoiceEngineLoad) {
@@ -177,11 +199,16 @@ onMounted(() => {
 
       <p v-if="error" class="error">{{ error }}</p>
 
+      <p v-if="!loading && corpusPrewarmDisabledReason" class="hint corpus-prewarm-reason">
+        {{ corpusPrewarmDisabledReason }}
+      </p>
+      <p v-else-if="!loading" class="hint">{{ CORPUS_PREWARM_HINT }}</p>
+
       <div class="actions">
         <button
           type="button"
           class="apply-btn"
-          :disabled="saving || loading || !hasChanges"
+          :disabled="saving || loading || !canApplyCorpusPrewarm"
           @click="applyAndPrewarm"
         >
           {{ saving ? '处理中…' : SAVE_AND_PREWARM_LABEL }}
@@ -301,6 +328,10 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
+}
+
+.corpus-prewarm-reason {
+  color: #9ca3af;
 }
 
 .apply-btn {

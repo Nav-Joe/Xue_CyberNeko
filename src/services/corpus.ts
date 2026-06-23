@@ -1,4 +1,5 @@
 import defaultCorpus from '../data/corpus.json'
+import { BODY_PART_ORDER } from '../constants/voiceForge'
 import type { BodyPart, CorpusData } from '../types/corpus'
 
 let runtimeCorpus: CorpusData | null = null
@@ -84,4 +85,34 @@ export function validateCorpusData(raw: unknown): { ok: true; data: CorpusData }
   }
 
   return { ok: true, data: result }
+}
+
+/** 忽略空行与首尾空白，用于判断语料是否真有改动。 */
+export function normalizeCorpusForCompare(data: CorpusData): CorpusData {
+  const payload = {} as CorpusData
+  for (const part of BODY_PART_ORDER) {
+    payload[part] = (data[part] ?? []).map((line) => line.trim()).filter(Boolean)
+  }
+  return payload
+}
+
+export function corpusEquals(a: CorpusData, b: CorpusData): boolean {
+  return JSON.stringify(normalizeCorpusForCompare(a)) === JSON.stringify(normalizeCorpusForCompare(b))
+}
+
+/** 校验编辑器语料：结构合法且至少有一句非空台词。 */
+export function validateCorpusSource(
+  source: CorpusData
+): { ok: true; data: CorpusData } | { ok: false; error: string } {
+  const validated = validateCorpusData(normalizeCorpusForCompare(source))
+  if (!validated.ok) {
+    return validated
+  }
+
+  const totalLines = BODY_PART_ORDER.reduce((sum, part) => sum + validated.data[part].length, 0)
+  if (totalLines === 0) {
+    return { ok: false, error: '请至少添加一句触摸台词' }
+  }
+
+  return validated
 }

@@ -35,6 +35,8 @@ const TOUCH_MODE_MISMATCH_ABORT_MS = 15_000
 
 const RESYNC_INTERVAL_MS = 2_500
 
+const PREWARM_STUCK_MS = 120_000
+
 
 
 export function expectedTouchModeForLoad(mode: VoiceEngineLoadMode): TouchFeedbackMode {
@@ -337,6 +339,24 @@ function isVoiceEngineLoadComplete(
 
     }
 
+    if (cache?.ready && !cache?.stale) {
+
+      return true
+
+    }
+
+    // 同步已结束且进度已满，但 cache.ready 未及时翻转（竞态 / manifest 延迟）
+    if (
+      health.engine &&
+      health.engine_matches_active &&
+      workTotal > 0 &&
+      progressDone >= workTotal
+    ) {
+
+      return true
+
+    }
+
     return Boolean(cache?.ready)
 
   }
@@ -455,6 +475,56 @@ function shouldAbortEngineMountWait(
 
 
 
+function shouldAbortPrewarmStuck(
+
+  mode: VoiceEngineLoadMode,
+
+  health: TtsHealth | null,
+
+  cache: CacheStatus | null,
+
+  syncFinishedAt: number | null,
+
+  sawSyncRunning: boolean
+
+): boolean {
+
+  if (mode !== 'prewarm' || !health || health.sync_running) {
+
+    return false
+
+  }
+
+  if (!sawSyncRunning || syncFinishedAt === null) {
+
+    return false
+
+  }
+
+  if (Date.now() - syncFinishedAt < PREWARM_STUCK_MS) {
+
+    return false
+
+  }
+
+  if (cache?.ready) {
+
+    return false
+
+  }
+
+  if (isPrewarmStillRunning(health, cache)) {
+
+    return false
+
+  }
+
+  return !cache?.building
+
+}
+
+
+
 export async function waitForVoiceEngineLoad(
 
   mode: VoiceEngineLoadMode,
@@ -487,17 +557,22 @@ export async function waitForVoiceEngineLoad(
 
 
 
-    if (
-
+    const needsTouchModeResync =
       health &&
-
       !health.sync_running &&
-
       health.touch_mode !== expectedTouchMode &&
-
       Date.now() - lastResyncAt > RESYNC_INTERVAL_MS
 
-    ) {
+    const needsPrewarmResync =
+      mode === 'prewarm' &&
+      health &&
+      !health.sync_running &&
+      !isPrewarmStillRunning(health, cache) &&
+      !cache?.ready &&
+      !cache?.building &&
+      Date.now() - lastResyncAt > RESYNC_INTERVAL_MS
+
+    if (needsTouchModeResync || needsPrewarmResync) {
 
       lastResyncAt = Date.now()
 
@@ -590,6 +665,34 @@ export async function waitForVoiceEngineLoad(
         expectedTouchMode,
 
         touch_mode: health?.touch_mode
+
+      })
+
+      return false
+
+    }
+
+
+
+    if (shouldAbortPrewarmStuck(mode, health, cache, syncFinishedAt, sawSyncRunning)) {
+
+      console.error('[VoiceEngineLoad] 语料预热未完成且长时间无进展', {
+
+        mode,
+
+        expectedTouchMode,
+
+        touch_mode: health?.touch_mode,
+
+        cache_ready: cache?.ready,
+
+        cache_building: cache?.building,
+
+        cache_stale: cache?.stale,
+
+        prewarm_work_total: cache?.prewarm_work_total,
+
+        progress: cache?.progress
 
       })
 

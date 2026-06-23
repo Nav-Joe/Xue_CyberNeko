@@ -210,6 +210,15 @@ def write_voice_forge_config_patch(patch: dict) -> None:
 ALT_ENGINE_PREWARM_TARGET = "__alt_engine__"
 
 
+def write_corpus_prewarm_flag(folder_id: str) -> None:
+    """写入语料预热目标（由 Electron 或 sync 重试时使用）。"""
+    target = folder_id.strip()
+    if not target:
+        return
+    RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+    CORPUS_PREWARM_FLAG.write_text(f"{target}\n", encoding="utf-8")
+
+
 def consume_corpus_prewarm_flag() -> str | None:
     """读取并清除语料预热目标（声线 folderId 或 __alt_engine__）；无请求时返回 None。"""
     if not CORPUS_PREWARM_FLAG.is_file():

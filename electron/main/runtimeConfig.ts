@@ -91,6 +91,24 @@ function writeCorpusSnapshotForSample(sampleDir: string, corpus: CorpusData): vo
   )
 }
 
+function altEngineCacheRoot(engine?: string): string {
+  const name = (engine ?? readConfiguredTtsEngine()).trim() || 'unknown'
+  return join(voiceForgeRoot(), 'other_custom_cache', name)
+}
+
+/** 读取第三方引擎语料快照（other_custom_cache/{engine}/corpus.snapshot.json）。 */
+function readAltEngineCorpus(engine?: string): CorpusData {
+  const snapshotPath = join(altEngineCacheRoot(engine), CORPUS_SNAPSHOT_NAME)
+  if (existsSync(snapshotPath)) {
+    try {
+      return normalizeCorpusPayload(JSON.parse(readFileSync(snapshotPath, 'utf8')))
+    } catch {
+      // fall through
+    }
+  }
+  return readTouchConfig().corpus
+}
+
 function normalizeCorpusPayload(raw: unknown): CorpusData {
   const fallback = JSON.parse(readFileSync(defaultCorpusFile(), 'utf8')) as CorpusData
   if (!raw || typeof raw !== 'object') {
@@ -492,9 +510,11 @@ export function readVoiceForgeConfig(): {
   }
 
   const corpus =
-    activeSample?.folderId?.trim()
-      ? readSampleCorpus(activeSample.folderId)
-      : readTouchConfig().corpus
+    mode === 'alt_engine_corpus'
+      ? readAltEngineCorpus()
+      : activeSample?.folderId?.trim()
+        ? readSampleCorpus(activeSample.folderId)
+        : readTouchConfig().corpus
 
   return {
     mode,
@@ -702,8 +722,6 @@ export function switchVoiceSample(folderId: string): VoiceSampleProfile & { touc
   if (!isOfficialSampleProfile(profile)) {
     writeSampleInstruct(sampleDirForId(profile.folderId), instruct)
   }
-
-  markCorpusPrewarmPending(profile.folderId)
 
   const sessionPath = voiceForgeSessionFile()
   if (existsSync(sessionPath)) {
@@ -919,7 +937,7 @@ export function applyAltEngineCorpus(corpus: CorpusData): {
 
   const cacheRoot = join(voiceForgeRoot(), 'other_custom_cache', engine)
   mkdirSync(cacheRoot, { recursive: true })
-  writeFileSync(join(cacheRoot, 'corpus.snapshot.json'), `${JSON.stringify(corpus, null, 2)}\n`, 'utf8')
+  writeFileSync(join(cacheRoot, CORPUS_SNAPSHOT_NAME), `${JSON.stringify(corpus, null, 2)}\n`, 'utf8')
   writeFileSync(customCorpusFile(), `${JSON.stringify(corpus, null, 2)}\n`, 'utf8')
   writeFileSync(touchModeFile(), 'alt_engine_corpus\n', 'utf8')
 

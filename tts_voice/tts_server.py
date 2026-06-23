@@ -50,6 +50,7 @@ from voice_forge_paths import (
     write_touch_cache_pointer,
     consume_corpus_prewarm_flag,
     read_realtime_inference_enabled,
+    write_corpus_prewarm_flag,
 )
 from voice_runtime_repair import reconcile_runtime_voice_config
 from voice_forge_session import (
@@ -483,21 +484,25 @@ def _prewarm_corpus_cache(current_engine, *, blocking: bool | None = None) -> No
         cache_manager = _build_cache_manager(current_engine)
         _cached_sample_id = _active_folder_id()
     if cache_manager.is_cache_valid():
-        if _uses_private_engine_cache():
-            print("[TTS Cache] 第三方引擎语料缓存已有效，跳过预热", flush=True)
+        skip_prewarm = True
+        if must_block:
+            _, work_total = cache_manager.estimate_prewarm_work()
+            skip_prewarm = work_total == 0
+        if skip_prewarm:
+            if _uses_private_engine_cache():
+                print("[TTS Cache] 第三方引擎语料缓存已有效，跳过预热", flush=True)
+            else:
+                sample_dir = resolve_active_sample_dir()
+                if sample_dir is not None:
+                    write_touch_cache_pointer(
+                        sample_dir,
+                        source_hash=cache_manager.compute_source_hash(),
+                        ready=True,
+                        line_count=len(cache_manager.collect_lines()),
+                    )
+                print("[TTS Cache] 该声线仓库已有有效缓存，跳过预热", flush=True)
             _corpus_prewarm_must_block = False
             return
-        sample_dir = resolve_active_sample_dir()
-        if sample_dir is not None:
-            write_touch_cache_pointer(
-                sample_dir,
-                source_hash=cache_manager.compute_source_hash(),
-                ready=True,
-                line_count=len(cache_manager.collect_lines()),
-            )
-        print("[TTS Cache] 该声线仓库已有有效缓存，跳过预热", flush=True)
-        _corpus_prewarm_must_block = False
-        return
     if read_realtime_inference_enabled() and not must_block:
         print(
             "[TTS Cache] 实时推理已开启，克隆引擎就绪；语料缓存将在后台预热（不阻塞点击合成）",
@@ -847,6 +852,8 @@ def sync_touch_mode():
 
     if offline_prewarm:
         if not _touch_mode_sync_lock.acquire(blocking=False):
+            if corpus_target_id:
+                write_corpus_prewarm_flag(corpus_target_id)
             print("[TTS] 语料同步已在运行，跳过重复请求", flush=True)
             return {"ok": True, "touch_mode": touch_mode, "prewarm": True, "changed": False}
 
@@ -927,10 +934,21 @@ def sync_touch_mode():
             will_prewarm = False
 
     if not _touch_mode_sync_lock.acquire(blocking=False):
+        if corpus_target_id:
+            write_corpus_prewarm_flag(corpus_target_id)
         print("[TTS] 语料同步已在运行，跳过重复请求", flush=True)
         return {"ok": True, "touch_mode": touch_mode, "prewarm": True, "changed": True}
 
+    had_corpus_prewarm = corpus_prewarm_requested
+
     sync_generation = _bump_touch_mode_sync_generation()
+
+    def _finish_sync_runner() -> None:
+        global _touch_mode_sync_running, _corpus_prewarm_must_block
+        if had_corpus_prewarm:
+            _corpus_prewarm_must_block = False
+        _touch_mode_sync_running = False
+        _touch_mode_sync_lock.release()
 
     def _sync_alt_engine_runner() -> None:
         global engine, ready, cache_manager, _cached_sample_id, _touch_mode_sync_running
@@ -958,8 +976,7 @@ def sync_touch_mode():
         except Exception as error:  # noqa: BLE001
             print(f"[TTS] 第三方引擎语料同步失败: {error}", flush=True)
         finally:
-            _touch_mode_sync_running = False
-            _touch_mode_sync_lock.release()
+            _finish_sync_runner()
 
     def _sync_clone_runner() -> None:
         global engine, ready, cache_manager, _cached_sample_id, _touch_mode_sync_running
@@ -996,8 +1013,7 @@ def sync_touch_mode():
         except Exception as error:  # noqa: BLE001
             print(f"[TTS] 克隆声线切换失败: {error}", flush=True)
         finally:
-            _touch_mode_sync_running = False
-            _touch_mode_sync_lock.release()
+            _finish_sync_runner()
 
     runner = _sync_alt_engine_runner if _uses_private_engine_cache() else _sync_clone_runner
     threading.Thread(target=runner, name="touch-mode-sync", daemon=True).start()
