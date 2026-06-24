@@ -1,5 +1,6 @@
 @echo off
-chcp 65001 >nul
+call "%~dp0ensure-system-path.cmd"
+chcp 65001 >nul 2>&1
 echo.
 echo ========================================
 if not "%~1"=="" (
@@ -15,6 +16,6 @@ if not "%~2"=="" (
 echo ========================================
 echo.
 echo 请把上方完整输出截图或复制以便排查。
-echo 按任意键关闭本窗口…
+echo 按任意键关闭本窗口...
 echo.
 pause >nul

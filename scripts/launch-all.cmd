@@ -1,6 +1,7 @@
 @echo off
 setlocal EnableExtensions
-chcp 65001 >nul
+call "%~dp0win\ensure-system-path.cmd"
+chcp 65001 >nul 2>&1
 title 雪澜赛博猫娘 - 开发 + TTS
 
 cd /d "%~dp0.."
@@ -11,11 +12,6 @@ if errorlevel 1 (
 )
 
 node "%~dp0app-instance-lock.js" launching
-
-call "%~dp0win\check-node.cmd"
-if errorlevel 1 (
-  call "%~dp0win\exit-if-error.cmd" "Node.js 检查失败"
-)
 
 call "%~dp0launch-all-pre.cmd"
 if errorlevel 1 (

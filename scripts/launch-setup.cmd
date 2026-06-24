@@ -1,9 +1,12 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
-chcp 65001 >nul
+call "%~dp0win\ensure-system-path.cmd"
+chcp 65001 >nul 2>&1
 title 雪澜赛博猫娘 - 首次安装
 
 cd /d "%~dp0.."
+
+set "XUE_AUTO_INSTALL_RUNTIME=1"
 
 call "%~dp0win\check-setup-complete.cmd"
 if not errorlevel 1 goto :already_done
@@ -27,8 +30,6 @@ echo.
 
 call "%~dp0win\check-node.cmd"
 if errorlevel 1 exit /b 1
-
-for /f "delims=" %%V in ('node --version 2^>^&1') do echo [通过] Node.js %%V
 
 call "%~dp0win\check-python.cmd"
 if errorlevel 1 exit /b 1
