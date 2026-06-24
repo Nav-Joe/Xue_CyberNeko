@@ -41,8 +41,8 @@
 ## 环境要求
 
 - **Windows 10/11**（当前脚本以 Windows 为主）
-- **Node.js 20+**、npm 10+
-- **Python 3.10+**（TTS 服务，由 `首次安装.bat` 配置进项目 `.venv`）
+- **Node.js 20+**、**Python 3.10+**（若系统未安装，`首次安装.bat` 会通过 winget 或官方安装包自动安装；默认锁定 **Node 24.16.0**、**Python 3.10.10**，见 `scripts/win/runtime-versions.cmd`）
+- TTS 依赖装进项目 **`.venv`**，不污染系统 Python 包
 - **Git**（可选，用于克隆 Bert-VITS2 等）
 
 ## 快速开始

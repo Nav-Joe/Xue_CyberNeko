@@ -12,7 +12,8 @@ echo.
 echo ========================================
 echo   雪澜赛博猫娘 - 首次安装
 echo   将依次安装：
-echo     - Node.js 依赖
+echo     - Node.js / Python ^(缺失时自动安装，见 scripts\win\runtime-versions.cmd^)
+echo     - Node.js 依赖 ^(npm install^)
 echo     - Python 虚拟环境 ^(.venv^)
 echo     - Qwen3-TTS 引擎依赖与 PyTorch
 echo     - Qwen3 模型：VoiceDesign 1.7B + Base 1.7B

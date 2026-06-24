@@ -2,17 +2,8 @@
 
 
 
-where python >nul 2>&1
-
-if errorlevel 1 (
-
-  echo [警告] 未找到系统 Python，无法创建/使用 .venv。
-
-  exit /b 1
-
-)
-
-
+call "%~dp0check-python.cmd"
+if errorlevel 1 exit /b 1
 
 call "%~dp0read-tts-backend.cmd"
 
