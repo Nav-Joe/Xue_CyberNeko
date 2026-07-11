@@ -8,6 +8,7 @@ cd /d "%~dp0.."
 
 call "%~dp0win\check-single-instance.cmd"
 if errorlevel 1 (
+  call "%~dp0win\exit-if-error.cmd" "无法启动"
   exit /b 1
 )
 
@@ -15,7 +16,9 @@ node "%~dp0app-instance-lock.js" launching
 
 call "%~dp0launch-all-pre.cmd"
 if errorlevel 1 (
+  node "%~dp0app-instance-lock.js" clear
   call "%~dp0win\exit-if-error.cmd" "启动前检查失败"
+  exit /b 1
 )
 
 call "%~dp0win\stop-tts.cmd"
@@ -52,6 +55,7 @@ if "%TTS_STARTED%"=="1" (
 
 if not "%EXIT_CODE%"=="0" (
   call "%~dp0win\exit-if-error.cmd" "运行异常退出" %EXIT_CODE%
+  exit /b %EXIT_CODE%
 )
 
 exit /b %EXIT_CODE%

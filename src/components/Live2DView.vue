@@ -13,19 +13,23 @@ import {
 import { computePetFrameFromOpaqueBounds, PET_FRAME_PADDING } from '../services/petWindowSize'
 import { configureQuietIdle, QUIET_IDLE_MODEL_OPTIONS } from '../services/live2dIdle'
 import { registerLive2DModelForLipSync, unregisterLive2DModelForLipSync } from '../services/live2dLipSync'
+import PetChatShortcut from './pet/PetChatShortcut.vue'
 
 const props = withDefaults(
   defineProps<{
-    mode?: 'pet' | 'home' | 'dev'
+    mode?: 'pet' | 'home' | 'chat' | 'dev'
     /** 菜单打开时为 true：禁用触摸反馈，并保持窗口可点击 */
     interactionLocked?: boolean
+    /** 桌宠文字聊天快捷按钮禁用（引导中） */
+    chatShortcutDisabled?: boolean
   }>(),
-  { mode: 'pet', interactionLocked: false }
+  { mode: 'pet', interactionLocked: false, chatShortcutDisabled: false }
 )
 
 const emit = defineEmits<{
   openMenu: [payload: { x: number; y: number }]
   petFrameReady: [payload: { width: number; height: number }]
+  chatShortcutClick: []
 }>()
 
 const DEFAULT_MODEL_URL = '/models/hiyori_pro/runtime/hiyori_pro_t11.model3.json'
@@ -65,6 +69,8 @@ let fixedCanvasHeight = 0
 let petModelScale = 1
 let petResizeGuard: (() => void) | null = null
 let opaqueHitData: OpaqueHitData | null = null
+const chatShortcutAnchor = ref<{ x: number; y: number } | null>(null)
+let chatShortcutHover = false
 
 declare global {
   interface Window {
@@ -88,6 +94,7 @@ async function resolveModelUrl(): Promise<string> {
 
 const isPetMode = () => props.mode === 'pet'
 const isHomeMode = () => props.mode === 'home'
+const isChatMode = () => props.mode === 'chat'
 const usesFixedCanvas = () => isPetMode()
 const canDragPet = () => isPetMode() && !homeVisible.value
 
@@ -165,12 +172,53 @@ watch(
   (locked, wasLocked) => {
     if (!isPetMode() || locked || wasLocked === undefined) return
     lastMouseIgnore = null
+    syncPetMouseIgnoreForShortcut()
   }
 )
 
 function updateModelMotionFrame(): void {
   if (!model) return
   model.update(33)
+}
+
+/** 聊天快捷按钮相对模型不透明区右上角的偏移（px，屏幕坐标） */
+const CHAT_SHORTCUT_OFFSET_X = 16
+const CHAT_SHORTCUT_OFFSET_Y = -8
+
+function updatePetChatShortcutAnchor(): void {
+  if (!isPetMode() || !app || !model || !opaqueHitData) {
+    chatShortcutAnchor.value = null
+    return
+  }
+  const local = opaqueLocalRect(opaqueHitData, 0.5, 0.5)
+  const scale = model.scale.x
+  chatShortcutAnchor.value = {
+    x: model.position.x + local.right * scale + CHAT_SHORTCUT_OFFSET_X,
+    y: model.position.y + local.top * scale + CHAT_SHORTCUT_OFFSET_Y
+  }
+}
+
+function syncPetMouseIgnoreForShortcut(): void {
+  if (!isPetMode()) return
+  if (props.interactionLocked || chatShortcutHover) {
+    setMouseIgnore(false)
+    return
+  }
+  setMouseIgnore(true)
+}
+
+function onChatShortcutPointerEnter(): void {
+  chatShortcutHover = true
+  syncPetMouseIgnoreForShortcut()
+}
+
+function onChatShortcutPointerLeave(): void {
+  chatShortcutHover = false
+  syncPetMouseIgnoreForShortcut()
+}
+
+function onChatShortcutClick(): void {
+  emit('chatShortcutClick')
 }
 
 /** 桌宠：按不透明包围盒对齐窗口内边距 */
@@ -194,6 +242,7 @@ function layoutPetModel(): void {
 
   lastLayoutWidth = app.screen.width
   lastLayoutHeight = app.screen.height
+  updatePetChatShortcutAnchor()
 
   if (import.meta.env.DEV && opaqueHitData) {
     const local = opaqueLocalRect(opaqueHitData, 0.5, 0.5)
@@ -217,6 +266,11 @@ function layoutModel(): void {
     return
   }
 
+  if (isChatMode()) {
+    layoutChatModel()
+    return
+  }
+
   const padding = isHomeMode() ? 8 : 48
   const availableWidth = Math.max(app.screen.width - padding * 2, 1)
   const availableHeight = Math.max(app.screen.height - padding * 2, 1)
@@ -225,6 +279,22 @@ function layoutModel(): void {
   const scale =
     Math.min(availableWidth / baseModelWidth, availableHeight / baseModelHeight) * scaleFactor
 
+  model.scale.set(scale)
+  model.position.set(app.screen.width / 2, app.screen.height / 2)
+  lastLayoutWidth = app.screen.width
+  lastLayoutHeight = app.screen.height
+}
+
+/** 聊天窗：按展示高度放大模型（窄栏下不受画布宽度限制），居中于左侧 */
+function layoutChatModel(): void {
+  if (!app || !model || baseModelWidth <= 0 || baseModelHeight <= 0) return
+
+  const padY = 6
+  const availableHeight = Math.max(app.screen.height - padY * 2, 1)
+  const contentHeight = opaqueHitData?.bounds.height ?? baseModelHeight * 0.88
+  const scale = (availableHeight / contentHeight) * 0.70
+
+  model.anchor.set(0.5, 0.5)
   model.scale.set(scale)
   model.position.set(app.screen.width / 2, app.screen.height / 2)
   lastLayoutWidth = app.screen.width
@@ -315,6 +385,11 @@ function handleContextMenu(event: MouseEvent): void {
     return
   }
 
+  if (isChatMode()) {
+    event.preventDefault()
+    return
+  }
+
   alert('雪澜赛博猫娘\n\n右键菜单开发模式占位')
 }
 
@@ -390,7 +465,7 @@ function handleCanvasPointerUp(event: PointerEvent): void {
     ? hitTestOpaquePoint(model, point.x, point.y, opaqueHitData)
     : model.containsPoint(point)
 
-  if (!dragStarted && onModel && event.button === 0) {
+  if (!dragStarted && onModel && event.button === 0 && !props.interactionLocked) {
     model.tap(point.x, point.y)
     void handleModelTap({
       model,
@@ -603,10 +678,24 @@ onBeforeUnmount(() => {
     class="live2d-view"
     :class="{
       'live2d-view--pet': mode === 'pet',
-      'live2d-view--home': mode === 'home'
+      'live2d-view--home': mode === 'home',
+      'live2d-view--chat': mode === 'chat'
     }"
   >
     <div ref="containerRef" class="live2d-canvas" />
+
+    <div
+      v-if="isPetMode() && chatShortcutAnchor && !isLoading && !loadError && !interactionLocked && !chatShortcutDisabled"
+      class="pet-chat-shortcut-layer"
+      :style="{
+        left: `${chatShortcutAnchor.x}px`,
+        top: `${chatShortcutAnchor.y}px`
+      }"
+      @pointerenter="onChatShortcutPointerEnter"
+      @pointerleave="onChatShortcutPointerLeave"
+    >
+      <PetChatShortcut :disabled="chatShortcutDisabled" @click="onChatShortcutClick" />
+    </div>
 
     <div v-if="isLoading" class="overlay">正在唤醒猫娘...</div>
     <p v-if="loadError" class="error">{{ loadError }}</p>
@@ -634,6 +723,17 @@ onBeforeUnmount(() => {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.45),
     0 12px 40px rgba(15, 23, 42, 0.06);
+}
+
+.live2d-view--chat {
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  border-radius: 16px;
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.55) 0%, rgba(253, 242, 248, 0.72) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 207, 232, 0.65),
+    0 8px 24px rgba(190, 24, 93, 0.08);
 }
 
 .live2d-canvas {
@@ -670,5 +770,12 @@ onBeforeUnmount(() => {
   color: #b91c1c;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.pet-chat-shortcut-layer {
+  position: absolute;
+  z-index: 20;
+  transform: translate(-100%, 0);
+  pointer-events: auto;
 }
 </style>

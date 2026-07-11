@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from engines.base import TtsEngine
+from engines.runtime_isolation import prepare_bert_vits2_runtime, prepare_qwen_runtime, release_engine_runtime
 from tts_config import get_engine_config, read_engine_name
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -119,10 +120,14 @@ def create_engine(runtime: dict[str, Any] | None = None) -> tuple[str, TtsEngine
             "并在 tts_voice/engines/registry.py 注册。"
         )
 
+    release_engine_runtime()
     if engine_name == "qwen":
+        prepare_qwen_runtime(use_clone=bool(runtime_opts.get("use_clone")))
         mode = "VoiceDesign+Base 克隆" if runtime_opts.get("use_clone") else "VoiceDesign"
         print(f"[TTS] 引擎=qwen ({mode})", flush=True)
     else:
+        if engine_name == "bert_vits2":
+            prepare_bert_vits2_runtime()
         print(f"[TTS] 引擎={engine_name}", flush=True)
 
     return engine_name, creator(engine_cfg, runtime_opts)

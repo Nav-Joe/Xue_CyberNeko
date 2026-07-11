@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from services.batch_inference import dispatch_synthesize
 from voice_forge_paths import (
     get_active_sample_info,
     resolve_active_sample_dir,
@@ -444,7 +445,7 @@ class AudioCacheManager:
                 entries[line] = {"key": key, "line_hash": self._line_content_hash(line)}
 
                 for variant, seed in enumerate(VARIANT_SEEDS):
-                    wav_bytes = engine.synthesize(line, speaker_id=0, seed=seed)
+                    wav_bytes = dispatch_synthesize(engine, line, speaker_id=0, seed=seed)
                     (line_dir / f"{variant}.wav").write_bytes(wav_bytes)
                     self._progress_done += 1
                     print(

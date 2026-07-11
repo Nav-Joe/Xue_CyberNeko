@@ -11,7 +11,7 @@ engines:
   bert_vits2:
     # 权重与推理 config（相对 tts_voice/）
     config_path: bert/config.json
-    model_path: bert/G_xxx.pth #（你自己的声音配置权重）
+    model_path: bert/G_900.pth #（你自己的声音配置权重）
     # Bert-VITS2 源码目录（须含 infer.py），不是仅放 .pth 的文件夹
     root: ../Bert-VITS2
 

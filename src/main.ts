@@ -1,10 +1,11 @@
-import { createApp } from 'vue'
-import PetApp from './PetApp.vue'
-import HomeApp from './HomeApp.vue'
+import { createApp, type Component } from 'vue'
 import { setRuntimeCorpus } from './services/corpus'
+import { installErrorReporter, installVueErrorHandler, reportClientError } from './services/errorReporter'
 import { setRealtimeInferenceEnabled } from './services/ttsSettings'
 import { setTouchFeedbackMode } from './services/touchModeSettings'
 import './styles/main.css'
+
+installErrorReporter()
 
 async function bootstrapTouchConfig(): Promise<void> {
   if (!window.electronAPI?.readVoiceForgeConfig) {
@@ -19,6 +20,12 @@ async function bootstrapTouchConfig(): Promise<void> {
       }
     } catch (error) {
       console.warn('[Bootstrap] 读取触摸配置失败', error)
+      reportClientError({
+        scope: 'renderer:bootstrap',
+        message: '读取触摸配置失败',
+        detail: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
     }
     return
   }
@@ -35,12 +42,29 @@ async function bootstrapTouchConfig(): Promise<void> {
     }
   } catch (error) {
     console.warn('[Bootstrap] 读取触摸配置失败', error)
+    reportClientError({
+      scope: 'renderer:bootstrap',
+      message: '读取触摸配置失败',
+      detail: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    })
   }
 }
 
-const windowType = window.electronAPI?.getWindowType() ?? 'pet'
-const RootApp = windowType === 'home' ? HomeApp : PetApp
+async function loadRootApp(windowType: string): Promise<Component> {
+  if (windowType === 'home') {
+    return (await import('./HomeApp.vue')).default
+  }
+  if (windowType === 'chat') {
+    return (await import('./ChatApp.vue')).default
+  }
+  return (await import('./PetApp.vue')).default
+}
 
-void bootstrapTouchConfig().finally(() => {
-  createApp(RootApp).mount('#app')
+void bootstrapTouchConfig().finally(async () => {
+  const windowType = window.electronAPI?.getWindowType() ?? 'pet'
+  const RootApp = await loadRootApp(windowType)
+  const app = createApp(RootApp)
+  installVueErrorHandler(app)
+  app.mount('#app')
 })

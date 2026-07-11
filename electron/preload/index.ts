@@ -1,13 +1,15 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-export type WindowType = 'pet' | 'home'
+export type WindowType = 'pet' | 'home' | 'chat'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
 
   getWindowType: (): WindowType => {
     const hash = window.location.hash.replace('#', '')
-    return hash === 'home' ? 'home' : 'pet'
+    if (hash === 'home') return 'home'
+    if (hash === 'chat') return 'chat'
+    return 'pet'
   },
 
   setIgnoreMouseEvents: (ignore: boolean): void => {
@@ -320,5 +322,144 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   relaunchApp: (): Promise<{ ok: boolean; mode?: 'reload' | 'relaunch' }> => {
     return ipcRenderer.invoke('relaunch-app')
+  },
+
+  readCharacterCards: (): Promise<import('../../src/services/chat/types').CharacterCardsStore> => {
+    return ipcRenderer.invoke('chat-read-character-cards')
+  },
+
+  writeCharacterCards: (
+    store: import('../../src/services/chat/types').CharacterCardsStore
+  ): Promise<{ ok: true }> => {
+    return ipcRenderer.invoke('chat-write-character-cards', store)
+  },
+
+  readChatConfig: (): Promise<import('../../src/services/chat/types').ChatConfigView> => {
+    return ipcRenderer.invoke('chat-read-config')
+  },
+
+  writeChatConfig: (
+    config: import('../../src/services/chat/types').ChatConfigView & {
+      apiKey?: string
+      clearApiKey?: boolean
+    }
+  ): Promise<import('../../src/services/chat/types').ChatConfigView> => {
+    return ipcRenderer.invoke('chat-write-config', config)
+  },
+
+  chatOpenAiCompletion: (payload: {
+    messages: import('../../src/services/chat/types').ChatHistoryMessage[]
+    model: string
+    stream?: boolean
+    temperature?: number
+    outputFormat: import('../../src/services/chat/types').ChatOutputFormat
+  }): Promise<{ ok: true; content: string } | { ok: false; detail?: string; status?: number }> => {
+    return ipcRenderer.invoke('chat-openai-completion', payload)
+  },
+
+  chatOpenAiListModels: (): Promise<
+    { ok: true; models: string[] } | { ok: false; detail?: string; status?: number }
+  > => {
+    return ipcRenderer.invoke('chat-openai-list-models')
+  },
+
+  onChatLlamaBootstrapProgress: (
+    callback: (payload: {
+      phase: string
+      message: string
+      progress?: { done: number; total: number }
+    }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: unknown,
+      payload: {
+        phase: string
+        message: string
+        progress?: { done: number; total: number }
+      }
+    ) => callback(payload)
+    ipcRenderer.on('chat-llama-bootstrap-progress', handler)
+    return () => ipcRenderer.removeListener('chat-llama-bootstrap-progress', handler)
+  },
+
+  beginChatLlamaSession: (options?: {
+    downloadModel?: boolean
+  }): Promise<
+    | {
+        ok: true
+        autoDownloadedServer: boolean
+        autoDownloadedModel: boolean
+        noticeMessage?: string
+        modelPath?: string
+        baseUrl?: string
+        hasLocalModelFile: boolean
+        serverRunning: boolean
+      }
+    | { ok: false; detail: string }
+  > => {
+    return ipcRenderer.invoke('chat-begin-llama-session', options)
+  },
+
+  getLocalModelStatus: (): Promise<{
+    hasLocalModelFile: boolean
+    modelPath: string | null
+    modelFilename: string | null
+    defaultModelId: string
+  }> => {
+    return ipcRenderer.invoke('chat-get-local-model-status')
+  },
+
+  probeLocalLlamaServer: (): Promise<{ serverRunning: boolean; baseUrl?: string }> => {
+    return ipcRenderer.invoke('chat-probe-local-llama-server')
+  },
+
+  downloadLocalModel: (): Promise<
+    | {
+        ok: true
+        modelPath: string
+        downloaded: boolean
+        baseUrl?: string
+        serverStarted: boolean
+      }
+    | { ok: false; detail: string }
+  > => {
+    return ipcRenderer.invoke('chat-download-local-model')
+  },
+
+  endChatLlamaSession: (): Promise<{ ok: boolean }> => {
+    return ipcRenderer.invoke('chat-end-llama-session')
+  },
+
+  openChatWindow: (options?: {
+    entryOrigin?: 'home' | 'pet'
+  }): Promise<{ ok: true; alreadyOpen: boolean }> => {
+    return ipcRenderer.invoke('chat-open-window', options)
+  },
+
+  focusChatWindow: (): Promise<{ ok: true; focused: boolean }> => {
+    return ipcRenderer.invoke('chat-focus-window')
+  },
+
+  closeChatWindow: (): Promise<{ ok: true }> => {
+    return ipcRenderer.invoke('chat-close-window')
+  },
+
+  reportClientError: (payload: {
+    scope?: string
+    message: string
+    detail?: string
+    stack?: string
+    url?: string
+    windowType?: string
+  }): Promise<{ ok: boolean }> => {
+    return ipcRenderer.invoke('report-client-error', payload)
+  },
+
+  logRendererInfo: (payload: {
+    scope?: string
+    message: string
+    detail?: string
+  }): Promise<{ ok: boolean }> => {
+    return ipcRenderer.invoke('log-renderer-info', payload)
   }
 })

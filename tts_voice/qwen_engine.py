@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-import json
 import os
 from pathlib import Path
 from typing import Any
@@ -72,30 +71,15 @@ class QwenVoiceDesignEngine:
         self.synthesize("你好。")
         print("[TTS/Qwen] 预热完成", flush=True)
 
-    def synthesize(self, text: str, speaker_id: int = 0, seed: int | None = None) -> bytes:
-        del speaker_id
+    def _apply_seed(self, seed: int | None) -> None:
+        if seed is None:
+            return
+        torch.manual_seed(seed)
+        np.random.seed(seed % (2**32 - 1))
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
 
-        normalized = normalize_tts_text(text)
-        if not normalized:
-            raise ValueError("text 不能为空")
-
-        if seed is not None:
-            torch.manual_seed(seed)
-            np.random.seed(seed % (2**32 - 1))
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(seed)
-
-        with torch.no_grad():
-            wavs, sample_rate = self._model.generate_voice_design(
-                text=normalized,
-                language=self._language,
-                instruct=self._instruct,
-                **self._generation,
-            )
-
-        return self._to_wav_bytes(wavs[0], sample_rate)
-
-    def _to_wav_bytes(self, wav: np.ndarray, sample_rate: int) -> bytes:
+    def _encode_wav(self, wav: np.ndarray, sample_rate: int) -> bytes:
         audio = np.asarray(wav, dtype=np.float32)
         if sample_rate != self._target_sr:
             target_len = max(1, int(len(audio) * self._target_sr / sample_rate))
@@ -104,6 +88,42 @@ class QwenVoiceDesignEngine:
         buffer = io.BytesIO()
         sf.write(buffer, audio, self._target_sr, format="WAV")
         return buffer.getvalue()
+
+    def synthesize_batch(
+        self,
+        texts: list[str],
+        speaker_id: int = 0,
+        seed: int | None = None,
+    ) -> list[bytes]:
+        del speaker_id
+
+        normalized = [normalize_tts_text(text) for text in texts]
+        if not normalized:
+            return []
+        if any(not piece for piece in normalized):
+            raise ValueError("batch 中存在空 text")
+
+        self._apply_seed(seed)
+
+        with torch.no_grad():
+            wavs, sample_rate = self._model.generate_voice_design(
+                text=normalized,
+                language=[self._language] * len(normalized),
+                instruct=[self._instruct] * len(normalized),
+                non_streaming_mode=True,
+                **self._generation,
+            )
+
+        return [self._encode_wav(wav, sample_rate) for wav in wavs]
+
+    def synthesize(self, text: str, speaker_id: int = 0, seed: int | None = None) -> bytes:
+        del speaker_id
+
+        normalized = normalize_tts_text(text)
+        if not normalized:
+            raise ValueError("text 不能为空")
+
+        return self.synthesize_batch([normalized], seed=seed)[0]
 
     @property
     def config_path(self) -> Path:
@@ -187,32 +207,16 @@ class QwenCloneEngine:
         self.synthesize("你好。")
         print("[TTS/Qwen Clone] 预热完成", flush=True)
 
-    def synthesize(self, text: str, speaker_id: int = 0, seed: int | None = None) -> bytes:
-        del speaker_id
+    def _apply_seed(self, seed: int | None) -> None:
+        if seed is None:
+            return
+        torch.manual_seed(seed)
+        np.random.seed(seed % (2**32 - 1))
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
 
-        normalized = normalize_tts_text(text)
-        if not normalized:
-            raise ValueError("text 不能为空")
-
-        if seed is not None:
-            torch.manual_seed(seed)
-            np.random.seed(seed % (2**32 - 1))
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(seed)
-
-        kwargs: dict[str, Any] = {}
-        if self._generation:
-            kwargs.update(self._generation)
-
-        with torch.no_grad():
-            wavs, sample_rate = self._model.generate_voice_clone(
-                text=normalized,
-                language=self._language,
-                voice_clone_prompt=self._voice_clone_prompt,
-                **kwargs,
-            )
-
-        audio = np.asarray(wavs[0], dtype=np.float32)
+    def _encode_wav(self, wav: np.ndarray, sample_rate: int) -> bytes:
+        audio = np.asarray(wav, dtype=np.float32)
         if sample_rate != self._target_sr:
             target_len = max(1, int(len(audio) * self._target_sr / sample_rate))
             audio = resample(audio, target_len).astype(np.float32)
@@ -220,6 +224,45 @@ class QwenCloneEngine:
         buffer = io.BytesIO()
         sf.write(buffer, audio, self._target_sr, format="WAV")
         return buffer.getvalue()
+
+    def synthesize_batch(
+        self,
+        texts: list[str],
+        speaker_id: int = 0,
+        seed: int | None = None,
+    ) -> list[bytes]:
+        del speaker_id
+
+        normalized = [normalize_tts_text(text) for text in texts]
+        if not normalized:
+            return []
+        if any(not piece for piece in normalized):
+            raise ValueError("batch 中存在空 text")
+
+        self._apply_seed(seed)
+
+        kwargs: dict[str, Any] = {"non_streaming_mode": True}
+        if self._generation:
+            kwargs.update(self._generation)
+
+        with torch.no_grad():
+            wavs, sample_rate = self._model.generate_voice_clone(
+                text=normalized,
+                language=[self._language] * len(normalized),
+                voice_clone_prompt=self._voice_clone_prompt,
+                **kwargs,
+            )
+
+        return [self._encode_wav(wav, sample_rate) for wav in wavs]
+
+    def synthesize(self, text: str, speaker_id: int = 0, seed: int | None = None) -> bytes:
+        del speaker_id
+
+        normalized = normalize_tts_text(text)
+        if not normalized:
+            raise ValueError("text 不能为空")
+
+        return self.synthesize_batch([normalized], seed=seed)[0]
 
     @property
     def config_path(self) -> Path:

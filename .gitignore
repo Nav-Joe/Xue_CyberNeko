@@ -25,19 +25,34 @@ Thumbs.db
 .venv/
 .runtime/
 
+# TypeScript
+*.tsbuildinfo
+
 # Python bytecode
 __pycache__/
 *.py[cod]
 
-# TypeScript
-*.tsbuildinfo
-
-# ── 本地私人文档（不上传）──
+# ── 本地私人文档（维护者笔记 / 里程碑规范 / 排查手册，不上传）──
 docs/
+*.local.md
+notes/
+私人/
+
+# ── 密钥与凭据（防御性规则；正常应在 userData，勿复制进仓库）──
+.secrets/
+**/*secret*
+**/*credentials*
+*.pem
+*.key
+chat-config.json
+character-cards.json
+**/chat-config.json
+**/character-cards.json
 
 # ── 个人测试脚本（不上传）──
 测试Qwen3.0_tts引擎.bat
 scripts/qwen3-tts/
+切换TTS引擎.bat
 
 # ── Live2D 模型（npm run setup:model 下载；README 保留）──
 public/models/hiyori_pro/
@@ -53,7 +68,6 @@ tts_voice/bert/
 tts_voice/config.json
 
 # ── 音色工坊：官方 default_sample 参考音入库；运行时缓存不入库 ──
-# other_custom_cache / custom_sample 仅保留 README 占位；引擎预热产物见下方 ** 规则
 voice_forge/other_custom_cache/**/*
 !voice_forge/other_custom_cache/README.md
 voice_forge/**/touch_cache/
@@ -62,11 +76,18 @@ voice_forge/**/corpus.snapshot.json
 voice_forge/custom_sample/**/*
 !voice_forge/custom_sample/README.md
 
-# ── 本地 TTS / 触摸模式覆盖 ──
-.runtime/tts-backend.env
-.runtime/touch-mode.env
-.runtime/corpus.custom.json
-切换TTS引擎.bat
+# ── 本地 LLM（自动下载，不入库）──
+llama-server.exe
+llama_bin/
+llama_models/
+llama_models/*.gguf
+
+# ── .runtime 内常见本地状态（.runtime/ 已整目录忽略；下列为显式备忘）──
+# voice-forge.json / touch-mode.env / corpus.custom.json / tts-backend.env
+# realtime-inference.env / llama-server.pid / logs/*.log
+.runtime/llama-server-download.zip
+.runtime/llama-server-extract/
+.runtime/experimental-voice-upload.json
 
 # ── 外部克隆的大体积依赖 ──
 Bert-VITS2/

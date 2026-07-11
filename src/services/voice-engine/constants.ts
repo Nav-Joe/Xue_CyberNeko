@@ -1,0 +1,11 @@
+export const POLL_INTERVAL_MS = 800
+export const LOAD_TIMEOUT_MS = 600_000
+export const ENGINE_MOUNT_GRACE_MS = 20_000
+export const SYNC_STUCK_MS = 180_000
+export const TOUCH_MODE_MISMATCH_GRACE_MS = 3_000
+export const TOUCH_MODE_MISMATCH_ABORT_MS = 15_000
+export const RESYNC_INTERVAL_MS = 2_500
+export const PREWARM_STUCK_MS = 120_000
+export const MAX_RESYNC_ATTEMPTS = 12
+export const RESYNC_COOLDOWN_MS = 3_000
+export const POST_SYNC_GRACE_MS = 2_000

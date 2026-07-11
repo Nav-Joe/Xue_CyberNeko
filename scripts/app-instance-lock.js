@@ -7,7 +7,6 @@ const path = require('path')
 
 const ROOT = path.join(__dirname, '..')
 const LOCK_PATH = path.join(ROOT, '.runtime', 'app-instance.lock')
-const STALE_LAUNCH_MS = 120_000
 
 function ensureRuntimeDir() {
   fs.mkdirSync(path.dirname(LOCK_PATH), { recursive: true })
@@ -42,16 +41,17 @@ function isLockActive(lock) {
   if (!lock) {
     return false
   }
-  if (pidAlive(lock.pid)) {
-    return true
+  // 锁文件里的 pid 已退出即视为过期（含 launching），避免异常退出后 2 分钟内无法启动
+  return pidAlive(lock.pid)
+}
+
+function pruneStaleLock() {
+  const lock = readLock()
+  if (!lock || isLockActive(lock)) {
+    return false
   }
-  if (lock.role === 'launching') {
-    const startedAt = Date.parse(lock.startedAt || '')
-    if (Number.isFinite(startedAt) && Date.now() - startedAt < STALE_LAUNCH_MS) {
-      return true
-    }
-  }
-  return false
+  clearLock()
+  return true
 }
 
 function isAppRunning() {
@@ -135,6 +135,7 @@ function findProjectElectronPids() {
 }
 
 function isAppRunningStrict() {
+  pruneStaleLock()
   if (isAppRunning()) {
     return true
   }
@@ -144,16 +145,19 @@ function isAppRunningStrict() {
 module.exports = {
   LOCK_PATH,
   readLock,
+  isLockActive,
   isAppRunning,
   isAppRunningStrict,
   writeLock,
   clearLock,
-  pidAlive
+  pidAlive,
+  pruneStaleLock
 }
 
 if (require.main === module) {
   const cmd = process.argv[2]
   if (cmd === 'check') {
+    pruneStaleLock()
     process.exit(isAppRunningStrict() ? 2 : 0)
   }
   if (cmd === 'launching') {

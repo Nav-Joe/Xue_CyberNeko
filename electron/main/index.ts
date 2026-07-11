@@ -3,6 +3,16 @@ import { readFileSync } from 'fs'
 import { createRequire } from 'node:module'
 import { basename, join } from 'path'
 
+import './logging/registerErrorHandlers'
+import { attachWindowDiagnostics } from './logging/registerErrorHandlers'
+import { logError, logFatal, logInfo } from './logging/logger'
+import { registerLoggingIpc } from './ipc/logging'
+
+import { registerCharacterCardsIpc } from './ipc/characterCards'
+import { registerChatConfigIpc } from './ipc/chatConfig'
+import { registerLlmOpenaiIpc } from './ipc/llmOpenai'
+import { registerLlamaServerIpc } from './ipc/llamaServer'
+import { closeChatWindow, focusChatWindow, getChatWindow, openChatWindow, setChatWindowLifecycle } from './chat/window'
 import { readTouchConfig, readVoiceForgeConfig, reconcileVoiceRuntimeConfig, prepareVoiceCreation, prepareVoiceUpload, requestVoiceModelRegeneration, listVoiceSamples, switchVoiceSample, deleteVoiceSample, cancelVoiceForgeReview, applyCorpusPrewarm, applyAltEngineCorpus, disableAltEngineCorpus, setOfficialTouchPlayback, setRealtimeTouchInference, readRealtimeInferenceFlag, isOfficialTouchCacheReady, writeTouchConfig, writeVoiceForgeConfig, readSampleCorpus, readExperimentalVoiceUploadEnabled, writeExperimentalVoiceUploadEnabled, resetExperimentalFeaturesOnStartup, type TouchFeedbackMode } from './runtimeConfig'
 import { DEFAULT_LIVE2D_MODEL_WEB_PATH, resolveLive2DModelWebPath } from './live2dModel'
 import { readTtsEngineCapabilities } from './ttsEngineInfo'
@@ -35,6 +45,10 @@ const PET_BOOTSTRAP_HEIGHT = 320
 
 let petWindow: BrowserWindow | null = null
 let homeWindow: BrowserWindow | null = null
+/** 为文字聊天临时隐藏 Home，避免触发「回家隐藏桌宠」的 hide 逻辑 */
+let homeHiddenForChat = false
+/** 本次文字聊天从哪进入；关闭聊天窗后回到对应界面 */
+let chatEntryOrigin: 'home' | 'pet' | null = null
 let pendingVoiceUploadPath: string | null = null
 let isQuitting = false
 let petWindowWidth = PET_BOOTSTRAP_WIDTH
@@ -225,13 +239,65 @@ function notifyHomeVisibility(visible: boolean): void {
   petWindow?.webContents.send('home-visibility-changed', visible)
 }
 
+function hideHomeForChat(): void {
+  homeHiddenForChat = true
+  homeWindow?.hide()
+}
+
+function hidePetForChat(): void {
+  if (!petWindow || petWindow.isDestroyed()) return
+  petWindow.hide()
+}
+
+function prepareWindowsForChat(): void {
+  if (chatEntryOrigin === 'pet') {
+    hidePetForChat()
+    return
+  }
+  hideHomeForChat()
+}
+
+function restorePetAfterChat(): void {
+  if (!petWindow || petWindow.isDestroyed()) return
+  setPetWindowOverlay(0, 0, false)
+  petWindow.show()
+  petWindow.setIgnoreMouseEvents(true, { forward: true })
+}
+
+function restoreWindowsAfterChat(): void {
+  const origin = chatEntryOrigin
+  chatEntryOrigin = null
+
+  if (origin === 'pet') {
+    restorePetAfterChat()
+    return
+  }
+
+  restoreHomeAfterChat()
+}
+
+function restoreHomeAfterChat(): void {
+  homeHiddenForChat = false
+  if (homeWindow && !homeWindow.isDestroyed()) {
+    homeWindow.show()
+    homeWindow.focus()
+    notifyHomeVisibility(true)
+    return
+  }
+  createHomeWindow()
+}
+
 function bindHomeWindowEvents(win: BrowserWindow): void {
   win.on('show', () => {
-    notifyHomeVisibility(true)
+    if (!homeHiddenForChat) {
+      notifyHomeVisibility(true)
+    }
   })
 
   win.on('hide', () => {
-    notifyHomeVisibility(false)
+    if (!homeHiddenForChat) {
+      notifyHomeVisibility(false)
+    }
   })
 
   win.on('close', (event) => {
@@ -292,6 +358,7 @@ function createPetWindow(): void {
   })
 
   loadRenderer(petWindow, 'pet')
+  attachWindowDiagnostics(petWindow, 'pet')
 }
 
 /**
@@ -327,9 +394,38 @@ function createHomeWindow(): void {
   })
 
   loadRenderer(homeWindow, 'home')
+  attachWindowDiagnostics(homeWindow, 'home')
 }
 
 function registerIpc(): void {
+  registerLoggingIpc()
+  registerCharacterCardsIpc()
+  registerChatConfigIpc()
+  registerLlmOpenaiIpc()
+  registerLlamaServerIpc()
+
+  ipcMain.handle('chat-open-window', (_event, options?: { entryOrigin?: 'home' | 'pet' }) => {
+    const existing = getChatWindow()
+    if (!existing || existing.isDestroyed()) {
+      chatEntryOrigin = options?.entryOrigin ?? 'home'
+    }
+    const { alreadyOpen } = openChatWindow(loadRenderer)
+    if (!alreadyOpen) {
+      const win = getChatWindow()
+      if (win) attachWindowDiagnostics(win, 'chat')
+    }
+    return { ok: true as const, alreadyOpen }
+  })
+
+  ipcMain.handle('chat-focus-window', () => {
+    return { ok: true as const, focused: focusChatWindow() }
+  })
+
+  ipcMain.handle('chat-close-window', () => {
+    closeChatWindow()
+    return { ok: true as const }
+  })
+
   ipcMain.on('set-ignore-mouse-events', (event, ignore: boolean) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win && win === petWindow) {
@@ -660,17 +756,29 @@ app.on('before-quit', () => {
 })
 
 app.whenReady().then(() => {
-  appInstanceLock.writeLock(process.pid, 'app')
-  resetExperimentalFeaturesOnStartup()
-  reconcileVoiceRuntimeConfig()
-  registerIpc()
-  createPetWindow()
+  try {
+    appInstanceLock.writeLock(process.pid, 'app')
+    resetExperimentalFeaturesOnStartup()
+    reconcileVoiceRuntimeConfig()
+    setChatWindowLifecycle({
+      onOpened: prepareWindowsForChat,
+      onClosed: restoreWindowsAfterChat
+    })
+    registerIpc()
+    createPetWindow()
+    logInfo('main', 'Application ready')
 
-  app.on('activate', () => {
-    if (!petWindow) {
-      createPetWindow()
-    }
-  })
+    app.on('activate', () => {
+      if (!petWindow) {
+        createPetWindow()
+      }
+    })
+  } catch (error) {
+    logFatal('main', 'Startup failed in app.whenReady', error)
+    throw error
+  }
+}).catch((error) => {
+  logFatal('main', 'app.whenReady rejected', error)
 })
 
 app.on('window-all-closed', () => {

@@ -133,6 +133,10 @@ Qwen 音色工坊与第三方引擎语料（`alt_engine_corpus`）共用 `audio_
 3. 将 `config.yaml` 中 `engine` 设为 `bert_vits2`，重启 TTS。
 4. 推理依赖由 `首次安装` / `prepare-tts-env.cmd` 写入项目 `.venv`（`requirements-bert-vits2-infer.txt`），**无需**进入 Bert-VITS2 再建 venv。
 
+**注意：** 本项目 API 契约包为 `tts_voice/app_config/`（勿命名为 `config`，会与 Bert-VITS2 的 `config.py` 冲突）。
+
+**引擎切换：** 修改 `config.yaml` 的 `engine` 后需重启 TTS。加载前 `engines/runtime_isolation.py` 会清理 `sys.modules` / `sys.path` / 环境变量，**不会修改** `qwen_config.json`、`config.yaml` 或 `.runtime/voice-forge.json`。
+
 ## Style-Bert-VITS2
 
 1. 在 `tts_voice/engines/style_bert_vits2.py` 实现 `create_engine()`，返回符合 `TtsEngine` 协议的实例。
@@ -147,7 +151,8 @@ Qwen 音色工坊与第三方引擎语料（`alt_engine_corpus`）共用 `audio_
 | 路径 | 说明 |
 |------|------|
 | `GET /health` | 服务状态；`backend` 字段为当前引擎名 |
-| `POST /tts` | 合成单句（body: `{ text, speaker_id?, seed? }`） |
+| `POST /tts` | 合成单句（body: `{ text, speaker_id?, seed?, mode?, order?, parallel_lanes? }`）；`mode=chat` 走聊天调度 |
+| `POST /tts/batch` | 一次合成多句（`texts` 最多 5 句）；引擎可实现 `synthesize_batch` 加速 |
 | `GET /voice-forge/status` | 音色工坊会话状态 |
 | `POST /voice-forge/upload-ready` | 上传参考音后进入试听 |
 

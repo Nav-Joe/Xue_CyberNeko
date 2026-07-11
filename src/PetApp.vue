@@ -1,102 +1,97 @@
 <script setup lang="ts">
-import Live2DView from './components/Live2DView.vue'
-import PetBootOverlay from './components/PetBootOverlay.vue'
-import VoiceEngineLoadingOverlay from './components/VoiceEngineLoadingOverlay.vue'
-import PetContextMenu from './components/PetContextMenu.vue'
-import VoiceForgeReviewDialog from './components/VoiceForgeReviewDialog.vue'
+import BootScreen from './app/components/BootScreen.vue'
+import ErrorBoundary from './app/components/ErrorBoundary.vue'
+import PetOverlay from './app/components/PetOverlay.vue'
+import ChatBootstrapOverlay from './components/chat/ChatBootstrapOverlay.vue'
+import { useAppBoot } from './app/composables/useAppBoot'
+import { useOverlayManager } from './app/composables/useOverlayManager'
+import { useVoiceEventBus } from './app/composables/useVoiceEventBus'
+import { useChatEntry } from './composables/chat/useChatEntry'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import {
-  CORPUS_PREWARM_BOOT_STEPS,
-  VOICE_CREATE_BOOT_STEPS,
-  type BootStep
-} from './constants/petBoot'
-import { fetchCacheStatus } from './services/audioCache'
-import {
-  fetchTtsHealth,
-  fetchVoiceForgeStatus,
-  resumeVoiceForgeCreation,
-  syncTouchModeAfterSwitch,
-  type VoiceForgeStatus
-} from './services/voiceForgeApi'
+import { setRuntimeCorpus } from './services/corpus'
+import { setRealtimeInferenceEnabled } from './services/ttsSettings'
+import { getTouchFeedbackMode, setTouchFeedbackMode, type TouchFeedbackMode } from './services/touchModeSettings'
+import { isVoiceUploadFlowGuardActive } from './services/voiceUploadFlowGuard'
+import { syncTouchModeAfterSwitch } from './services/voiceForgeApi'
 import {
   expectedTouchModeForLoad,
   waitForVoiceEngineLoad,
   type VoiceEngineLoadMode,
   type VoiceEngineLoadRequest
 } from './services/voiceEngineLoading'
-import { setRuntimeCorpus } from './services/corpus'
-import { setRealtimeInferenceEnabled } from './services/ttsSettings'
-import { getTouchFeedbackMode, setTouchFeedbackMode, type TouchFeedbackMode } from './services/touchModeSettings'
-import { isVoiceUploadFlowGuardActive } from './services/voiceUploadFlowGuard'
-import { loadTtsCapabilities } from './services/ttsCapabilities'
-
-type BootPhase = 'checking' | 'generating' | 'review' | 'prewarming' | 'ready'
-type BootFlow = 'create' | 'corpus' | null
-
-const BOOT_OVERLAY_WIDTH = 360
-const BOOT_OVERLAY_HEIGHT = 300
-const ENGINE_LOAD_OVERLAY_WIDTH = 360
-const ENGINE_LOAD_OVERLAY_HEIGHT = 260
-const REVIEW_OVERLAY_WIDTH = 360
-const REVIEW_OVERLAY_HEIGHT = 520
 
 const menuVisible = ref(false)
 const menuX = ref(0)
 const menuY = ref(0)
 const petStage = ref({ width: 240, height: 320 })
-const bootPhase = ref<BootPhase>('checking')
-const bootFlow = ref<BootFlow>(null)
-const bootMessage = ref('正在检查语音服务…')
-const bootProgress = ref<{ done: number; total: number } | null>(null)
-const reviewStatus = ref<VoiceForgeStatus | null>(null)
 const engineLoadActive = ref(false)
 const engineLoadTitle = ref('加载中')
 const engineLoadMessage = ref('请稍候…')
 const engineLoadProgress = ref<{ done: number; total: number } | null>(null)
-
-const petReady = computed(() => bootPhase.value === 'ready' && !engineLoadActive.value)
-const showBootOverlay = computed(
-  () =>
-    bootPhase.value === 'checking' ||
-    bootPhase.value === 'generating' ||
-    bootPhase.value === 'prewarming'
-)
-const showEngineLoadOverlay = computed(() => engineLoadActive.value)
-
-const bootSteps = computed((): BootStep[] => {
-  if (bootFlow.value === 'corpus') {
-    return CORPUS_PREWARM_BOOT_STEPS
-  }
-  return VOICE_CREATE_BOOT_STEPS
-})
-
-const bootCurrentStepId = computed((): string => {
-  if (bootPhase.value === 'generating') {
-    return 'generating'
-  }
-  if (bootPhase.value === 'review') {
-    return 'review'
-  }
-  if (bootPhase.value === 'prewarming') {
-    return 'prewarming'
-  }
-  if (bootPhase.value === 'ready') {
-    return 'ready'
-  }
-  return bootSteps.value[0]?.id ?? 'ready'
-})
 
 let bootTimer: number | null = null
 let unbindVoiceConfigChanged: (() => void) | null = null
 let unbindVoiceEngineLoadBegin: (() => void) | null = null
 let engineLoadInFlight = false
 
+async function bootstrapTouchConfig(): Promise<void> {
+  if (!window.electronAPI?.readVoiceForgeConfig) return
+  try {
+    const config = await window.electronAPI.readVoiceForgeConfig()
+    setTouchFeedbackMode(config.mode)
+    if (config.mode === 'custom_corpus' || config.mode === 'alt_engine_corpus') {
+      setRuntimeCorpus(config.corpus)
+    }
+    if (window.electronAPI.readRealtimeInferenceFlag) {
+      const flag = await window.electronAPI.readRealtimeInferenceFlag()
+      setRealtimeInferenceEnabled(flag.enabled)
+    }
+  } catch (error) {
+    console.warn('[PetApp] 读取触摸配置失败', error)
+  }
+}
+
+const boot = useAppBoot({
+  onConfigRefresh: bootstrapTouchConfig,
+  onReady: async () => {
+    if (window.electronAPI?.setPetWindowOverlay) {
+      await window.electronAPI.setPetWindowOverlay(0, 0, false)
+      window.electronAPI.setIgnoreMouseEvents(true)
+    }
+    await window.electronAPI?.notifyVoiceSamplesChanged?.()
+  },
+  onEnterReview: () => {
+    menuVisible.value = false
+  },
+  onEnterLoading: () => {
+    menuVisible.value = false
+  }
+})
+
+const { chatBooting, bootTitle, bootMessage, bootProgress, openChat } = useChatEntry()
+
+const overlay = useOverlayManager({
+  bootPhase: boot.phase,
+  showBootOverlay: boot.showBootOverlay,
+  engineLoadActive,
+  menuVisible,
+  reviewStatus: boot.reviewStatus,
+  chatBooting
+})
+
+const voiceBus = useVoiceEventBus({
+  enterGeneratingBoot: boot.enterGeneratingBoot,
+  enterReview: boot.enterReview
+})
+
+const petReady = computed(() => boot.phase.value === 'ready' && !engineLoadActive.value)
+
 async function syncPetWindowForBoot(): Promise<void> {
   if (!window.electronAPI?.setPetWindowOverlay) {
     return
   }
 
-  if (bootPhase.value === 'ready' && !menuVisible.value && !reviewStatus.value && !engineLoadActive.value) {
+  if (overlay.shouldShrinkToPet.value) {
     await window.electronAPI.setPetWindowOverlay(0, 0, false)
     window.electronAPI.setIgnoreMouseEvents(true)
     return
@@ -104,22 +99,9 @@ async function syncPetWindowForBoot(): Promise<void> {
 
   window.electronAPI.setIgnoreMouseEvents(false)
 
-  if (bootPhase.value === 'review') {
-    await window.electronAPI.setPetWindowOverlay(REVIEW_OVERLAY_WIDTH, REVIEW_OVERLAY_HEIGHT, true)
-    return
-  }
-
-  if (showEngineLoadOverlay.value) {
-    await window.electronAPI.setPetWindowOverlay(
-      ENGINE_LOAD_OVERLAY_WIDTH,
-      ENGINE_LOAD_OVERLAY_HEIGHT,
-      true
-    )
-    return
-  }
-
-  if (showBootOverlay.value) {
-    await window.electronAPI.setPetWindowOverlay(BOOT_OVERLAY_WIDTH, BOOT_OVERLAY_HEIGHT, true)
+  const spec = overlay.activeOverlay.value
+  if (spec) {
+    await window.electronAPI.setPetWindowOverlay(spec.width, spec.height, true)
   }
 }
 
@@ -159,40 +141,6 @@ function handleWindowBlur(): void {
   if (menuVisible.value) {
     closeMenu()
   }
-}
-
-async function bootstrapTouchConfig(): Promise<void> {
-  if (!window.electronAPI?.readVoiceForgeConfig) return
-  try {
-    const config = await window.electronAPI.readVoiceForgeConfig()
-    setTouchFeedbackMode(config.mode)
-    if (config.mode === 'custom_corpus' || config.mode === 'alt_engine_corpus') {
-      setRuntimeCorpus(config.corpus)
-    }
-    if (window.electronAPI.readRealtimeInferenceFlag) {
-      const flag = await window.electronAPI.readRealtimeInferenceFlag()
-      setRealtimeInferenceEnabled(flag.enabled)
-    }
-  } catch (error) {
-    console.warn('[PetApp] 读取触摸配置失败', error)
-  }
-}
-
-function enterGeneratingBoot(): void {
-  bootFlow.value = 'create'
-  bootPhase.value = 'generating'
-  bootMessage.value = '正在生成克隆参考音（VoiceDesign 可能需要数分钟）…'
-  bootProgress.value = null
-  reviewStatus.value = null
-  menuVisible.value = false
-}
-
-function enterPrewarmingBoot(message = '正在预热触摸台词…', flow: BootFlow = 'create'): void {
-  bootFlow.value = flow
-  bootPhase.value = 'prewarming'
-  bootMessage.value = message
-  reviewStatus.value = null
-  menuVisible.value = false
 }
 
 function resolveLoadMode(payload: {
@@ -270,192 +218,6 @@ async function runVoiceEngineLoad(options: VoiceEngineLoadRequest): Promise<bool
   }
 }
 
-function finishBootReady(): void {
-  bootFlow.value = null
-  bootProgress.value = null
-  reviewStatus.value = null
-  void (async () => {
-    if (window.electronAPI?.setPetWindowOverlay) {
-      await window.electronAPI.setPetWindowOverlay(0, 0, false)
-      window.electronAPI.setIgnoreMouseEvents(true)
-    }
-    bootPhase.value = 'ready'
-    await window.electronAPI?.notifyVoiceSamplesChanged?.()
-  })()
-}
-
-async function evaluateInitialBoot(): Promise<void> {
-  await bootstrapTouchConfig()
-  const caps = await loadTtsCapabilities()
-  const touchMode = getTouchFeedbackMode()
-
-  if (!caps.voiceForgeSupported) {
-    if (getTouchFeedbackMode() === 'alt_engine_corpus') {
-      const cache = await fetchCacheStatus()
-      if (cache?.building) {
-        enterPrewarmingBoot(undefined, 'corpus')
-        return
-      }
-    }
-    finishBootReady()
-    return
-  }
-
-  const status = await fetchVoiceForgeStatus()
-
-  if (!status) {
-    finishBootReady()
-    return
-  }
-
-  if (status.flow === 'create_voice') {
-    if (status.phase === 'pending_restart' || status.phase === 'generating') {
-      enterGeneratingBoot()
-      if (!status.reference_ready) {
-        await resumeVoiceForgeCreation()
-      }
-      return
-    }
-    if (status.phase === 'prewarming') {
-      enterPrewarmingBoot()
-      return
-    }
-    if (status.review_pending && status.reference_ready) {
-      bootFlow.value = 'create'
-      bootPhase.value = 'review'
-      reviewStatus.value = status
-      return
-    }
-  }
-
-  if (touchMode === 'curated') {
-    finishBootReady()
-    return
-  }
-
-  const cache = await fetchCacheStatus()
-  // TTS 启动时会同步完成预热；仅在实际构建中或缓存已就绪时区分状态，避免误判重复预热
-  if (cache?.building) {
-    enterPrewarmingBoot(undefined, 'corpus')
-    return
-  }
-
-  if (cache?.ready) {
-    finishBootReady()
-    return
-  }
-
-  // 磁盘缓存有效但引擎尚未挂载：直接放出桌宠，触摸时会走 TTS 实时合成或稍后缓存
-  finishBootReady()
-}
-
-async function refreshBootProgress(): Promise<void> {
-  if (bootPhase.value === 'ready' || bootPhase.value === 'checking') {
-    return
-  }
-
-  // 试听确认阶段无需轮询 TTS，等用户操作即可
-  if (bootPhase.value === 'review') {
-    return
-  }
-
-  const status = await fetchVoiceForgeStatus()
-
-  if (bootPhase.value === 'generating') {
-    if (status?.review_pending && status.reference_ready) {
-      bootPhase.value = 'review'
-      reviewStatus.value = status
-    }
-    return
-  }
-
-  if (bootPhase.value === 'prewarming') {
-    const [cache, health] = await Promise.all([fetchCacheStatus(), fetchTtsHealth()])
-    const prewarmStillRunning = Boolean(
-      health?.sync_running ||
-        health?.prewarm_active ||
-        cache?.prewarm_active ||
-        cache?.building
-    )
-
-    if (cache?.building && cache.progress.total > 0) {
-      bootProgress.value = cache.progress
-      bootMessage.value = `正在预热触摸台词 ${cache.progress.done}/${cache.progress.total}…`
-    } else if (cache?.message?.includes('正在预热语料库')) {
-      bootMessage.value = cache.message
-      bootProgress.value = null
-    } else if (prewarmStillRunning) {
-      bootMessage.value = '正在预热语料库喵~'
-      bootProgress.value = null
-    } else {
-      bootProgress.value = null
-    }
-
-    const sessionDone =
-      !status?.flow || status.phase === 'completed' || status.phase === 'cancelled'
-
-    const cacheReady = Boolean(cache?.ready && !cache?.building && !cache?.stale && !prewarmStillRunning)
-    const cacheSkipped = Boolean(
-      cache?.message && !cache?.building && !cache?.stale && !prewarmStillRunning
-    )
-
-    if (sessionDone && (cacheReady || cacheSkipped || getTouchFeedbackMode() === 'curated')) {
-      finishBootReady()
-      await bootstrapTouchConfig()
-      return
-    }
-
-    if (status?.phase === 'prewarming' && cacheReady) {
-      finishBootReady()
-      await bootstrapTouchConfig()
-      return
-    }
-
-    if (
-      sessionDone &&
-      getTouchFeedbackMode() === 'custom_corpus' &&
-      cache?.touch_mode === 'curated' &&
-      !cache?.building
-    ) {
-      console.warn('[PetApp] 语料预热未能启动，已退出等待')
-      finishBootReady()
-      await bootstrapTouchConfig()
-    }
-  }
-}
-
-function onReviewApproved(): void {
-  enterPrewarmingBoot('已确认声线，正在预热触摸台词…', 'create')
-}
-
-function onReviewDone(): void {
-  reviewStatus.value = null
-  finishBootReady()
-  void bootstrapTouchConfig()
-}
-
-function onReviewRegenerating(): void {
-  reviewStatus.value = null
-  enterGeneratingBoot()
-}
-
-function onVoiceForgeBootEvent(): void {
-  enterGeneratingBoot()
-}
-
-function onVoiceUploadReviewEvent(): void {
-  void (async () => {
-    const status = await fetchVoiceForgeStatus()
-    if (!status?.review_pending) {
-      return
-    }
-    bootFlow.value = 'create'
-    bootPhase.value = 'review'
-    reviewStatus.value = status
-    menuVisible.value = false
-  })()
-}
-
 function onVoicePrewarmBootEvent(): void {
   void runVoiceEngineLoad({
     title: '更新语料库',
@@ -484,14 +246,14 @@ async function onVoiceConfigChanged(payload: {
   await runVoiceEngineLoad({ title, message, mode: loadMode })
 }
 
-watch([bootPhase, reviewStatus, menuVisible, engineLoadActive], () => {
+watch([boot.phase, boot.reviewStatus, menuVisible, engineLoadActive, chatBooting], () => {
   void syncPetWindowForBoot()
 })
 
 onMounted(() => {
   window.addEventListener('blur', handleWindowBlur)
-  window.addEventListener('voice-forge-boot', onVoiceForgeBootEvent)
-  window.addEventListener('voice-upload-review', onVoiceUploadReviewEvent)
+  window.addEventListener('voice-forge-boot', voiceBus.onVoiceForgeBoot)
+  window.addEventListener('voice-upload-review', voiceBus.onVoiceUploadReview)
   window.addEventListener('voice-prewarm-boot', onVoicePrewarmBootEvent)
   unbindVoiceConfigChanged = window.electronAPI?.onVoiceConfigChanged?.((payload) => {
     void onVoiceConfigChanged(payload)
@@ -500,16 +262,16 @@ onMounted(() => {
     window.electronAPI?.onVoiceEngineLoadBegin?.((payload) => {
       void runVoiceEngineLoad(payload)
     }) ?? null
-  void evaluateInitialBoot()
+  void boot.evaluateInitialBoot()
   bootTimer = window.setInterval(() => {
-    void refreshBootProgress()
+    void boot.refreshBootProgress()
   }, 1500)
 })
 
 onUnmounted(() => {
   window.removeEventListener('blur', handleWindowBlur)
-  window.removeEventListener('voice-forge-boot', onVoiceForgeBootEvent)
-  window.removeEventListener('voice-upload-review', onVoiceUploadReviewEvent)
+  window.removeEventListener('voice-forge-boot', voiceBus.onVoiceForgeBoot)
+  window.removeEventListener('voice-upload-review', voiceBus.onVoiceUploadReview)
   window.removeEventListener('voice-prewarm-boot', onVoicePrewarmBootEvent)
   unbindVoiceConfigChanged?.()
   unbindVoiceEngineLoadBegin?.()
@@ -521,55 +283,44 @@ onUnmounted(() => {
 
 <template>
   <div class="pet-root">
-    <VoiceEngineLoadingOverlay
-      v-if="showEngineLoadOverlay"
-      :title="engineLoadTitle"
-      :message="engineLoadMessage"
-      :progress="engineLoadProgress"
+    <ErrorBoundary :message="boot.errorMessage.value" />
+
+    <BootScreen
+      :show-engine-load-overlay="overlay.showEngineLoadOverlay.value"
+      :engine-load-title="engineLoadTitle"
+      :engine-load-message="engineLoadMessage"
+      :engine-load-progress="engineLoadProgress"
+      :show-boot-overlay="boot.showBootOverlay.value"
+      :boot-steps="boot.bootSteps.value"
+      :boot-current-step-id="boot.currentStepId.value"
+      :boot-message="boot.message.value"
+      :boot-progress="boot.progress.value"
+      :boot-phase="boot.phase.value"
+      :review-status="boot.reviewStatus.value"
+      @approved="boot.onReviewApproved"
+      @done="boot.onReviewDone"
+      @regenerating="boot.onReviewRegenerating"
     />
 
-    <PetBootOverlay
-      v-else-if="showBootOverlay"
-      :steps="bootSteps"
-      :current-step-id="bootCurrentStepId"
+    <ChatBootstrapOverlay
+      v-if="chatBooting"
+      :title="bootTitle"
       :message="bootMessage"
       :progress="bootProgress"
     />
 
-    <div
-      v-if="petReady"
-      class="pet-stage"
-      :style="{ width: `${petStage.width}px`, height: `${petStage.height}px` }"
-    >
-      <Live2DView
-        mode="pet"
-        :interaction-locked="menuVisible || !petReady"
-        @open-menu="openMenu"
-        @pet-frame-ready="onPetFrameReady"
-      />
-    </div>
-
-    <div
-      v-if="menuVisible"
-      class="menu-dismiss-layer"
-      aria-hidden="true"
-      @click="closeMenu"
-    />
-
-    <PetContextMenu
-      v-if="menuVisible"
-      :x="menuX"
-      :y="menuY"
-      @action="handleMenuAction"
-      @close="closeMenu"
-    />
-
-    <VoiceForgeReviewDialog
-      v-if="bootPhase === 'review' && reviewStatus"
-      :status="reviewStatus"
-      @approved="onReviewApproved"
-      @done="onReviewDone"
-      @regenerating="onReviewRegenerating"
+    <PetOverlay
+      :pet-ready="petReady"
+      :pet-stage="petStage"
+      :menu-visible="menuVisible"
+      :menu-x="menuX"
+      :menu-y="menuY"
+      :chat-shortcut-disabled="chatBooting"
+      @open-menu="openMenu"
+      @pet-frame-ready="onPetFrameReady"
+      @menu-action="handleMenuAction"
+      @close-menu="closeMenu"
+      @chat-shortcut-click="openChat({ origin: 'pet' })"
     />
   </div>
 </template>
@@ -580,21 +331,5 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   background: transparent;
-}
-
-.pet-stage {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  overflow: hidden;
-}
-
-.menu-dismiss-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: transparent;
-  cursor: default;
 }
 </style>

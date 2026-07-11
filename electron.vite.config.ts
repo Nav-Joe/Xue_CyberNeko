@@ -22,6 +22,12 @@ export default defineConfig({
   },
   renderer: {
     root: '.',
+    server: {
+      watch: {
+        // 大文件下载/解压时避免 Windows 上 FSWatcher EBUSY 导致 dev 崩溃
+        ignored: ['**/.runtime/**', '**/llama_bin/**', '**/llama_models/**']
+      }
+    },
     build: {
       rollupOptions: {
         input: resolve(__dirname, 'index.html')

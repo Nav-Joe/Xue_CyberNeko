@@ -6,7 +6,7 @@ declare module '*.vue' {
   export default component
 }
 
-type WindowType = 'pet' | 'home'
+type WindowType = 'pet' | 'home' | 'chat'
 
 interface ElectronAPI {
   platform: NodeJS.Platform
@@ -149,6 +149,80 @@ interface ElectronAPI {
     confirmLabel?: string
   }) => Promise<boolean>
   relaunchApp: () => Promise<{ ok: boolean; mode?: 'reload' | 'relaunch' }>
+  readCharacterCards: () => Promise<import('./services/chat/types').CharacterCardsStore>
+  writeCharacterCards: (store: import('./services/chat/types').CharacterCardsStore) => Promise<{ ok: true }>
+  readChatConfig: () => Promise<import('./services/chat/types').ChatConfigView>
+  writeChatConfig: (
+    config: import('./services/chat/types').ChatConfigView & { apiKey?: string; clearApiKey?: boolean }
+  ) => Promise<import('./services/chat/types').ChatConfigView>
+  chatOpenAiCompletion: (payload: {
+    messages: import('./services/chat/types').ChatHistoryMessage[]
+    model: string
+    stream?: boolean
+    temperature?: number
+    outputFormat: import('./services/chat/types').ChatOutputFormat
+  }) => Promise<{ ok: true; content: string } | { ok: false; detail?: string; status?: number }>
+  chatOpenAiListModels: () => Promise<
+    { ok: true; models: string[] } | { ok: false; detail?: string; status?: number }
+  >
+  onChatLlamaBootstrapProgress: (
+    callback: (payload: {
+      phase: string
+      message: string
+      progress?: { done: number; total: number }
+    }) => void
+  ) => () => void
+  beginChatLlamaSession: (options?: {
+    downloadModel?: boolean
+  }) => Promise<
+    | {
+        ok: true
+        autoDownloadedServer: boolean
+        autoDownloadedModel: boolean
+        noticeMessage?: string
+        modelPath?: string
+        baseUrl?: string
+        hasLocalModelFile: boolean
+        serverRunning: boolean
+      }
+    | { ok: false; detail: string }
+  >
+  getLocalModelStatus: () => Promise<{
+    hasLocalModelFile: boolean
+    modelPath: string | null
+    modelFilename: string | null
+    defaultModelId: string
+  }>
+  probeLocalLlamaServer: () => Promise<{ serverRunning: boolean; baseUrl?: string }>
+  downloadLocalModel: () => Promise<
+    | {
+        ok: true
+        modelPath: string
+        downloaded: boolean
+        baseUrl?: string
+        serverStarted: boolean
+      }
+    | { ok: false; detail: string }
+  >
+  endChatLlamaSession: () => Promise<{ ok: boolean }>
+  openChatWindow: (options?: {
+    entryOrigin?: 'home' | 'pet'
+  }) => Promise<{ ok: true; alreadyOpen: boolean }>
+  focusChatWindow: () => Promise<{ ok: true; focused: boolean }>
+  closeChatWindow: () => Promise<{ ok: true }>
+  reportClientError: (payload: {
+    scope?: string
+    message: string
+    detail?: string
+    stack?: string
+    url?: string
+    windowType?: string
+  }) => Promise<{ ok: boolean }>
+  logRendererInfo: (payload: {
+    scope?: string
+    message: string
+    detail?: string
+  }) => Promise<{ ok: boolean }>
 }
 
 interface Window {

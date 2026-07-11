@@ -5,7 +5,9 @@ from __future__ import annotations
 import io
 import os
 import sys
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any, Callable, Iterator, Tuple
 
 import numpy as np
 import soundfile as sf
@@ -14,6 +16,35 @@ from scipy.signal import resample
 
 from engines.base import EngineCapabilities
 from text_normalize import normalize_tts_text
+
+_TTS_VOICE_DIR = str(Path(__file__).resolve().parent)
+
+
+@contextmanager
+def _bert_vits2_runtime(bert_vits2_root: Path) -> Iterator[str]:
+    """限定 Bert-VITS2 的 sys.path / cwd 作用域，避免常驻污染 Qwen。"""
+    root = str(bert_vits2_root.resolve())
+    saved_path = sys.path.copy()
+    filtered_path = [p for p in sys.path if p not in {_TTS_VOICE_DIR, root}]
+    sys.path = [root, *filtered_path]
+
+    prev_cwd = os.getcwd()
+    os.chdir(root)
+    try:
+        yield root
+    finally:
+        os.chdir(prev_cwd)
+        sys.path = saved_path
+
+
+def _import_bert_vits2_modules(
+    bert_vits2_root: Path,
+) -> Tuple[Any, Callable[..., Any], Callable[..., Any]]:
+    with _bert_vits2_runtime(bert_vits2_root):
+        import utils
+        from infer import get_net_g, infer as bert_infer
+
+        return utils, get_net_g, bert_infer
 
 
 class TtsEngine:
@@ -30,17 +61,9 @@ class TtsEngine:
         if not model_path.is_file():
             raise RuntimeError(f"未找到模型权重: {model_path}")
 
-        root = str(bert_vits2_root.resolve())
-        if root not in sys.path:
-            sys.path.insert(0, root)
+        self._bert_root = bert_vits2_root.resolve()
 
-        # 国内网络可自动走镜像；也可自行设置 HF_ENDPOINT
-        os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
-
-        os.chdir(root)
-
-        import utils
-        from infer import get_net_g, infer as bert_infer
+        utils, get_net_g, bert_infer = _import_bert_vits2_modules(self._bert_root)
 
         self._utils = utils
         self._bert_infer = bert_infer
@@ -104,20 +127,21 @@ class TtsEngine:
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(seed)
 
-        with torch.no_grad():
-            audio = self._bert_infer(
-                text=text,
-                emotion=0,
-                sdp_ratio=0.2,
-                noise_scale=0.6,
-                noise_scale_w=0.8,
-                length_scale=1.0,
-                sid=sid,
-                language="ZH",
-                hps=self._hps,
-                net_g=self._net_g,
-                device=self._device,
-            )
+        with _bert_vits2_runtime(self._bert_root):
+            with torch.no_grad():
+                audio = self._bert_infer(
+                    text=text,
+                    emotion=0,
+                    sdp_ratio=0.2,
+                    noise_scale=0.6,
+                    noise_scale_w=0.8,
+                    length_scale=1.0,
+                    sid=sid,
+                    language="ZH",
+                    hps=self._hps,
+                    net_g=self._net_g,
+                    device=self._device,
+                )
 
         audio = np.asarray(audio, dtype=np.float32)
         if self._source_sr != self._target_sr:
@@ -127,6 +151,14 @@ class TtsEngine:
         buffer = io.BytesIO()
         sf.write(buffer, audio, self._target_sr, format="WAV")
         return buffer.getvalue()
+
+    def synthesize_batch(
+        self,
+        texts: list[str],
+        speaker_id: int = 0,
+        seed: int | None = None,
+    ) -> list[bytes]:
+        return [self.synthesize(text, speaker_id=speaker_id, seed=seed) for text in texts]
 
 
 def create_engine(config_path: Path, model_path: Path, bert_vits2_root: Path) -> TtsEngine:

@@ -49,6 +49,22 @@ export function getDefaultCorpusSnapshot(): CorpusData {
   return structuredClone(corpusFallback)
 }
 
+export function emptyCorpus(): CorpusData {
+  return { head: [], arms: [], body: [], legs: [], tail: [] }
+}
+
+export function mergeIntoCorpus(target: CorpusData, data: CorpusData): void {
+  const base = emptyCorpus()
+  for (const part of BODY_PART_ORDER) {
+    base[part] = [...(data[part] ?? [])]
+  }
+  Object.assign(target, base)
+}
+
+export function cloneCorpusPayload(data: CorpusData): CorpusData {
+  return JSON.parse(JSON.stringify(data)) as CorpusData
+}
+
 /** 语料库中所有不重复句子（供缓存校验等） */
 export function getAllCorpusLines(): string[] {
   const lines = new Set<string>()
