@@ -1,7 +1,7 @@
 import { BrowserWindow, type BrowserWindow as BrowserWindowType } from 'electron'
 import { join } from 'path'
 
-import { stopManagedLlamaServer } from '../llama/session'
+import { onChatWindowClosed } from '../llama/downloadLifecycle'
 
 let chatWindow: BrowserWindowType | null = null
 
@@ -55,7 +55,8 @@ export function openChatWindow(loadRenderer: LoadRenderer): { alreadyOpen: boole
   chatWindow.on('closed', () => {
     chatWindow = null
     lifecycle?.onClosed()
-    void stopManagedLlamaServer()
+    // 点 X 时若正在下载：abort + 清半成品 + 停 llama，避免下次下载卡死
+    void onChatWindowClosed()
   })
 
   loadRenderer(chatWindow, 'chat')

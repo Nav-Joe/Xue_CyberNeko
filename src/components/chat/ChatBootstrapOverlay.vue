@@ -5,6 +5,13 @@ defineProps<{
   title: string
   message: string
   progress?: { done: number; total: number } | null
+  /** 下载阶段显示取消按钮 */
+  showCancel?: boolean
+  cancelling?: boolean
+}>()
+
+const emit = defineEmits<{
+  cancel: []
 }>()
 
 function hasDownloadProgress(progress: { done: number; total: number } | null | undefined): boolean {
@@ -49,6 +56,16 @@ function progressPercent(progress: { done: number; total: number } | null | unde
         </div>
         <p class="chat-boot__progress-text">请稍候…</p>
       </div>
+
+      <button
+        v-if="showCancel"
+        type="button"
+        class="chat-boot__cancel"
+        :disabled="cancelling"
+        @click="emit('cancel')"
+      >
+        {{ cancelling ? '正在取消…' : '取消下载' }}
+      </button>
     </div>
   </div>
 </template>
@@ -139,6 +156,29 @@ function progressPercent(progress: { done: number; total: number } | null | unde
   font-size: 12px;
   color: #9d174d;
   text-align: center;
+}
+
+.chat-boot__cancel {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #f9a8d4;
+  background: #fff;
+  color: #9d174d;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-boot__cancel:hover:not(:disabled) {
+  background: #fdf2f8;
+}
+
+.chat-boot__cancel:disabled {
+  opacity: 0.65;
+  cursor: default;
 }
 
 @keyframes chat-boot-slide {

@@ -85,3 +85,9 @@ export const LLAMA_SERVER_PORT_CANDIDATES = [8010, 8011, 8012, 8080, 8081, 8082]
 export const LLAMA_READY_TIMEOUT_MS = 180_000
 export const LLAMA_READY_POLL_MS = 800
 
+/**
+ * 小于此体积的 .gguf 视为未下完残留（无 .expected 时的兜底）。
+ * 默认 Q4_K_M ≈ 2GB；换更小默认模型时须同步调整。
+ */
+export const MIN_USABLE_GGUF_BYTES = 1_200_000_000
+

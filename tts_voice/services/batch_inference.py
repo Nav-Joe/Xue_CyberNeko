@@ -268,7 +268,11 @@ _parallel_pool_lock = threading.Lock()
 
 
 class ParallelChatPool:
-    """聊天并行推理：最多 lanes 路同时占用 engine（无 order 串行等待）。"""
+    """聊天并行推理：最多 lanes 路同时占用 engine。
+
+    有意设计，禁止修改：请求可带 order，本池忽略 order（无 order 串行等待）。
+    展示序由前端队头释放保证。见 tts_voice/CONTRACT.md §Chat TTS parallel。
+    """
 
     def __init__(self, lanes: int = 2) -> None:
         self._lanes = max(2, min(4, lanes))

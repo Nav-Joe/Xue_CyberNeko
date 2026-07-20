@@ -2,9 +2,11 @@ import { ipcMain } from 'electron'
 
 import {
   beginLlamaChatSession,
+  cancelLlamaDownload,
   downloadDefaultLocalModel,
   getLocalModelStatus,
   probeLocalLlamaServer,
+  reconcileInterruptedLlamaDownloads,
   stopManagedLlamaServer,
   type BeginLlamaSessionOptions,
   type LlamaBootstrapProgress
@@ -24,6 +26,10 @@ export function registerLlamaServerIpc(): void {
 
   ipcMain.handle('chat-probe-local-llama-server', async () => probeLocalLlamaServer())
 
+  ipcMain.handle('chat-reconcile-interrupted-llama-downloads', async () => {
+    return reconcileInterruptedLlamaDownloads()
+  })
+
   ipcMain.handle(
     'chat-begin-llama-session',
     async (event, options?: BeginLlamaSessionOptions) => {
@@ -34,6 +40,8 @@ export function registerLlamaServerIpc(): void {
   ipcMain.handle('chat-download-local-model', async (event) => {
     return downloadDefaultLocalModel(createProgressSender(event))
   })
+
+  ipcMain.handle('chat-cancel-local-model-download', async () => cancelLlamaDownload())
 
   ipcMain.handle('chat-end-llama-session', async () => stopManagedLlamaServer())
 }

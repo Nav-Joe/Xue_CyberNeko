@@ -72,7 +72,7 @@
 |----|------|
 | 入口 | 聊天窗标题栏 **⚙** → `ChatSettingsView.vue` 全屏替换聊天区 |
 | 返回 | 「← 返回聊天」→ 刷新 `useChatSession.initSession()` |
-| LLM | `ChatLlmSettings.vue` — 枚举切换 `local_llama` / `openai_api`，仅展示当前模式对应配置区 |
+| LLM | `ChatLlmSettings.vue` — `provide`/`inject`（`CHAT_LLM_SETTINGS_KEY`）+ 子组件 `ChatLlmModePicker` / `ChatLlmLocalSettings` / `ChatLlmOpenAiSettings`；枚举切换 `local_llama` / `openai_api`，仅展示当前模式对应配置区；逻辑仍在 `useChatLlmSettings` |
 | 角色卡 | `ChatCharacterCardSettings.vue` — CRUD + 名称 / 设定 / 喜好 |
 
 ## 对话 TTS（模块 6）
@@ -80,13 +80,32 @@
 | 项 | 说明 |
 |----|------|
 | 开关 | `chat-config.json` → `ttsEnabled`（默认 `true`）；UI：`ChatTtsSettings.vue` |
-| 并行 | `ttsParallelEnabled`（默认 `false`）、`ttsParallelLanes`（2/3/4，默认 `2`）；关闭 TTS 时 UI 隐藏；请求体 `parallel_lanes`（0=串行） |
-| 流水线 | `chatTtsPipeline.ts` — 非流式先切分再 `enqueueAll`；**无首句优先**；串行预取窗口最多 5；**并行时在飞数 = 并路数**，队头释放后立即补下一句 → **严格按句序** reveal + 播放 |
-| 播放 | **`chatTtsSession.ts`** — 每句 `fetchChatTtsBlob(text, speakerId, order, parallelLanes)`；串行时后端 **严格按 order 0→1→2… 推理**；并行时后端最多 N 路同时占用 GPU，前端仍按序 reveal+播放 |
-| 破圈测试 | `scripts/benchmark_chat_tts_scheduling.py` — 模拟对比 serial / batch / parallel_pool；`--calibrate` 用 live TTS 拟合参数 |
+| 并行 | `ttsParallelEnabled`（默认 `false`）、`ttsParallelLanes`（2/3/4，默认 `2`）；关闭 TTS 时 UI 隐藏；请求体 `parallel_lanes` |
+| 流水线 | `chatTtsPipeline.ts` — 非流式先切分再 `enqueueAll`；**无首句优先**；须把 `ttsParallelLanes` **原样转发**给 `createChatTtsSession({ parallelLanes })`（vitest 锁定） |
+| 播放 | **`chatTtsSession.ts`** — 每句 `fetchChatTtsBlob(..., order, parallelLanes)`；reveal/播放 **始终按句序队头** |
+| 破圈测试 | `scripts/benchmark_chat_tts_scheduling.py` |
 | 口型 | `ttsPlayer.playBlob` → `runLipSyncWhilePlaying`；聊天 Live2D 已 `registerLive2DModelForLipSync` |
-| 会话 | `useChatSession` — 流式 `pushDelta` + **`flush` 仅此收尾**（禁止再 `revealFullText` 避免重复）；非流式 `revealFullText`；**每句独立 assistant 气泡**；发送前 `stopSpeaking()` |
-| 触摸互斥 | `replyPending` — LLM 回复进行中锁定聊天窗 Live2D `interactionLocked`，回复完成或关窗/出错解锁；**不含** TTS 播放时段 |
+| 会话 | `useChatSession` — 流式 `pushDelta` + **`flush` 仅此收尾**；非流式 `revealFullText`；**每句独立 assistant 气泡**；发送前 `stopSpeaking()` |
+| 触摸互斥 | `replyPending` — LLM 回复进行中锁定聊天窗 Live2D；**不含** TTS 播放时段 |
+
+### 对话 TTS · `parallel_lanes` 真相表（与 `tts_voice/CONTRACT.md` 双写）
+
+> 对照实现：前端 `chatTtsSession.ts` / `ttsPlayer.fetchChatTtsBlob`；后端 `batch_inference.dispatch_synthesize_chat`。  
+> **并行时前端仍传 `order`、后端忽略 `order`：有意设计，禁止修改**（展示序由前端队头释放链保证；后端 ParallelChatPool 不得再按 order 阻塞，否则易死等）。
+
+| `parallel_lanes` | 前端合成闸门 | 后端调度 | `order` 字段 |
+|------------------|----------------|----------|--------------|
+| **`0`（默认串行）** | 相对释放指针最多 **5** 预取（`CHAT_TTS_MAX_BATCH_SIZE`，≠ 五路 GPU） | `synthesize_immediate`：**严格按 order 0→1→2…** 占 GPU | **必须遵守** |
+| **`1`** | 同串行（窗=5） | 同串行有序路径（`>=2` 才进并行池） | **必须遵守** |
+| **`2`–`4`** | **`synthInFlight < lanes`**；就绪 blob 留 slot；释放仍按队头；另有硬编码软保险 `readyButUnreleased < lanes×3` | `ParallelChatPool`：最多 N 路 GPU，完成顺序任意 | 请求里**仍携带**；**后端忽略**。**有意设计，禁止修改** |
+
+补充：
+
+- UI / 配置类型仅为 `2|3|4`；API 仍允许 `1`（只文档化，**不**在本轮禁止）。  
+- 并行档：FE **合成并发**与 BE semaphore **必须同为 lanes**；有序 reveal/播放仍仅由 FE `releaseChain` 保证（OPT-07：不再用「未释放窗」卡住合成补槽）。  
+- 关闭 TTS 或未开并行时，`useChatSession` 传入 `ttsParallelLanes = 0`。
+
+Python 侧同文：`tts_voice/CONTRACT.md` §Chat TTS parallel。
 
 ## LLM 客户端（模块 3）
 
@@ -96,5 +115,6 @@
 | 本地 | `localLlamaDiscovery.ts` 扫描常见端口；UI 列表选模型，无需手填 URL |
 | OpenAI | 用户填写 `openai.baseUrl`、`openai.model`、API Key（Key 仅存主进程） |
 | IPC OpenAI | `chat-openai-completion` / `chat-openai-list-models` |
-| 本地 bootstrap | `beginChatLlamaSession` / `endChatLlamaSession` / `probeLocalLlamaServer`；设置内切到 `local_llama` 时若未运行则同样走 bootstrap 遮罩 |
+| 本地 bootstrap | `beginChatLlamaSession`（单飞）/ `endChatLlamaSession` / `probeLocalLlamaServer` / `cancelLocalModelDownload` / `reconcileInterruptedLlamaDownloads`。点 X → `onChatWindowClosed`。详见 `electron/main/llama/CONTRACT.md` |
+| Bootstrap UI | Pet/Home（`useChatEntry`）与 Chat 窗（`ChatWindowView`）各一份 `useChatLlamaBootstrap`：**Electron 多窗口正常产物，非待修复项**；生命周期与并发由主进程兜底，勿跨窗强行 Vue 单例 |
 | UI 主题 | `chat-panel-theme.css` — Home 粉色系 |

@@ -19,10 +19,14 @@
  * | 7 | curated + official + !useCurated + ready  | L131–137: 切到 custom_corpus         |
  * | 8 | 清理 stuck session（非 review/restart）   | L139–141: _should_clear_stuck_session|
  *
- * 已知不对称（CONTRACT.md §Reconcile 详述）：
- * - Python L103–109：alt_engine 语料文件缺失 → curated（TS reconcile 未覆盖，TTS 启动时补）
- * - TS #5 会删除 orphan sample 目录；Python 仅 write_touch_mode + clear_session
- * - TS #1/#2 走 cancelVoiceForgeReview 全量恢复；Python 无 cancelled phase 分支
+ * 已知不对称（CONTRACT.md §已知不对称 A1–A7，有意保留·待决策统一）：
+ * - A1 Python alt 语料缺失 → curated；TS #4 不检查
+ * - A2 TS #5 rmSync orphan + 重置 forge；Python 仅 mode / session
+ * - A3 TS #1/#2 cancelVoiceForgeReview；Python 无 cancelled 分支
+ * - A4 TS #4 early return 跳过 #8；Python 仍可清 stuck session
+ * - A5 就绪：TS 仅 wav；Python wav+txt
+ * - A6 #7：TS touch_cache ready；Python reference ready
+ * - A7 stuck session 分支细节不同
  */
 
 import { existsSync, rmSync } from 'fs'

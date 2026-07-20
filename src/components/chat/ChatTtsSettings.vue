@@ -81,6 +81,9 @@ async function onLanesChange(): Promise<void> {
           ?
           <span class="chat-tts-settings__tooltip" role="tooltip">
             <strong>显存与并路推荐</strong>
+            <p class="chat-tts-settings__tooltip-intro">
+              开启该功能后能够加快TTS服务，并行并路越多，效率相对越快
+            </p>
             <table class="chat-tts-settings__tooltip-table">
               <thead>
                 <tr>
@@ -253,6 +256,14 @@ async function onLanesChange(): Promise<void> {
   display: block;
   margin-bottom: 6px;
   color: #9d174d;
+}
+
+.chat-tts-settings__tooltip-intro {
+  margin: 0 0 8px;
+  color: #4b5563;
+  font-size: 11px;
+  line-height: 1.45;
+  font-weight: 500;
 }
 
 .chat-tts-settings__tooltip-table {

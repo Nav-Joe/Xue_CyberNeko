@@ -198,7 +198,7 @@ describe('createChatTtsSession', () => {
     expect(timeline).toEqual(['reveal:seg-1', 'reveal:seg-2', 'reveal:seg-3'])
   })
 
-  it('parallel mode refills window on release (4 segs, lanes=2)', async () => {
+  it('parallel mode refills synth slots when a non-head segment finishes', async () => {
     const gates = new Map<string, () => void>()
     vi.mocked(fetchChatTtsBlob).mockImplementation(
       (text) =>
@@ -223,22 +223,70 @@ describe('createChatTtsSession', () => {
 
     expect(fetchChatTtsBlob).toHaveBeenCalledTimes(2)
     expect(gates.has('seg-3')).toBe(false)
-    expect(gates.has('seg-4')).toBe(false)
 
-    gates.get('seg-1')?.()
+    // 队头仍未完成：完成第 2 句应释放合成槽，提交第 3 句（OPT-07）
+    gates.get('seg-2')?.()
     await vi.waitFor(() => {
       expect(fetchChatTtsBlob).toHaveBeenCalledTimes(3)
     })
     expect(fetchChatTtsBlob).toHaveBeenCalledWith('seg-3', 0, 2, 2)
 
-    gates.get('seg-2')?.()
+    gates.get('seg-3')?.()
     await vi.waitFor(() => {
       expect(fetchChatTtsBlob).toHaveBeenCalledTimes(4)
     })
     expect(fetchChatTtsBlob).toHaveBeenCalledWith('seg-4', 0, 3, 2)
 
-    gates.get('seg-3')?.()
+    gates.get('seg-1')?.()
     gates.get('seg-4')?.()
+    await session.waitUntilIdle()
+  })
+
+  it('parallel mode soft-caps ready-but-unreleased buffer at lanes×3', async () => {
+    const gates = new Map<string, () => void>()
+    vi.mocked(fetchChatTtsBlob).mockImplementation(
+      (text) =>
+        new Promise((resolve) => {
+          gates.set(text, () => resolve(new Blob([text])))
+        })
+    )
+
+    const session = createChatTtsSession({
+      onRevealSegment: () => {},
+      parallelLanes: 2
+    })
+
+    const items = Array.from({ length: 10 }, (_, i) => {
+      const id = `seg-${i + 1}`
+      return { displaySegment: id, ttsText: id }
+    })
+    session.enqueueAll(items)
+    session.markStreamComplete()
+    await delay(10)
+
+    expect(fetchChatTtsBlob).toHaveBeenCalledTimes(2)
+
+    // 保持 seg-1 卡住；完成后续句让就绪缓冲涨到 lanes×3=6
+    for (let i = 2; i <= 10; i += 1) {
+      gates.get(`seg-${i}`)?.()
+      await delay(5)
+    }
+
+    await delay(20)
+    const cappedCalls = fetchChatTtsBlob.mock.calls.length
+    expect(cappedCalls).toBeGreaterThanOrEqual(2)
+    expect(cappedCalls).toBeLessThan(10)
+    expect(gates.has('seg-1')).toBe(true)
+
+    // 释放队头后继续放行；每轮打开已提交句的 gate，直到 10 句都提交
+    gates.get('seg-1')?.()
+    await vi.waitFor(() => {
+      for (let i = 2; i <= 10; i += 1) {
+        gates.get(`seg-${i}`)?.()
+      }
+      expect(fetchChatTtsBlob).toHaveBeenCalledTimes(10)
+    })
+
     await session.waitUntilIdle()
   })
 

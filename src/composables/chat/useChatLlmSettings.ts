@@ -121,6 +121,11 @@ export function useChatLlmSettings(
     try {
       const result = await window.electronAPI.downloadLocalModel()
       if (!result.ok) {
+        if (result.cancelled) {
+          localStatus.value = '已取消下载，未完成文件已清理'
+          await refreshLocalModelStatus()
+          return
+        }
         configError.value = result.detail
         return
       }
@@ -138,6 +143,17 @@ export function useChatLlmSettings(
       modelDownloading.value = false
       modelDownloadProgress.value = null
       modelDownloadMessage.value = ''
+    }
+  }
+
+  async function cancelLocalModelDownload(): Promise<void> {
+    if (!modelDownloading.value || !window.electronAPI?.cancelLocalModelDownload) return
+    modelDownloadMessage.value = '正在取消下载并清理…'
+    try {
+      const result = await window.electronAPI.cancelLocalModelDownload()
+      localStatus.value = result.detail
+    } catch (err) {
+      configError.value = err instanceof Error ? err.message : '取消下载失败'
     }
   }
 
@@ -312,6 +328,7 @@ export function useChatLlmSettings(
     reloadConfig,
     scanLocalLlama,
     downloadLocalModel,
+    cancelLocalModelDownload,
     selectLocalModel,
     isLocalModelSelected,
     saveLocalConfig,

@@ -87,4 +87,36 @@ describe('createChatSegmentCoordinator', () => {
     expect(mockSession.markStreamComplete).toHaveBeenCalledTimes(1)
     expect(mockSession.waitUntilIdle).toHaveBeenCalledTimes(1)
   })
+
+  it('forwards ttsParallelLanes=0 by default into createChatTtsSession', () => {
+    // chat CONTRACT：未开并行时 parallelLanes 须为 0（串行）
+    createChatSegmentCoordinator({
+      ttsEnabled: true,
+      onRevealSegment: () => {}
+    })
+    expect(createChatTtsSession).toHaveBeenCalledWith(
+      expect.objectContaining({ parallelLanes: 0 })
+    )
+  })
+
+  it('forwards ttsParallelLanes into createChatTtsSession (pipeline pass-through)', () => {
+    // chat CONTRACT：chatTtsPipeline 必须原样转发 ttsParallelLanes → parallelLanes
+    createChatSegmentCoordinator({
+      ttsEnabled: true,
+      ttsParallelLanes: 3,
+      onRevealSegment: () => {}
+    })
+    expect(createChatTtsSession).toHaveBeenCalledWith(
+      expect.objectContaining({ parallelLanes: 3 })
+    )
+  })
+
+  it('does not create TTS session when tts disabled even if lanes set', () => {
+    createChatSegmentCoordinator({
+      ttsEnabled: false,
+      ttsParallelLanes: 4,
+      onRevealSegment: () => {}
+    })
+    expect(createChatTtsSession).not.toHaveBeenCalled()
+  })
 })

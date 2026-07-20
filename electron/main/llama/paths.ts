@@ -30,5 +30,6 @@ export function llamaServerExeCandidates(): string[] {
 }
 
 export function llamaPidFile(): string {
+  // 仅诊断用途（人工排查）；kill / 存活判定不得读此文件（见 llama/CONTRACT.md）
   return join(runtimeDir(), LLAMA_PID_FILE)
 }

@@ -1,8 +1,14 @@
 import { abortActiveChatTtsSession, setActiveChatTtsSession } from './chatTtsSessionRegistry'
 import { fetchChatTtsBlob, playChatAudioBlob } from './ttsPlayer'
 
-/** 相对释放指针最多同时进行的 TTS 推理数（滑动窗口） */
+/** 相对释放指针最多同时进行的 TTS 推理数（滑动窗口 · 仅串行档） */
 export const CHAT_TTS_MAX_BATCH_SIZE = 5
+
+/**
+ * 并行档软保险：已合成但未按序释放的 slot 上限 = parallelLanes × 此系数。
+ * 写死常量，不进配置（OPT-07）。
+ */
+export const CHAT_TTS_READY_BUFFER_LANES_MULTIPLIER = 3
 
 type SegmentSlot = {
   displaySegment: string
@@ -29,7 +35,11 @@ function isSlotReady(slot: SegmentSlot): boolean {
 /** @deprecated 使用 CHAT_TTS_MAX_BATCH_SIZE */
 export const CHAT_TTS_MAX_SYNTH_CONCURRENCY = CHAT_TTS_MAX_BATCH_SIZE
 
-/** 滑动窗口：串行预取最多 CHAT_TTS_MAX_BATCH_SIZE；并行时在飞数 = parallelLanes，队头释放后立即补下一句 */
+/**
+ * 串行：相对释放指针的预取窗（≤ CHAT_TTS_MAX_BATCH_SIZE）。
+ * 并行（OPT-07）：合成并发按 synthInFlight &lt; lanes；就绪 blob 留 slot；
+ * releaseChain 仍按序释放；另有 readyButUnreleased &lt; lanes×3 软保险。
+ */
 export function createChatTtsSession(options: {
   onRevealSegment: (segment: string) => void
   /** 0=串行；2-4=并行并路（传给后端 parallel_lanes） */
@@ -46,6 +56,9 @@ export function createChatTtsSession(options: {
   let nextSynthOrder = 0
   let releaseChain: Promise<void> = Promise.resolve()
   let idleWaiters: Array<() => void> = []
+
+  const parallelLanes = options.parallelLanes ?? 0
+  const isParallelMode = parallelLanes >= 2
 
   function isIdle(): boolean {
     return (
@@ -65,16 +78,32 @@ export function createChatTtsSession(options: {
     }
   }
 
-  function inFlightWindowSize(): number {
+  /** 串行档：已提交尚未释放的窗口大小 */
+  function serialInFlightWindowSize(): number {
     return pendingSubmitIndex - nextReleaseIndex
   }
 
-  /** 并行模式：在飞数 = 并路数；串行模式：沿用较大预取窗口 */
-  function maxInFlightWindow(): number {
-    return parallelLanes >= 2 ? parallelLanes : CHAT_TTS_MAX_BATCH_SIZE
+  /** 并行档：已就绪（blob 有值）但尚未按序释放的 slot 数 */
+  function readyButUnreleasedCount(): number {
+    let count = 0
+    for (let i = nextReleaseIndex; i < pendingSubmitIndex; i += 1) {
+      if (isSlotReady(segments[i])) count += 1
+    }
+    return count
   }
 
-  const parallelLanes = options.parallelLanes ?? 0
+  function maxReadyButUnreleased(): number {
+    return parallelLanes * CHAT_TTS_READY_BUFFER_LANES_MULTIPLIER
+  }
+
+  function canSubmitAnother(): boolean {
+    if (isParallelMode) {
+      if (synthInFlight >= parallelLanes) return false
+      if (readyButUnreleasedCount() >= maxReadyButUnreleased()) return false
+      return true
+    }
+    return serialInFlightWindowSize() < CHAT_TTS_MAX_BATCH_SIZE
+  }
 
   function startSynth(slot: SegmentSlot): void {
     const order = nextSynthOrder
@@ -90,6 +119,8 @@ export function createChatTtsSession(options: {
       })
       .finally(() => {
         synthInFlight -= 1
+        // 并行：非队头完成时也要补槽；串行：窗口可能因本句就绪而可再提交
+        trySubmitMore()
         scheduleRelease()
         notifyMaybeIdle()
       })
@@ -97,7 +128,7 @@ export function createChatTtsSession(options: {
 
   function trySubmitMore(): void {
     while (!aborted && pendingSubmitIndex < segments.length) {
-      if (inFlightWindowSize() >= maxInFlightWindow()) break
+      if (!canSubmitAnother()) break
 
       const slot = segments[pendingSubmitIndex]
       pendingSubmitIndex += 1

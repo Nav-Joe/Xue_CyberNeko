@@ -6,7 +6,7 @@ import { useChatLlamaBootstrap } from './useChatLlamaBootstrap'
 export type { ChatEntryOrigin }
 
 export function useChatEntry() {
-  const { chatBooting, bootTitle, bootMessage, bootProgress, ensureLocalLlamaReady } =
+  const { chatBooting, bootTitle, bootMessage, bootProgress, canCancelDownload, cancellingDownload, cancelDownload, ensureLocalLlamaReady } =
     useChatLlamaBootstrap()
 
   async function openChat(options?: { origin?: ChatEntryOrigin }): Promise<void> {
@@ -40,6 +40,9 @@ export function useChatEntry() {
     bootTitle,
     bootMessage,
     bootProgress,
+    canCancelDownload,
+    cancellingDownload,
+    cancelDownload,
     openChat
   }
 }

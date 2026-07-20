@@ -1,4 +1,15 @@
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'fs'
+/**
+ * llama-server 会话：探测 / 下载安装 / 启动 / 停止。
+ *
+ * 生命周期状态机（OPT-03）与文件职责边界见 `./CONTRACT.md`。
+ *
+ *   none ──(外部已有)──► external ──(stop)──► none（不 kill）
+ *     └────(本应用 spawn)──► app_spawned ──(stop)──► none（kill managedPid）
+ *
+ * 并发 begin 经 `beginSessionSingleFlight` 复用第一次结果，只 spawn 一次。
+ * 下载取消 / 点 X / reconcile → `downloadLifecycle.ts`（本文件不持有 AbortController）。
+ */
+import { closeSync, existsSync, mkdirSync, openSync, rmSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { spawn, type ChildProcess } from 'child_process'
 import { execSync } from 'child_process'
@@ -21,11 +32,29 @@ import {
   downloadFileWithMirrors,
   extractZipWindows,
   flattenLlamaBin,
-  listGgufModelFiles,
+  isDownloadAbortError,
   type DownloadProgress
 } from './download'
+import {
+  afterDownloadAborted,
+  beginDownloadAbortScope,
+  bindLlamaSessionStop,
+  defaultLocalModelDest,
+  endDownloadAbortScope,
+  reconcileInterruptedLlamaDownloads
+} from './downloadLifecycle'
+import {
+  decideStopAction,
+  isManagedLlamaRunning as isAppOwnedLlamaAlive,
+  type LlamaOwnership
+} from './managedOwnership'
+import { getLocalModelStatus, resolveUsableLocalModelPath } from './modelResolve'
 import { llamaBinDir, llamaInstallWorkDir, llamaModelsDir, llamaPidFile, llamaServerExeCandidates } from './paths'
-import { isLlamaModelsResponse, probeLlamaEndpointState, resolveLlamaListenPort } from './probe'
+import { isLlamaModelsResponse, resolveLlamaListenPort } from './probe'
+import { createSingleFlight } from './singleFlight'
+
+export type { LocalModelStatus } from './modelResolve'
+export { getLocalModelStatus } from './modelResolve'
 
 export type LlamaBootstrapProgress = {
   phase: string
@@ -51,17 +80,44 @@ export type BeginLlamaSessionOptions = {
   downloadModel?: boolean
 }
 
-export type LocalModelStatus = {
-  hasLocalModelFile: boolean
-  modelPath: string | null
-  modelFilename: string | null
-  defaultModelId: string
-}
-
 let managedProcess: ChildProcess | null = null
 let managedPid: number | null = null
-let sessionStartedByApp = false
+/** 内存真相源：none | external | app_spawned。pid 文件仅诊断，不参与决策。 */
+let ownership: LlamaOwnership = 'none'
 let activeBaseUrl: string | null = null
+
+/** 并发 begin 复用第一次结果，保证只 spawn 一次。 */
+const beginSessionSingleFlight = createSingleFlight<LlamaBootstrapResult>()
+
+function isManagedLlamaRunning(): boolean {
+  return isAppOwnedLlamaAlive({ ownership, managedProcess })
+}
+
+/** 诊断用：写入 pid，便于人工排查；kill / 存活判定不得依赖此文件。 */
+function persistPidDiagnostic(pid: number): void {
+  try {
+    mkdirSync(runtimeDir(), { recursive: true })
+    writeFileSync(llamaPidFile(), `${pid}\n`, 'utf-8')
+  } catch {
+    // 诊断失败不影响生命周期
+  }
+}
+
+function clearPidDiagnostic(): void {
+  try {
+    if (existsSync(llamaPidFile())) rmSync(llamaPidFile(), { force: true })
+  } catch {
+    // ignore
+  }
+}
+
+function clearManagedRuntime(): void {
+  managedProcess = null
+  managedPid = null
+  ownership = 'none'
+  activeBaseUrl = null
+  clearPidDiagnostic()
+}
 
 function emitProgress(
   send: ((payload: LlamaBootstrapProgress) => void) | undefined,
@@ -101,33 +157,12 @@ export function resolveLlamaServerExe(): string | null {
   return null
 }
 
-function resolveModelPath(): string | null {
-  const models = listGgufModelFiles(llamaModelsDir())
-  if (models.length === 0) return null
-  const preferred = models.includes(DEFAULT_MODEL_FILENAME) ? DEFAULT_MODEL_FILENAME : models[0]
-  return join(llamaModelsDir(), preferred)
-}
-
-export function getLocalModelStatus(): LocalModelStatus {
-  const modelPath = resolveModelPath()
-  const modelFilename = modelPath ? modelPath.split(/[/\\]/).pop() ?? null : null
-  return {
-    hasLocalModelFile: Boolean(modelPath),
-    modelPath,
-    modelFilename,
-    defaultModelId: DEFAULT_LOCAL_MODEL_ID
-  }
-}
-
 function modelIdFromFilename(fileName: string): string {
   if (fileName === DEFAULT_MODEL_FILENAME) return DEFAULT_LOCAL_MODEL_ID
   return fileName.replace(/\.gguf$/i, '')
 }
 
-async function waitForLlamaReady(
-  baseUrl: string,
-  child?: ChildProcess | null
-): Promise<void> {
+async function waitForLlamaReady(baseUrl: string, child?: ChildProcess | null): Promise<void> {
   const deadline = Date.now() + LLAMA_READY_TIMEOUT_MS
   let lastLogAt = 0
   while (Date.now() < deadline) {
@@ -172,6 +207,7 @@ async function ensureLlamaServerExe(
   const zipPath = join(workDir, 'llama-server-download.zip')
   const extractDir = join(workDir, 'extract')
   mkdirSync(workDir, { recursive: true })
+  const signal = beginDownloadAbortScope()
 
   try {
     const serverResult = await downloadFileWithMirrors(
@@ -182,7 +218,8 @@ async function ensureLlamaServerExe(
         const hint = index === 0 ? '国内镜像' : `备用源 ${index + 1}/${total}`
         logInfo('llama', `llama-server 下载: ${hint} (${source})`)
         emitProgress(send, 'download_server', `正在从 ${source} 下载 llama-server…`)
-      }
+      },
+      signal
     )
     logInfo('llama', `llama-server 下载完成: ${serverResult.source}`)
 
@@ -191,6 +228,7 @@ async function ensureLlamaServerExe(
     const exePath = flattenLlamaBin(extractDir, binDir)
     return { exePath, downloaded: true }
   } finally {
+    endDownloadAbortScope(signal)
     try {
       rmSync(workDir, { recursive: true, force: true })
     } catch {
@@ -203,51 +241,30 @@ async function downloadDefaultLocalModelFile(
   send?: (payload: LlamaBootstrapProgress) => void
 ): Promise<{ modelPath: string; downloaded: boolean }> {
   mkdirSync(llamaModelsDir(), { recursive: true })
-  const existing = resolveModelPath()
+  const existing = resolveUsableLocalModelPath()
   if (existing) {
     return { modelPath: existing, downloaded: false }
   }
 
   emitProgress(send, 'download_model', `正在下载默认模型 ${DEFAULT_LOCAL_MODEL_ID}…`)
-  const dest = join(llamaModelsDir(), DEFAULT_MODEL_FILENAME)
-  const modelResult = await downloadFileWithMirrors(
-    buildDefaultModelMirrorUrls(),
-    dest,
-    createDownloadProgressHandler(send, 'download_model', `正在下载 ${DEFAULT_LOCAL_MODEL_ID}…`),
-    (source, index, total) => {
-      const hint = index === 0 ? '国内镜像' : `备用源 ${index + 1}/${total}`
-      logInfo('llama', `模型下载: ${hint} (${source})`)
-      emitProgress(send, 'download_model', `正在从 ${source} 下载 ${DEFAULT_LOCAL_MODEL_ID}…`)
-    }
-  )
-  logInfo('llama', `模型下载完成: ${modelResult.source}`)
-  return { modelPath: dest, downloaded: true }
-}
-
-function isManagedLlamaRunning(): boolean {
-  if (managedProcess && !managedProcess.killed) return true
-  const pidFile = llamaPidFile()
-  if (!existsSync(pidFile)) return false
+  const dest = defaultLocalModelDest()
+  const signal = beginDownloadAbortScope()
   try {
-    const pid = Number(readFileSync(pidFile, 'utf-8').trim())
-    if (!Number.isFinite(pid) || pid <= 0) return false
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function persistPid(pid: number): void {
-  mkdirSync(runtimeDir(), { recursive: true })
-  writeFileSync(llamaPidFile(), `${pid}\n`, 'utf-8')
-}
-
-function clearPid(): void {
-  try {
-    if (existsSync(llamaPidFile())) rmSync(llamaPidFile(), { force: true })
-  } catch {
-    // ignore
+    const modelResult = await downloadFileWithMirrors(
+      buildDefaultModelMirrorUrls(),
+      dest,
+      createDownloadProgressHandler(send, 'download_model', `正在下载 ${DEFAULT_LOCAL_MODEL_ID}…`),
+      (source, index, total) => {
+        const hint = index === 0 ? '国内镜像' : `备用源 ${index + 1}/${total}`
+        logInfo('llama', `模型下载: ${hint} (${source})`)
+        emitProgress(send, 'download_model', `正在从 ${source} 下载 ${DEFAULT_LOCAL_MODEL_ID}…`)
+      },
+      signal
+    )
+    logInfo('llama', `模型下载完成: ${modelResult.source}`)
+    return { modelPath: dest, downloaded: true }
+  } finally {
+    endDownloadAbortScope(signal)
   }
 }
 
@@ -262,13 +279,15 @@ async function startManagedLlamaServer(
   activeBaseUrl = baseUrl
 
   if (isManagedLlamaRunning()) {
-    sessionStartedByApp = true
     await waitForLlamaReady(baseUrl, managedProcess)
     return baseUrl
   }
 
   if (alreadyRunning) {
-    sessionStartedByApp = false
+    ownership = 'external'
+    managedProcess = null
+    managedPid = null
+    clearPidDiagnostic()
     emitProgress(send, 'ready', `检测到本地 llama-server 已在运行 (${baseUrl})`)
     return baseUrl
   }
@@ -288,8 +307,8 @@ async function startManagedLlamaServer(
   })
   managedProcess = child
   managedPid = child.pid ?? null
-  sessionStartedByApp = true
-  if (managedPid) persistPid(managedPid)
+  ownership = 'app_spawned'
+  if (managedPid) persistPidDiagnostic(managedPid)
 
   child.on('exit', (code) => {
     try {
@@ -300,7 +319,8 @@ async function startManagedLlamaServer(
     if (managedProcess === child) {
       managedProcess = null
       managedPid = null
-      clearPid()
+      ownership = 'none'
+      clearPidDiagnostic()
     }
     if (code !== 0 && code !== null) {
       logError('llama', `llama-server exited with code ${code}`, undefined, stderrLogPath)
@@ -365,9 +385,10 @@ export async function downloadDefaultLocalModel(
   send?: (payload: LlamaBootstrapProgress) => void
 ): Promise<
   | { ok: true; modelPath: string; downloaded: boolean; baseUrl?: string; serverStarted: boolean }
-  | { ok: false; detail: string }
+  | { ok: false; detail: string; cancelled?: boolean }
 > {
   try {
+    await reconcileInterruptedLlamaDownloads()
     const model = await downloadDefaultLocalModelFile(send)
     const exePath = resolveLlamaServerExe()
     if (!exePath) {
@@ -390,6 +411,10 @@ export async function downloadDefaultLocalModel(
       serverStarted: true
     }
   } catch (err) {
+    if (isDownloadAbortError(err)) {
+      await afterDownloadAborted()
+      return { ok: false, detail: '已取消下载', cancelled: true }
+    }
     logError('llama', 'downloadDefaultLocalModel failed', err)
     return {
       ok: false,
@@ -402,14 +427,24 @@ export async function beginLlamaChatSession(
   send?: (payload: LlamaBootstrapProgress) => void,
   options: BeginLlamaSessionOptions = {}
 ): Promise<LlamaBootstrapResult> {
+  return beginSessionSingleFlight(() => runBeginLlamaChatSession(send, options))
+}
+
+async function runBeginLlamaChatSession(
+  send?: (payload: LlamaBootstrapProgress) => void,
+  options: BeginLlamaSessionOptions = {}
+): Promise<LlamaBootstrapResult> {
   try {
-    sessionStartedByApp = false
+    await reconcileInterruptedLlamaDownloads()
+
     const currentConfig = readChatConfigFile()
-    activeBaseUrl = currentConfig.local?.selectedBaseUrl?.trim() || null
+    if (!isManagedLlamaRunning()) {
+      activeBaseUrl = currentConfig.local?.selectedBaseUrl?.trim() || null
+    }
     emitProgress(send, 'check', '正在检查本地 llama-server…')
     const server = await ensureLlamaServerExe(send)
 
-    let modelPath = resolveModelPath()
+    let modelPath = resolveUsableLocalModelPath()
     let autoDownloadedModel = false
     if (!modelPath && options.downloadModel) {
       const model = await downloadDefaultLocalModelFile(send)
@@ -427,6 +462,10 @@ export async function beginLlamaChatSession(
     } else {
       const external = await tryDetectExternalLlamaServer(send)
       if (external) {
+        ownership = 'external'
+        managedProcess = null
+        managedPid = null
+        clearPidDiagnostic()
         baseUrl = external
         serverRunning = true
       }
@@ -454,6 +493,10 @@ export async function beginLlamaChatSession(
       serverRunning
     }
   } catch (err) {
+    if (isDownloadAbortError(err)) {
+      await afterDownloadAborted()
+      return { ok: false, detail: '已取消下载' }
+    }
     logError('llama', 'beginLlamaChatSession failed', err)
     return {
       ok: false,
@@ -463,39 +506,33 @@ export async function beginLlamaChatSession(
 }
 
 export async function stopManagedLlamaServer(): Promise<{ ok: boolean }> {
-  const pidFromFile = (() => {
-    try {
-      if (!existsSync(llamaPidFile())) return null
-      const parsed = Number(readFileSync(llamaPidFile(), 'utf-8').trim())
-      return Number.isFinite(parsed) && parsed > 0 ? parsed : null
-    } catch {
-      return null
-    }
-  })()
+  const decision = decideStopAction({ ownership, managedPid })
+  const pidToKill = decision.shouldKill ? decision.pid : null
 
-  const pid = managedPid ?? pidFromFile
-  const hasLiveManagedProcess = Boolean(managedProcess && !managedProcess.killed)
-  const hasTrackedPid = pid !== null && (hasLiveManagedProcess || isManagedLlamaRunning())
-  const shouldKill = sessionStartedByApp || hasLiveManagedProcess || hasTrackedPid
+  clearManagedRuntime()
 
-  managedProcess = null
-  managedPid = null
-  sessionStartedByApp = false
-  activeBaseUrl = null
-  clearPid()
-
-  if (!shouldKill || !pid) {
+  if (!pidToKill) {
     return { ok: true }
   }
 
   try {
     if (process.platform === 'win32') {
-      execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' })
+      execSync(`taskkill /PID ${pidToKill} /T /F`, { stdio: 'ignore' })
     } else {
-      process.kill(pid)
+      process.kill(pidToKill)
     }
   } catch {
     // 进程可能已退出
   }
   return { ok: true }
 }
+
+// 注入 stop，供 downloadLifecycle 取消 / 关窗调用（避免 lifecycle ↔ session 循环 import）
+bindLlamaSessionStop(stopManagedLlamaServer)
+
+// 兼容再导出：IPC / 前端仍可从 session 或 lifecycle 导入
+export {
+  cancelLlamaDownload,
+  onChatWindowClosed,
+  reconcileInterruptedLlamaDownloads
+} from './downloadLifecycle'

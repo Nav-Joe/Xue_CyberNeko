@@ -147,6 +147,9 @@ async function onSettingsChanged(): Promise<void> {
       :title="llamaBootstrap.bootTitle.value"
       :message="llamaBootstrap.bootMessage.value"
       :progress="llamaBootstrap.bootProgress.value"
+      :show-cancel="llamaBootstrap.canCancelDownload.value"
+      :cancelling="llamaBootstrap.cancellingDownload.value"
+      @cancel="llamaBootstrap.cancelDownload"
     />
 
     <ChatSettingsView

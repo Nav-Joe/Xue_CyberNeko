@@ -12,7 +12,7 @@ import { useChatEntry } from '../composables/chat/useChatEntry'
 
 
 
-const { chatBooting, bootTitle, bootMessage, bootProgress, openChat } = useChatEntry()
+const { chatBooting, bootTitle, bootMessage, bootProgress, canCancelDownload, cancellingDownload, cancelDownload, openChat } = useChatEntry()
 
 </script>
 
@@ -31,6 +31,12 @@ const { chatBooting, bootTitle, bootMessage, bootProgress, openChat } = useChatE
       :message="bootMessage"
 
       :progress="bootProgress"
+
+      :show-cancel="canCancelDownload"
+
+      :cancelling="cancellingDownload"
+
+      @cancel="cancelDownload"
 
     />
 
@@ -80,7 +86,7 @@ const { chatBooting, bootTitle, bootMessage, bootProgress, openChat } = useChatE
 
     </aside>
 
-    <p class="version-tag">版本：V0.3.0（早期开发版本）</p>
+    <p class="version-tag">版本：V0.3.1（早期开发版本）</p>
 
   </main>
 

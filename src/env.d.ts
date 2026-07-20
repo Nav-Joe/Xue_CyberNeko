@@ -202,8 +202,10 @@ interface ElectronAPI {
         baseUrl?: string
         serverStarted: boolean
       }
-    | { ok: false; detail: string }
+    | { ok: false; detail: string; cancelled?: boolean }
   >
+  cancelLocalModelDownload: () => Promise<{ ok: true; detail: string }>
+  reconcileInterruptedLlamaDownloads: () => Promise<{ ok: true; cleaned: boolean }>
   endChatLlamaSession: () => Promise<{ ok: boolean }>
   openChatWindow: (options?: {
     entryOrigin?: 'home' | 'pet'

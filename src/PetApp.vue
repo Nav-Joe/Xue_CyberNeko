@@ -68,7 +68,7 @@ const boot = useAppBoot({
   }
 })
 
-const { chatBooting, bootTitle, bootMessage, bootProgress, openChat } = useChatEntry()
+const { chatBooting, bootTitle, bootMessage, bootProgress, canCancelDownload, cancellingDownload, cancelDownload, openChat } = useChatEntry()
 
 const overlay = useOverlayManager({
   bootPhase: boot.phase,
@@ -307,6 +307,9 @@ onUnmounted(() => {
       :title="bootTitle"
       :message="bootMessage"
       :progress="bootProgress"
+      :show-cancel="canCancelDownload"
+      :cancelling="cancellingDownload"
+      @cancel="cancelDownload"
     />
 
     <PetOverlay

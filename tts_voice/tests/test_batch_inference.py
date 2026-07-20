@@ -160,6 +160,8 @@ class BatchInferenceDispatcherTest(unittest.TestCase):
         self.assertEqual(_MockBatchEngine.batch_calls, [["hello"]])
 
     def test_dispatch_synthesize_chat_parallel_ignores_order(self) -> None:
+        # tts_voice/CONTRACT.md + chat CONTRACT：
+        # 并行时前端仍传 order、后端忽略 — 有意设计，禁止修改。
         engine = _MockBatchEngine()
         done_order: list[str] = []
         start_gate = threading.Event()
@@ -202,9 +204,11 @@ class BatchInferenceDispatcherTest(unittest.TestCase):
 
         self.assertEqual(set(results.keys()), {0, 1})
         self.assertEqual(len(_MockBatchEngine.batch_calls), 2)
+        # 完成序可乱：证明池未按 order 阻塞（有意设计，禁止修改）
         self.assertNotEqual(done_order, ["long-first", "short-2"])
 
     def test_dispatch_synthesize_chat_serial_when_lanes_zero(self) -> None:
+        # CONTRACT：parallel_lanes=0 → 串行有序
         engine = _MockBatchEngine()
         done_order: list[str] = []
 
@@ -222,6 +226,26 @@ class BatchInferenceDispatcherTest(unittest.TestCase):
             thread.join(timeout=5)
 
         self.assertEqual(done_order, ["seg-1", "seg-2"])
+
+    def test_dispatch_synthesize_chat_lanes_one_is_serial_ordered(self) -> None:
+        # CONTRACT：parallel_lanes=1 仅文档化，与 0 同走串行有序；API 不禁止 1。
+        engine = _MockBatchEngine()
+        done_order: list[str] = []
+
+        def worker(order: int, text: str) -> None:
+            dispatch_synthesize_chat(engine, text, order=order, parallel_lanes=1)
+            done_order.append(text)
+
+        threads = [
+            threading.Thread(target=worker, args=(0, "a")),
+            threading.Thread(target=worker, args=(1, "b")),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=5)
+
+        self.assertEqual(done_order, ["a", "b"])
 
 
 if __name__ == "__main__":

@@ -421,9 +421,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
         baseUrl?: string
         serverStarted: boolean
       }
-    | { ok: false; detail: string }
+    | { ok: false; detail: string; cancelled?: boolean }
   > => {
     return ipcRenderer.invoke('chat-download-local-model')
+  },
+
+  cancelLocalModelDownload: (): Promise<{ ok: true; detail: string }> => {
+    return ipcRenderer.invoke('chat-cancel-local-model-download')
+  },
+
+  reconcileInterruptedLlamaDownloads: (): Promise<{ ok: true; cleaned: boolean }> => {
+    return ipcRenderer.invoke('chat-reconcile-interrupted-llama-downloads')
   },
 
   endChatLlamaSession: (): Promise<{ ok: boolean }> => {

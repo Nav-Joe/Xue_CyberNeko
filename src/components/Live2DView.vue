@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import type { Application } from 'pixi.js'
 import type { Live2DModel } from 'pixi-live2d-display/cubism4'
+import { useLive2DPetInteraction } from '../composables/live2d/useLive2DPetInteraction'
 import { handleModelTap } from '../services/interaction'
 import {
   applyOpaqueHitArea,
@@ -38,8 +39,6 @@ const CUBISM_CORE_URL = '/live2d/live2dcubismcore.min.js'
 const containerRef = ref<HTMLDivElement | null>(null)
 const loadError = ref('')
 const isLoading = ref(true)
-const isDragging = ref(false)
-const homeVisible = ref(false)
 
 let app: Application | null = null
 let model: Live2DModel | null = null
@@ -48,19 +47,9 @@ let resizeObserver: ResizeObserver | null = null
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
 let baseModelWidth = 0
 let baseModelHeight = 0
-let lastMouseIgnore: boolean | null = null
 let pointerPosition: import('pixi.js').Point | null = null
-let unbindHomeListener: (() => void) | null = null
-
-/** 移动超过该像素才视为拖拽，避免与点击「喵」冲突 */
-const DRAG_THRESHOLD = 8
 
 let pointerActive = false
-let dragStarted = false
-let dragStartScreen = { x: 0, y: 0 }
-/** 按下时指针在窗口内的偏移，用于 screenX/Y 反算窗口左上角 */
-let dragPointerOffset = { x: 0, y: 0 }
-let activePointerId: number | null = null
 let lastLayoutWidth = 0
 let lastLayoutHeight = 0
 let lastHitAreas: string[] = []
@@ -69,14 +58,43 @@ let fixedCanvasHeight = 0
 let petModelScale = 1
 let petResizeGuard: (() => void) | null = null
 let opaqueHitData: OpaqueHitData | null = null
-const chatShortcutAnchor = ref<{ x: number; y: number } | null>(null)
-let chatShortcutHover = false
 
 declare global {
   interface Window {
     Live2DCubismCore?: unknown
   }
 }
+
+const isPetMode = () => props.mode === 'pet'
+const isHomeMode = () => props.mode === 'home'
+const isChatMode = () => props.mode === 'chat'
+const usesFixedCanvas = () => isPetMode()
+
+const {
+  isDragging,
+  chatShortcutAnchor,
+  isDragStarted,
+  setMouseIgnore,
+  updatePetChatShortcutAnchor,
+  updateCanvasCursor,
+  beginPotentialDrag,
+  handlePetPointerMove,
+  endPetPointer,
+  onChatShortcutPointerEnter,
+  onChatShortcutPointerLeave,
+  onChatShortcutClick
+} = useLive2DPetInteraction({
+  isPetMode,
+  getInteractionLocked: () => props.interactionLocked,
+  getCanvasEl: () => canvasEl,
+  getApp: () => app,
+  getModel: () => model,
+  getOpaqueHitData: () => opaqueHitData,
+  emitChatShortcutClick: () => emit('chatShortcutClick'),
+  onHomeVisibilityLocked: () => {
+    pointerActive = false
+  }
+})
 
 async function resolveModelUrl(): Promise<string> {
   if (window.electronAPI?.getLive2DModelUrl) {
@@ -90,23 +108,6 @@ async function resolveModelUrl(): Promise<string> {
     }
   }
   return DEFAULT_MODEL_URL
-}
-
-const isPetMode = () => props.mode === 'pet'
-const isHomeMode = () => props.mode === 'home'
-const isChatMode = () => props.mode === 'chat'
-const usesFixedCanvas = () => isPetMode()
-const canDragPet = () => isPetMode() && !homeVisible.value
-
-function updateCanvasCursor(onModel: boolean): void {
-  if (!canvasEl || !isPetMode()) return
-  if (isDragging.value) {
-    canvasEl.style.cursor = 'grabbing'
-  } else if (onModel && canDragPet()) {
-    canvasEl.style.cursor = 'grab'
-  } else {
-    canvasEl.style.cursor = 'default'
-  }
 }
 
 function loadCubismCore(): Promise<void> {
@@ -156,69 +157,9 @@ function isPointerOnModel(event: PointerEvent): boolean {
   return model.containsPoint(point)
 }
 
-function setMouseIgnore(ignore: boolean): void {
-  if (!isPetMode() || !window.electronAPI?.setIgnoreMouseEvents) return
-  if (props.interactionLocked) {
-    ignore = false
-  }
-  if (lastMouseIgnore === ignore) return
-  lastMouseIgnore = ignore
-  window.electronAPI.setIgnoreMouseEvents(ignore)
-}
-
-/** 菜单关闭后重置穿透缓存，避免 lastMouseIgnore 与 Electron 实际状态不一致 */
-watch(
-  () => props.interactionLocked,
-  (locked, wasLocked) => {
-    if (!isPetMode() || locked || wasLocked === undefined) return
-    lastMouseIgnore = null
-    syncPetMouseIgnoreForShortcut()
-  }
-)
-
 function updateModelMotionFrame(): void {
   if (!model) return
   model.update(33)
-}
-
-/** 聊天快捷按钮相对模型不透明区右上角的偏移（px，屏幕坐标） */
-const CHAT_SHORTCUT_OFFSET_X = 16
-const CHAT_SHORTCUT_OFFSET_Y = -8
-
-function updatePetChatShortcutAnchor(): void {
-  if (!isPetMode() || !app || !model || !opaqueHitData) {
-    chatShortcutAnchor.value = null
-    return
-  }
-  const local = opaqueLocalRect(opaqueHitData, 0.5, 0.5)
-  const scale = model.scale.x
-  chatShortcutAnchor.value = {
-    x: model.position.x + local.right * scale + CHAT_SHORTCUT_OFFSET_X,
-    y: model.position.y + local.top * scale + CHAT_SHORTCUT_OFFSET_Y
-  }
-}
-
-function syncPetMouseIgnoreForShortcut(): void {
-  if (!isPetMode()) return
-  if (props.interactionLocked || chatShortcutHover) {
-    setMouseIgnore(false)
-    return
-  }
-  setMouseIgnore(true)
-}
-
-function onChatShortcutPointerEnter(): void {
-  chatShortcutHover = true
-  syncPetMouseIgnoreForShortcut()
-}
-
-function onChatShortcutPointerLeave(): void {
-  chatShortcutHover = false
-  syncPetMouseIgnoreForShortcut()
-}
-
-function onChatShortcutClick(): void {
-  emit('chatShortcutClick')
 }
 
 /** 桌宠：按不透明包围盒对齐窗口内边距 */
@@ -259,7 +200,7 @@ function layoutPetModel(): void {
 
 function layoutModel(): void {
   if (!app || !model || baseModelWidth <= 0 || baseModelHeight <= 0) return
-  if (dragStarted || isDragging.value) return
+  if (isDragStarted() || isDragging.value) return
 
   if (isPetMode()) {
     layoutPetModel()
@@ -333,7 +274,7 @@ async function applyPetFrameFromModel(): Promise<void> {
 }
 
 function scheduleLayout(width: number, height: number): void {
-  if (dragStarted || isDragging.value) return
+  if (isDragStarted() || isDragging.value) return
   if (
     lastLayoutWidth > 0 &&
     Math.abs(width - lastLayoutWidth) < 1 &&
@@ -350,24 +291,6 @@ function scheduleLayout(width: number, height: number): void {
     layoutModel()
     resizeTimer = null
   }, 80)
-}
-
-function movePetWindowToScreenPoint(screenX: number, screenY: number): void {
-  window.electronAPI.setPetWindowPosition(
-    Math.round(screenX - dragPointerOffset.x),
-    Math.round(screenY - dragPointerOffset.y)
-  )
-}
-
-function releasePointerCapture(): void {
-  if (activePointerId === null || !canvasEl) return
-
-  try {
-    canvasEl.releasePointerCapture(activePointerId)
-  } catch {
-    // 指针已释放时忽略
-  }
-  activePointerId = null
 }
 
 function handleContextMenu(event: MouseEvent): void {
@@ -403,14 +326,8 @@ function handleCanvasPointerDown(event: PointerEvent): void {
   if (!onModel) return
 
   pointerActive = true
-  dragStarted = false
-  dragStartScreen = { x: event.screenX, y: event.screenY }
-  dragPointerOffset = { x: event.clientX, y: event.clientY }
-  activePointerId = event.pointerId
-
-  if (canDragPet()) {
-    canvasEl?.setPointerCapture(event.pointerId)
-    setMouseIgnore(false)
+  if (isPetMode()) {
+    beginPotentialDrag(event)
   }
 }
 
@@ -426,46 +343,25 @@ function handleCanvasPointerMove(event: PointerEvent): void {
     model.focus(point.x, point.y)
   }
 
-  if (isPetMode()) {
-    if (props.interactionLocked) {
-      return
-    }
-
-    if (pointerActive && canDragPet()) {
-      const dx = event.screenX - dragStartScreen.x
-      const dy = event.screenY - dragStartScreen.y
-
-      if (!dragStarted && Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
-        dragStarted = true
-        isDragging.value = true
-      }
-
-      if (dragStarted) {
-        movePetWindowToScreenPoint(event.screenX, event.screenY)
-        setMouseIgnore(false)
-        updateCanvasCursor(true)
-        return
-      }
-    }
-
-    if (!pointerActive) {
-      setMouseIgnore(!onModel)
-    }
-    updateCanvasCursor(onModel)
+  if (handlePetPointerMove(event, onModel, pointerActive)) {
+    return
   }
 }
 
 function handleCanvasPointerUp(event: PointerEvent): void {
   if (!model || !pointerActive) return
 
-  releasePointerCapture()
-
   const point = mapPointerToGlobal(event)
   const onModel = opaqueHitData
     ? hitTestOpaquePoint(model, point.x, point.y, opaqueHitData)
     : model.containsPoint(point)
 
-  if (!dragStarted && onModel && event.button === 0 && !props.interactionLocked) {
+  const didDrag = isPetMode() ? endPetPointer(onModel) : false
+  if (!isPetMode()) {
+    updateCanvasCursor(onModel)
+  }
+
+  if (!didDrag && onModel && event.button === 0 && !props.interactionLocked) {
     model.tap(point.x, point.y)
     void handleModelTap({
       model,
@@ -478,13 +374,6 @@ function handleCanvasPointerUp(event: PointerEvent): void {
   }
 
   pointerActive = false
-  dragStarted = false
-  isDragging.value = false
-  updateCanvasCursor(onModel)
-
-  if (isPetMode() && !onModel) {
-    setMouseIgnore(true)
-  }
 }
 
 function handleWindowPointerUp(event: PointerEvent): void {
@@ -602,7 +491,7 @@ async function initLive2D(): Promise<void> {
           Math.abs(app.screen.height - fixedCanvasHeight) > 1
         ) {
           app.renderer.resize(fixedCanvasWidth, fixedCanvasHeight)
-          if (!dragStarted && !isDragging.value) {
+          if (!isDragStarted() && !isDragging.value) {
             layoutPetModel()
           }
         }
@@ -635,22 +524,10 @@ async function initLive2D(): Promise<void> {
 }
 
 onMounted(() => {
-  if (isPetMode() && window.electronAPI?.onHomeVisibilityChanged) {
-    unbindHomeListener = window.electronAPI.onHomeVisibilityChanged((visible) => {
-      homeVisible.value = visible
-      if (visible) {
-        pointerActive = false
-        dragStarted = false
-        isDragging.value = false
-      }
-    })
-  }
   void initLive2D()
 })
 
 onBeforeUnmount(() => {
-  unbindHomeListener?.()
-  unbindHomeListener = null
   if (resizeTimer) {
     clearTimeout(resizeTimer)
     resizeTimer = null
