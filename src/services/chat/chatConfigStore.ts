@@ -76,3 +76,18 @@ export async function saveChatTtsSettings(partial: {
     ...partial
   })
 }
+
+export async function saveChatConfigPatch(
+  partial: Partial<
+    Pick<
+      ChatConfigView,
+      'memoryEnabled' | 'memoryConsolidateOnChatClose' | 'memoryLlmSummarizeEnabled' | 'memoryEmotionScoreEnabled'
+    >
+  >
+): Promise<ChatConfigView> {
+  const current = await loadChatConfigView()
+  return saveChatConfig({
+    ...current,
+    ...partial
+  })
+}

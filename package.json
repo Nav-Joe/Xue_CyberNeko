@@ -1,6 +1,6 @@
 {
   "name": "xue-cyber-neko",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "雪澜赛博猫娘 - Live2D 桌面 AI 桌宠",
   "main": "./out/main/index.js",
   "author": "Xue_CyberNeko Contributors",
@@ -11,20 +11,30 @@
     "preview": "electron-vite preview",
     "typecheck": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
     "test": "vitest run",
+    "test:memory": "node scripts/run-memory-db-tests.js",
     "test:tts": ".venv\\Scripts\\python.exe -m pytest tts_voice/tests",
-    "postinstall": "node scripts/ensure-electron.js && node scripts/ensure-cubism-core.js",
+    "postinstall": "node scripts/ensure-electron.js && node scripts/ensure-cubism-core.js && node scripts/rebuild-native-for-electron.js",
+    "rebuild:native": "node scripts/rebuild-native-for-electron.js",
+    "rebuild:native:node": "node scripts/rebuild-native-for-node.js",
     "setup:model": "node scripts/download-sample-model.js",
-    "tts": ".venv\\Scripts\\python.exe tts_voice/tts_server.py"
+    "tts": ".venv\\Scripts\\python.exe tts_voice/tts_server.py",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@langchain/core": "^1.2.1",
     "@pixi/unsafe-eval": "^6.5.10",
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^11.8.1",
+    "drizzle-orm": "^0.39.3",
     "pixi-live2d-display": "^0.4.0",
     "pixi.js": "^6.5.10",
     "vue": "^3.5.13"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
     "@vitejs/plugin-vue": "^5.2.1",
+    "drizzle-kit": "^0.30.4",
     "electron": "^34.0.0",
     "electron-vite": "^2.3.0",
     "happy-dom": "^17.1.1",

@@ -66,10 +66,33 @@ function normalizeOpenAiApiKeySecretSave(raw: unknown, fallback = false): boolea
   return typeof raw === 'boolean' ? raw : fallback
 }
 
+function normalizeMemoryEnabled(raw: unknown, fallback = false): boolean {
+  return typeof raw === 'boolean' ? raw : fallback
+}
+
+function normalizeMemoryConsolidateOnChatClose(raw: unknown, fallback = true): boolean {
+  return typeof raw === 'boolean' ? raw : fallback
+}
+
+function normalizeMemoryLlmSummarizeEnabled(raw: unknown, fallback = true): boolean {
+  return typeof raw === 'boolean' ? raw : fallback
+}
+
+function normalizeMemoryEmotionScoreEnabled(raw: unknown, fallback = true): boolean {
+  return typeof raw === 'boolean' ? raw : fallback
+}
+
 function withTtsFields(
   config: Omit<
     ChatConfigFile,
-    'ttsEnabled' | 'ttsParallelEnabled' | 'ttsParallelLanes' | 'openaiApiKeySecretSave'
+    | 'ttsEnabled'
+    | 'ttsParallelEnabled'
+    | 'ttsParallelLanes'
+    | 'openaiApiKeySecretSave'
+    | 'memoryEnabled'
+    | 'memoryConsolidateOnChatClose'
+    | 'memoryLlmSummarizeEnabled'
+    | 'memoryEmotionScoreEnabled'
   >,
   raw: LegacyChatConfig
 ): ChatConfigFile {
@@ -78,7 +101,17 @@ function withTtsFields(
     ttsEnabled: normalizeTtsEnabled(raw.ttsEnabled, true),
     ttsParallelEnabled: normalizeTtsParallelEnabled(raw.ttsParallelEnabled, false),
     ttsParallelLanes: normalizeTtsParallelLanes(raw.ttsParallelLanes, 2),
-    openaiApiKeySecretSave: normalizeOpenAiApiKeySecretSave(raw.openaiApiKeySecretSave, false)
+    openaiApiKeySecretSave: normalizeOpenAiApiKeySecretSave(raw.openaiApiKeySecretSave, false),
+    memoryEnabled: normalizeMemoryEnabled(raw.memoryEnabled, true),
+    memoryConsolidateOnChatClose: normalizeMemoryConsolidateOnChatClose(
+      raw.memoryConsolidateOnChatClose,
+      true
+    ),
+    memoryLlmSummarizeEnabled: normalizeMemoryLlmSummarizeEnabled(raw.memoryLlmSummarizeEnabled, true),
+    memoryEmotionScoreEnabled: normalizeMemoryEmotionScoreEnabled(
+      raw.memoryEmotionScoreEnabled,
+      true
+    )
   }
 }
 
@@ -160,6 +193,10 @@ export function toChatConfigView(config: ChatConfigFile): ChatConfigView {
     ttsParallelEnabled: config.ttsParallelEnabled,
     ttsParallelLanes: config.ttsParallelLanes,
     openaiApiKeySecretSave: secretSave,
+    memoryEnabled: config.memoryEnabled === true,
+    memoryConsolidateOnChatClose: config.memoryConsolidateOnChatClose !== false,
+    memoryLlmSummarizeEnabled: config.memoryLlmSummarizeEnabled !== false,
+    memoryEmotionScoreEnabled: config.memoryEmotionScoreEnabled !== false,
     hasApiKey,
     apiKey: !secretSave && hasApiKey ? apiKey : undefined
   }
@@ -203,6 +240,11 @@ export function writeChatConfigFile(view: ChatConfigWritePatch): ChatConfigFile 
     ttsParallelEnabled: view.ttsParallelEnabled ?? current.ttsParallelEnabled,
     ttsParallelLanes: view.ttsParallelLanes ?? current.ttsParallelLanes,
     openaiApiKeySecretSave: view.openaiApiKeySecretSave ?? current.openaiApiKeySecretSave,
+    memoryEnabled: view.memoryEnabled ?? current.memoryEnabled,
+    memoryConsolidateOnChatClose:
+      view.memoryConsolidateOnChatClose ?? current.memoryConsolidateOnChatClose,
+    memoryLlmSummarizeEnabled: view.memoryLlmSummarizeEnabled ?? current.memoryLlmSummarizeEnabled,
+    memoryEmotionScoreEnabled: view.memoryEmotionScoreEnabled ?? current.memoryEmotionScoreEnabled,
     apiKey: view.clearApiKey ? '' : view.apiKey !== undefined ? view.apiKey : current.apiKey
   }
   const next = normalizeConfig(merged)

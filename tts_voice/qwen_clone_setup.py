@@ -15,6 +15,7 @@ import soundfile as sf
 import torch
 
 from text_normalize import normalize_tts_text
+from qwen_model_load import load_qwen3_tts_model, prepare_torch_env, resolve_attn_implementation
 from voice_forge_paths import (
     CUSTOM_SAMPLE_DIR,
     DEFAULT_SAMPLE_DIR,
@@ -237,14 +238,6 @@ def clone_reference_unavailable_error(sample_dir: Path) -> RuntimeError:
     )
 
 
-def _prepare_torch_env() -> tuple[str, torch.dtype]:
-    os.environ.setdefault("HF_HUB_OFFLINE", "1")
-    os.environ.pop("HF_ENDPOINT", None)
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
-    return device, dtype
-
-
 def _unload_model(model: object | None) -> None:
     del model
     gc.collect()
@@ -259,29 +252,31 @@ def generate_reference_clip(
     display_name: str | None = None,
     folder_id: str | None = None,
 ) -> tuple[Path, str]:
-    from qwen_tts import Qwen3TTSModel
-
-    device, dtype = _prepare_torch_env()
+    device, dtype = prepare_torch_env()
     design_dir = voice_design_model_dir(settings)
     text = normalize_tts_text(clone_reference_text(settings))
     instruct = settings.get("instruct", "").strip()
     language = settings.get("language", "Chinese")
     generation = dict(settings.get("generation") or {})
+    attn = resolve_attn_implementation(settings)
 
     print(
         f"[TTS/Qwen Clone] 正在用 VoiceDesign 生成克隆参考音...\n"
         f"               model={design_dir}\n"
         f"               save={target_dir}\n"
+        f"               attn={attn}\n"
         f"               text={text[:32]}...",
         flush=True,
     )
 
-    design_model = Qwen3TTSModel.from_pretrained(
-        str(design_dir),
-        device_map=device,
+    design_model, used_attn = load_qwen3_tts_model(
+        design_dir,
+        device=device,
         dtype=dtype,
-        attn_implementation="eager",
+        attn_implementation=attn,
     )
+    if used_attn != attn:
+        print(f"[TTS/Qwen Clone] 实际 attn={used_attn}", flush=True)
     with torch.no_grad():
         wavs, sample_rate = design_model.generate_voice_design(
             text=text,

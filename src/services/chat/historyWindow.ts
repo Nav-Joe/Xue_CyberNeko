@@ -6,8 +6,27 @@ export const LOCAL_LLAMA_MAX_HISTORY_ROUNDS = 10
 /** 第三方 OpenAI 兼容 API：M3 固定保留最近 30 轮 */
 export const OPENAI_API_MAX_HISTORY_ROUNDS = 30
 
+/**
+ * 日常总结软上限（满则本轮 LLM+TTS 结束后触发会话总结并裁 raw）。
+ * OpenAI：积累到 50 → 裁到 30；本地：积累到 20 → 裁到 10。
+ */
+export const LOCAL_LLAMA_SOFT_MAX_HISTORY_ROUNDS = 20
+export const OPENAI_API_SOFT_MAX_HISTORY_ROUNDS = 50
+
 export function maxHistoryRoundsForMode(mode: ChatLlmMode): number {
   return mode === 'local_llama' ? LOCAL_LLAMA_MAX_HISTORY_ROUNDS : OPENAI_API_MAX_HISTORY_ROUNDS
+}
+
+/** 日常总结触发阈值（≥ 则 mid-session consolidate） */
+export function softMaxHistoryRoundsForMode(mode: ChatLlmMode): number {
+  return mode === 'local_llama'
+    ? LOCAL_LLAMA_SOFT_MAX_HISTORY_ROUNDS
+    : OPENAI_API_SOFT_MAX_HISTORY_ROUNDS
+}
+
+/** 日常总结成功后保留的 raw 轮数（= 开窗/prompt 默认窗口） */
+export function softKeepHistoryRoundsForMode(mode: ChatLlmMode): number {
+  return maxHistoryRoundsForMode(mode)
 }
 
 /** 聊天 UI 提示：当前模式下 LLM 可见的最大对话轮数 */

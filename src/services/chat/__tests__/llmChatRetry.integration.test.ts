@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { LLM_CHAT_MAX_RETRIES, llmChatWithRetry } from '../llmChatRetry'
+import { LLM_CHAT_MAX_RETRIES, llmChatWithRetry, withLlmChatRetry } from '../llmChatRetry'
 import { llmChat } from '../llmClient'
 import { createDefaultChatConfigView } from '../chatConfigDefaults'
 
@@ -82,5 +82,20 @@ describe('llmChatWithRetry', () => {
     expect(result.content).toBe('second')
     expect(handlers[0]).toHaveBeenCalledWith('first')
     expect(handlers[1]).toHaveBeenCalledWith('second')
+  })
+})
+
+describe('withLlmChatRetry', () => {
+  it('retries soft errors for arbitrary async work', async () => {
+    const run = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('无法连接 OpenAI API'))
+      .mockRejectedValueOnce(new Error('OpenAI API 503: busy'))
+      .mockResolvedValueOnce('ok')
+    const onRetry = vi.fn()
+
+    await expect(withLlmChatRetry(run, { onRetry, retryDelayMs: 0 })).resolves.toBe('ok')
+    expect(run).toHaveBeenCalledTimes(3)
+    expect(onRetry).toHaveBeenCalledTimes(2)
   })
 })

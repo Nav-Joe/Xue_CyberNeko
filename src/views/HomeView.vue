@@ -8,6 +8,8 @@ import VolumeControl from '../components/VolumeControl.vue'
 
 import VoiceSampleSwitcher from '../components/VoiceSampleSwitcher.vue'
 
+import MemorySpacePanel from '../components/memory/MemorySpacePanel.vue'
+
 import { useChatEntry } from '../composables/chat/useChatEntry'
 
 
@@ -70,7 +72,7 @@ const { chatBooting, bootTitle, bootMessage, bootProgress, canCancelDownload, ca
 
       </button>
 
-
+      <MemorySpacePanel />
 
       <ul class="todo">
 
@@ -86,7 +88,7 @@ const { chatBooting, bootTitle, bootMessage, bootProgress, canCancelDownload, ca
 
     </aside>
 
-    <p class="version-tag">版本：V0.3.1（早期开发版本）</p>
+    <p class="version-tag">版本：V0.4.0（早期开发版本）</p>
 
   </main>
 

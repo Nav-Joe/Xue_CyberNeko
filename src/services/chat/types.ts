@@ -63,6 +63,14 @@ export interface ChatConfig {
   ttsParallelLanes: ChatTtsParallelLanes
   /** 开启时 Key 仅存主进程且不向渲染进程回显；关闭时以圆点掩码显示长度 */
   openaiApiKeySecretSave: boolean
+  /** M4 记忆总开关；默认 true */
+  memoryEnabled: boolean
+  /** 关聊天窗是否触发整理；默认 true（仍受 memoryEnabled 门控） */
+  memoryConsolidateOnChatClose: boolean
+  /** 整理时用聊天 LLM 总结；默认 true；关闭或失败则不总结 */
+  memoryLlmSummarizeEnabled: boolean
+  /** M4.2：总结后情感打分与关键词；默认 true */
+  memoryEmotionScoreEnabled: boolean
   apiKey?: string
 }
 
@@ -75,6 +83,10 @@ export interface ChatConfigView {
   ttsParallelEnabled: boolean
   ttsParallelLanes: ChatTtsParallelLanes
   openaiApiKeySecretSave: boolean
+  memoryEnabled: boolean
+  memoryConsolidateOnChatClose: boolean
+  memoryLlmSummarizeEnabled: boolean
+  memoryEmotionScoreEnabled: boolean
   hasApiKey: boolean
   /** 非私密保存时回显明文供原地编辑（password 框显示为圆点） */
   apiKey?: string

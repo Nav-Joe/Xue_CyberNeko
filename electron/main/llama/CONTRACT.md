@@ -45,8 +45,8 @@
         │ external │          │ app_spawned │
         └────┬─────┘          └──────┬──────┘
              │                       │
-             │ 关聊天窗 stop         │ 关聊天窗 stop
-             │ → 不 kill             │ → kill(managedPid)
+             │ 关聊天窗               │ 关聊天窗 L-delay
+             │ stop（不 kill）         │ 先记忆整理再 kill(managedPid)
              ▼                       ▼
                    ┌───────────┐
                    │   none    │
@@ -104,7 +104,8 @@ Caller C ──┘         │
 
 | 时机 | 行为 |
 |------|------|
-| 聊天窗 `closed` | `onChatWindowClosed`：若有下载在飞或磁盘半成品 → `cancelLlamaDownload`；否则仅停本应用 llama |
+| 聊天窗 `closed` | `onChatWindowClosed`：若有下载在飞或磁盘半成品 → `cancelLlamaDownload`；否则 **L-delay**：先记忆整理（可调 LLM）再 `stopManagedLlamaServer` |
+| 应用 `before-quit` | 先藏窗（体感已退出）→ 等待整理完成 → kill 本应用 llama → `app.exit` |
 | 再次进聊天 | `ensureLocalLlamaReady` / `beginLlamaChatSession` 先 `reconcileInterruptedLlamaDownloads`（abort orphan + sweep） |
 | 再次点下载 | `downloadDefaultLocalModel` 开头同样 reconcile |
 
@@ -117,7 +118,8 @@ UI：引导遮罩（download_server / download_model）与设置页下载进度�
 | 通道 | 行为 |
 |------|------|
 | `chat-begin-llama-session` | `beginLlamaChatSession`（单飞） |
-| `chat-end-llama-session` / 聊天窗 `closed` | `stopManagedLlamaServer`（按上表） |
+| `chat-end-llama-session` | `stopManagedLlamaServer`（立即停；不跑记忆整理） |
+| 聊天窗 `closed` | L-delay：整理 → `stopManagedLlamaServer` |
 | `chat-probe-local-llama-server` | 仅探测端口，不改 ownership |
 
 ---

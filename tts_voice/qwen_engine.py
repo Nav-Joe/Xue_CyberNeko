@@ -18,19 +18,12 @@ from qwen_clone_setup import (
     ensure_clone_reference,
     voice_design_model_dir,
 )
+from qwen_model_load import load_qwen3_tts_model, prepare_torch_env, resolve_attn_implementation
 from text_normalize import normalize_tts_text
 from voice_forge_config import load_merged_qwen_settings
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "qwen_config.json"
-
-
-def _prepare_torch_env() -> tuple[str, torch.dtype]:
-    os.environ.setdefault("HF_HUB_OFFLINE", "1")
-    os.environ.pop("HF_ENDPOINT", None)
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
-    return device, dtype
 
 
 class QwenVoiceDesignEngine:
@@ -44,22 +37,24 @@ class QwenVoiceDesignEngine:
         self._instruct = self._settings.get("instruct", "").strip()
         self._target_sr = int(self._settings.get("target_sample_rate", 22050))
         self._generation = dict(self._settings.get("generation") or {})
-        self._device, self._dtype = _prepare_torch_env()
-
-        from qwen_tts import Qwen3TTSModel
+        self._device, self._dtype = prepare_torch_env()
+        attn = resolve_attn_implementation(self._settings)
 
         print(
             f"[TTS/Qwen] 正在加载 VoiceDesign 模型...\n"
             f"           path={self._model_dir}\n"
-            f"           device={self._device}",
+            f"           device={self._device}\n"
+            f"           attn={attn}",
             flush=True,
         )
-        self._model = Qwen3TTSModel.from_pretrained(
-            str(self._model_dir),
-            device_map=self._device,
+        self._model, self._attn_implementation = load_qwen3_tts_model(
+            self._model_dir,
+            device=self._device,
             dtype=self._dtype,
-            attn_implementation="eager",
+            attn_implementation=attn,
         )
+        if self._attn_implementation != attn:
+            print(f"[TTS/Qwen] 实际 attn={self._attn_implementation}", flush=True)
         print(f"[TTS/Qwen] instruct={self._instruct[:48]}...", flush=True)
 
     @staticmethod
@@ -162,7 +157,7 @@ class QwenCloneEngine:
         self._language = self._settings.get("language", "Chinese")
         self._target_sr = int(self._settings.get("target_sample_rate", 22050))
         self._generation = dict(self._settings.get("generation") or {})
-        self._device, self._dtype = _prepare_torch_env()
+        self._device, self._dtype = prepare_torch_env()
 
         if reference_sample_dir is not None:
             from qwen_clone_setup import load_reference
@@ -181,21 +176,23 @@ class QwenCloneEngine:
         self._reference_path = ref_path
         self._reference_text = ref_text
         self._model_dir = base_model_dir(self._settings)
-
-        from qwen_tts import Qwen3TTSModel
+        attn = resolve_attn_implementation(self._settings)
 
         print(
             f"[TTS/Qwen Clone] 正在加载 Base 克隆模型...\n"
             f"                 path={self._model_dir}\n"
-            f"                 ref={self._reference_path}",
+            f"                 ref={self._reference_path}\n"
+            f"                 attn={attn}",
             flush=True,
         )
-        self._model = Qwen3TTSModel.from_pretrained(
-            str(self._model_dir),
-            device_map=self._device,
+        self._model, self._attn_implementation = load_qwen3_tts_model(
+            self._model_dir,
+            device=self._device,
             dtype=self._dtype,
-            attn_implementation="eager",
+            attn_implementation=attn,
         )
+        if self._attn_implementation != attn:
+            print(f"[TTS/Qwen Clone] 实际 attn={self._attn_implementation}", flush=True)
         self._voice_clone_prompt = self._model.create_voice_clone_prompt(
             ref_audio=str(self._reference_path),
             ref_text=self._reference_text,

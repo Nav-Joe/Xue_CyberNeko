@@ -16,6 +16,7 @@ import {
 } from '../../services/chat/historyWindow'
 import { buildChatPromptMessages } from '../../services/chat/promptBuilder'
 import { stopSpeaking } from '../../services/ttsPlayer'
+import { appendMemoryRawLog, consumePendingPeeksForUserTurn, getMemoryPromptBlock, getRecentMemoryHistory, maybeMidSessionConsolidate, maybeRunPeriodRollup, notifyMemoryChatClosed } from '../../services/memory/memoryClient'
 import type {
   CharacterCard,
   ChatConfigView,
@@ -25,6 +26,10 @@ import type {
 
 function createMessageId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function createSessionId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `session-${Date.now()}`
 }
 
 function toHistoryMessages(messages: ChatUiMessage[]): ChatHistoryMessage[] {
@@ -47,6 +52,7 @@ function toHistoryMessages(messages: ChatUiMessage[]): ChatHistoryMessage[] {
 }
 
 export function useChatSession() {
+  const sessionId = createSessionId()
   const messages = ref<ChatUiMessage[]>([])
   const sending = ref(false)
   /** LLM 回复进行中：聊天窗 Live2D 触摸发声互斥 */
@@ -112,6 +118,7 @@ export function useChatSession() {
 
   if (getCurrentScope()) {
     onScopeDispose(() => {
+      void notifyMemoryChatClosed(sessionId)
       clearSession()
     })
   }
@@ -138,10 +145,22 @@ export function useChatSession() {
     const ttsParallelLanes =
       ttsEnabled && config.value.ttsParallelEnabled ? config.value.ttsParallelLanes : 0
 
-    const priorHistory = trimHistoryToRounds(
-      toHistoryMessages(messages.value),
-      maxHistoryRoundsForMode(config.value.llmMode)
-    )
+    const maxRounds = maxHistoryRoundsForMode(config.value.llmMode)
+    let priorHistory = trimHistoryToRounds(toHistoryMessages(messages.value), maxRounds)
+    let memoryBlock = ''
+    let llmUserInput = text
+    if (config.value.memoryEnabled) {
+      maybeRunPeriodRollup()
+      const fromDb = await getRecentMemoryHistory(maxRounds)
+      if (fromDb !== null) {
+        priorHistory = fromDb
+      }
+      memoryBlock = await getMemoryPromptBlock(text)
+      const peekPrefix = await consumePendingPeeksForUserTurn()
+      if (peekPrefix) {
+        llmUserInput = `${peekPrefix}\n${text}`
+      }
+    }
     const userMessage: ChatUiMessage = {
       id: createMessageId(),
       role: 'user',
@@ -149,6 +168,9 @@ export function useChatSession() {
       status: 'done'
     }
     messages.value.push(userMessage)
+    if (config.value.memoryEnabled) {
+      void appendMemoryRawLog({ sessionId, role: 'user', content: text })
+    }
 
     let typingPlaceholderId: string | null = createMessageId()
     messages.value.push({
@@ -212,7 +234,8 @@ export function useChatSession() {
       const promptMessages = await buildChatPromptMessages({
         card: activeCard.value,
         history: priorHistory,
-        userInput: text
+        userInput: llmUserInput,
+        memoryBlock: memoryBlock || undefined
       })
       const useStream = config.value.llmMode === 'local_llama'
 
@@ -244,6 +267,15 @@ export function useChatSession() {
         await segments.revealFullText(result.content)
       }
       removeTypingPlaceholder()
+      if (config.value.memoryEnabled && result.content.trim()) {
+        await appendMemoryRawLog({
+          sessionId,
+          role: 'assistant',
+          content: result.content.trim()
+        })
+        // 本轮 LLM+TTS 已全部释放后再检日常总结（满 50/20 轮 → 裁回 30/10）
+        await maybeMidSessionConsolidate(sessionId)
+      }
     } catch (err) {
       retryAttempt.value = 0
       segments.reset()
@@ -272,6 +304,7 @@ export function useChatSession() {
     initSession,
     reloadConfig,
     clearSession,
-    sendUserMessage
+    sendUserMessage,
+    sessionId
   }
 }

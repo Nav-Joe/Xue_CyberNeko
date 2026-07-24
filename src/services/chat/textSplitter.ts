@@ -59,6 +59,34 @@ export function stripKaomojiForTts(text: string): string {
 }
 
 /**
+ * 供 TTS 推理用：去掉「（）」/「()」内旁白（动作描写、心里话等），保留括号外正文。
+ * 多轮去掉简单嵌套；不成对的括号原样保留。
+ */
+export function stripParentheticalForTts(text: string): string {
+  let result = text
+  for (let i = 0; i < 8; i += 1) {
+    const next = result
+      .replace(/（[^（）]*）/g, '')
+      .replace(/\([^()]*\)/g, '')
+    if (next === result) break
+    result = next
+  }
+  return result.replace(/\s{2,}/g, ' ').trim()
+}
+
+/**
+ * 供 TTS 推理用：去掉省略号（... / ...... / … / …… 等），避免空读拖音。
+ */
+export function stripEllipsisForTts(text: string): string {
+  return text
+    .replace(/\.{2,}/g, '')
+    .replace(/…+/gu, '')
+    .replace(/⋯+/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+/**
  * 供 TTS 推理用：去掉 emoji，保留标点与正文；展示文本仍用原分段。
  */
 export function stripEmojiForTts(text: string): string {
@@ -69,9 +97,11 @@ export function stripEmojiForTts(text: string): string {
     .trim()
 }
 
-/** TTS 推理前去掉 emoji 与颜文字；UI 展示仍保留原文。 */
+/** TTS 推理前去掉 emoji、颜文字、括号旁白与省略号；UI 展示仍保留原文。 */
 export function stripTextForTts(text: string): string {
-  return stripKaomojiForTts(stripEmojiForTts(text))
+  return stripEllipsisForTts(
+    stripParentheticalForTts(stripKaomojiForTts(stripEmojiForTts(text)))
+  )
 }
 
 /**

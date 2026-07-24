@@ -2,7 +2,9 @@
 
 一个会动、会聊、会悄悄观察你的 Live2D 桌面 AI 桌宠。
 
-**当前版本：V0.3.1（早期开发版本）**
+**当前版本：V0.4.0（早期开发版本）**
+
+> **文档语言 / Docs:** [中文 README](README.md)（本页）· [English README](README.en.md)
 
 ## 项目前提须知
 
@@ -16,17 +18,19 @@
 
 本次开发均以桃濑日和的 pro 版 Live2D 模型进行测试和开发。如果你想自己更换模型，可能会有 BUG，请自行解决！
 
+## 预告
+
+里程碑4的开发并没有结束，目前只是最最基础的功能，真正的完整里程碑4将在后续完成最后完善，一个自研的情感模拟模块目前正在进行个人研究和大量POC中，尽情期待！这可能是许多桌宠项目中最具有差异性的一步：我想打造的不仅仅只是个类RAG记忆系统，而是给我的雪澜一个 **【数字灵魂】**
+
 ## 重大更新
 
-### 文字聊天（已上线）
+### 记忆（里程碑 4 已上线）
 
-- **独立聊天窗口**：现在可以跟雪澜聊天啦！
-- **本地大模型**：内置 **私有化本地大模型（默认Qwen2.5：3b）** 引导——自动检测 / 下载 / 启动；OpenAI 兼容 `/v1/chat/completions`；默认流式回复
-- **第三方 API**：OpenAI 形兼容接口（Base URL + Model + API Key）；Key **仅存 Electron 主进程**，不经 renderer 明文持久化到前端
-- **角色卡**：名称 / 人设 / 喜好 → Prompt 构建（`@langchain/core`）
-- **对话 TTS**：雪澜说的话也可以让你听见啦！按句切分 → 朗读 + 口型；可开关；可选 2–4 路并行推理（严格按句序）
-- **简易上下文窗口**：本地 llama 最近 **10 轮**、第三方 API 最近 **30 轮**（仅当次会话内存，关窗即清空；长期记忆留里程碑 4）
-- **聊天设置**：LLM 模式切换、TTS、角色卡 CRUD
+- 现在雪澜已经可以记住你与她的故事~
+- 雪澜不仅可以记住你与她的回忆，还能做到深深记住你与她的重要时刻~
+- **记忆空间：** 可以通过记忆空间来看看雪澜的记忆和小心思，但是注意不要被她发现啦~
+- **用户画像：** 随着你们故事的发展，你的模样在雪澜心中会越来越清晰，让雪澜越来越熟悉你，理解你~
+- **时间感知：** 现在雪澜有完整的时间观念。
 
 ## 🚧 里程碑进度
 
@@ -36,7 +40,7 @@
 | **1** | 桌宠窗、Live2D、右键菜单、「家」窗口 | ✅ |
 | **2** | 语料库 + 多引擎 TTS + 音色工坊 + 精选音频 | ✅ |
 | **3** | 文字聊天 + llama.cpp + OpenAI API + 对话 TTS | ✅ |
-| **4** | 记忆（RAG + 总结） | ⬜ |
+| **4** | 记忆基座与检索（无向量）；**4.5** 自研情感模拟 | 🔧 **4 ✅** / 4.5 ⬜ |
 | **5** | 语音连续对话（STT + TTS） | ⬜ |
 | **6** | 主动行为 & 屏幕感知 | ⬜ |
 | **7** | 设置完善 & 打包发布 | ⬜ |
@@ -63,6 +67,7 @@ npm run setup:model    # 下载 Live2D 官方 hiyori_pro 样例
 npm run dev            # 仅桌宠（需另开 TTS，见下）
 npm run tts            # 仅 TTS 服务
 npm test               # 前端 vitest
+npm run test:memory    # 记忆库集成测（临时 Node ABI → 测完恢复 Electron）
 npm run test:tts       # Python pytest（tts_voice/tests）
 ```
 
@@ -75,13 +80,27 @@ npm run test:tts       # Python pytest（tts_voice/tests）
 | **本地 llama** | 进入聊天或设置内切到本地时，检测 llama-server；未运行则引导下载 / 启动；关闭聊天窗会结束本应用启动的 llama 进程 |
 | **第三方 API** | 聊天设置中填写 Base URL、模型名、API Key；请求经主进程 IPC 代理 |
 
-会话消息**不写入磁盘**；关闭聊天窗或「清空会话」即丢失（M4 再做记忆）。
+会话默认仍仅在内存；开启聊天设置中的 **记忆** 后写入 `%APPDATA%/xue-cyber-neko/memory.db`（即 Electron `{userData}/memory.db`，关窗异步整理）。未开启时与 M3 行为一致。
+
+### 隐私与本地数据（M4 务必知晓）
+
+以下内容含对话原文、总结、用户画像、API Key 等，**只应留在本机**，已被 `.gitignore` 防御；请勿把它们复制进仓库或发到 Issue：
+
+| 本机路径（Windows 示意） | 内容 |
+|--------------------------|------|
+| `%APPDATA%/xue-cyber-neko/memory.db` | raw 对话、日常/周/月总结、核心池、用户画像、偷看事件等 |
+| `%APPDATA%/xue-cyber-neko/chat-config.json` | LLM / TTS / 记忆开关；**API Key 仅主进程落盘** |
+| `%APPDATA%/xue-cyber-neko/character-cards.json` | 你的角色卡（人设等） |
+
+仓库内**允许**的相关内容只有：记忆 schema / 迁移 SQL、默认角色卡模板、契约文档（无真实密钥）。开发用的临时库在 `.runtime/memory*.db`（已忽略）。
 
 ### 常见问题
 
 **`启动.bat` 闪退：** 在 PowerShell 中运行 `cmd /k .\启动.bat` 查看完整报错。
 
 **Electron 未安装完整：** `npm rebuild electron` 或删除 `node_modules` 后重新 `npm install`（项目 `.npmrc` 已配国内镜像）。
+
+**记忆库 `better-sqlite3` / NODE_MODULE_VERSION 报错：** 原生模块需对齐 Electron（不是系统 Node）。执行 `npm run rebuild:native`（`npm install` / 首次安装的 postinstall 也会自动重编）。
 
 **窗口一片空白：** 执行 `npm run setup:model` 补全 Cubism Core 与模型文件。
 
@@ -154,6 +173,7 @@ UI 以 TTS `/health` 的**运行中 backend** 为准。
 | `npm run setup:model` | 下载/补全 Live2D hiyori_pro |
 | `npm run typecheck` | Vue/TS 类型检查 |
 | `npm test` | Vitest 单元测试 |
+| `npm run test:memory` | 记忆 SQLite 集成测（Node 重编 → 跑测 → 恢复 Electron ABI） |
 | `npm run test:tts` | TTS Python 测试 |
 | `npm run tts` | 仅启动 TTS |
 
@@ -162,14 +182,19 @@ UI 以 TTS `/health` 的**运行中 backend** 为准。
 ```
 Xue_CyberNeko/
 ├── electron/              # 主进程、preload、IPC、llama 会话
-│   └── main/chat/         # 聊天窗、chat-config、OpenAI 代理
+│   ├── main/chat/         # 聊天窗、chat-config、OpenAI 代理
+│   └── main/memory/       # M4 记忆引擎、schema、迁移（无用户数据）
 ├── src/
-│   ├── components/chat/   # 聊天 UI、设置
+│   ├── components/chat/   # 聊天 UI、设置、记忆开关
+│   ├── components/memory/ # 记忆空间面板
 │   ├── composables/chat/  # 会话、入口、bootstrap
-│   └── services/chat/     # LLM、TTS 流水线、角色卡
+│   └── services/
+│       ├── chat/          # LLM、TTS 流水线、角色卡
+│       └── memory/        # 记忆 IPC 客户端
+├── memory_service/        # 可选侧车（总结相关，无用户库）
 ├── tts_voice/             # FastAPI TTS + engines
 ├── voice_forge/           # 音色工坊样本
-├── scripts/               # 安装、启动、benchmark
+├── scripts/               # 安装、启动、benchmark、记忆测脚手架
 ├── public/models/         # Live2D（setup:model 下载）
 ├── public/touch_clips/    # 精选触摸 wav
 ├── 首次安装.bat
@@ -181,10 +206,13 @@ Xue_CyberNeko/
 
 | 文档 | 说明 |
 |------|------|
+| [`README.md`](README.md) | 中文 README（本页） |
+| [`README.en.md`](README.en.md) | English README |
 | [`tts_voice/ENGINE_HOOKS.md`](tts_voice/ENGINE_HOOKS.md) | TTS 引擎对接、缓存、config.yaml |
 | [`tts_voice/CONTRACT.md`](tts_voice/CONTRACT.md) | TTS 服务契约 |
 | [`src/services/chat/CONTRACT.md`](src/services/chat/CONTRACT.md) | 聊天模块契约 |
 | [`electron/main/chat/CHAT_CONFIG.md`](electron/main/chat/CHAT_CONFIG.md) | chat-config 字段说明（无真实 Key） |
+| [`electron/main/memory/CONTRACT.md`](electron/main/memory/CONTRACT.md) | 记忆模块契约（库表 / IPC / 召回；无用户数据） |
 | [`public/models/README.md`](public/models/README.md) | Live2D 模型替换 |
 | [`voice_forge/README.md`](voice_forge/README.md) | 音色工坊目录 |
 | [`public/touch_clips/README.md`](public/touch_clips/README.md) | 精选音频 manifest |
@@ -195,11 +223,11 @@ MIT（里程碑 7 发布前正式确认）
 
 ## 关于下一阶段
 
-里程碑 4 计划接入 **RAG + 对话总结**，让雪澜拥有跨会话记忆；当前 M3 聊天仅为当次窗口上下文。
+将人工情感模拟系统进行落地和实现（好中二的名字，bro以为自己在玩群星...）
 
 ## 赞助
 
-项目免费开源；后续将开放投喂渠道，欢迎 Star 与 Issue。
+项目免费开源，后续将开放投喂渠道，欢迎 Star 与 Issue。
 
 ## 一些悄悄话
 

@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
   LOCAL_LLAMA_MAX_HISTORY_ROUNDS,
+  LOCAL_LLAMA_SOFT_MAX_HISTORY_ROUNDS,
   OPENAI_API_MAX_HISTORY_ROUNDS,
+  OPENAI_API_SOFT_MAX_HISTORY_ROUNDS,
   formatHistoryWindowHint,
   maxHistoryRoundsForMode,
+  softKeepHistoryRoundsForMode,
+  softMaxHistoryRoundsForMode,
   splitHistoryIntoRounds,
   trimHistoryToRounds
 } from '../historyWindow'
@@ -21,6 +25,13 @@ describe('historyWindow', () => {
   it('maps llm mode to round limits', () => {
     expect(maxHistoryRoundsForMode('local_llama')).toBe(LOCAL_LLAMA_MAX_HISTORY_ROUNDS)
     expect(maxHistoryRoundsForMode('openai_api')).toBe(OPENAI_API_MAX_HISTORY_ROUNDS)
+  })
+
+  it('maps soft max / keep for mid-session consolidate', () => {
+    expect(softMaxHistoryRoundsForMode('local_llama')).toBe(LOCAL_LLAMA_SOFT_MAX_HISTORY_ROUNDS)
+    expect(softMaxHistoryRoundsForMode('openai_api')).toBe(OPENAI_API_SOFT_MAX_HISTORY_ROUNDS)
+    expect(softKeepHistoryRoundsForMode('local_llama')).toBe(LOCAL_LLAMA_MAX_HISTORY_ROUNDS)
+    expect(softKeepHistoryRoundsForMode('openai_api')).toBe(OPENAI_API_MAX_HISTORY_ROUNDS)
   })
 
   it('formats ui hint per llm mode', () => {

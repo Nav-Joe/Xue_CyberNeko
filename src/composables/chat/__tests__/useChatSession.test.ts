@@ -6,6 +6,7 @@ import { getActiveCharacterCard, loadCharacterCardsStore } from '../../../servic
 import { llmChatWithRetry } from '../../../services/chat/llmChatRetry'
 import { buildChatPromptMessages } from '../../../services/chat/promptBuilder'
 import { createChatSegmentCoordinator } from '../../../services/chat/chatTtsPipeline'
+import { appendMemoryRawLog, getRecentMemoryHistory, maybeMidSessionConsolidate } from '../../../services/memory/memoryClient'
 import { createDefaultChatConfigView } from '../../../services/chat/chatConfigDefaults'
 import { OPENAI_API_MAX_HISTORY_ROUNDS } from '../../../services/chat/historyWindow'
 import type { CharacterCard, CharacterCardsStore } from '../../../services/chat/types'
@@ -15,6 +16,15 @@ vi.mock('../../../services/chat/characterCardStore')
 vi.mock('../../../services/chat/llmChatRetry')
 vi.mock('../../../services/chat/promptBuilder')
 vi.mock('../../../services/chat/chatTtsPipeline')
+vi.mock('../../../services/memory/memoryClient', () => ({
+  appendMemoryRawLog: vi.fn().mockResolvedValue(true),
+  getRecentMemoryHistory: vi.fn().mockResolvedValue(null),
+  getMemoryPromptBlock: vi.fn().mockResolvedValue(''),
+  consumePendingPeeksForUserTurn: vi.fn().mockResolvedValue(''),
+  maybeRunPeriodRollup: vi.fn(),
+  maybeMidSessionConsolidate: vi.fn().mockResolvedValue(undefined),
+  notifyMemoryChatClosed: vi.fn().mockResolvedValue(undefined)
+}))
 
 const sampleCard: CharacterCard = {
   id: 'default',
@@ -93,6 +103,7 @@ describe('useChatSession', () => {
   })
 
   it('sendUserMessage keeps newest prior rounds for openai_api, not the oldest', async () => {
+    vi.mocked(getRecentMemoryHistory).mockResolvedValue(null)
     const session = useChatSession()
     await session.initSession()
 
@@ -113,6 +124,34 @@ describe('useChatSession', () => {
     expect(call?.history.at(-2)?.content).toBe(`turn-${OPENAI_API_MAX_HISTORY_ROUNDS + 4}`)
     expect(call?.history.at(-1)?.content).toBe(`reply-${OPENAI_API_MAX_HISTORY_ROUNDS + 4}`)
     expect(call?.userInput).toBe('latest-user-input')
+  })
+
+  it('uses raw_logs recent history when memory is enabled', async () => {
+    vi.mocked(loadChatConfigView).mockResolvedValue({
+      ...createDefaultChatConfigView(),
+      llmMode: 'local_llama',
+      memoryEnabled: true,
+      ttsEnabled: false
+    })
+    vi.mocked(getRecentMemoryHistory).mockResolvedValue([
+      { role: 'user', content: '上次聊的' },
+      { role: 'assistant', content: '记得呀' }
+    ])
+
+    const session = useChatSession()
+    await session.initSession()
+    await session.sendUserMessage('新问题')
+
+    expect(getRecentMemoryHistory).toHaveBeenCalledWith(10)
+    const call = vi.mocked(buildChatPromptMessages).mock.calls[0]?.[0]
+    expect(call?.history).toEqual([
+      { role: 'user', content: '上次聊的' },
+      { role: 'assistant', content: '记得呀' }
+    ])
+    expect(call?.userInput).toBe('新问题')
+    expect(session.messages.value[0]?.content).toBe('新问题')
+    expect(appendMemoryRawLog).toHaveBeenCalled()
+    expect(maybeMidSessionConsolidate).toHaveBeenCalledWith(session.sessionId)
   })
   it('replaces the stream coordinator while keeping reply pending through retry', async () => {
     vi.mocked(loadChatConfigView).mockResolvedValue({ ...createDefaultChatConfigView(), llmMode: 'local_llama', ttsEnabled: false })

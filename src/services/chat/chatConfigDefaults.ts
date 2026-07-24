@@ -28,6 +28,10 @@ export function createDefaultChatConfigView(): ChatConfigView {
     ttsParallelEnabled: false,
     ttsParallelLanes: 2,
     openaiApiKeySecretSave: false,
+    memoryEnabled: true,
+    memoryConsolidateOnChatClose: true,
+    memoryLlmSummarizeEnabled: true,
+    memoryEmotionScoreEnabled: true,
     hasApiKey: false
   }
 }
@@ -41,6 +45,10 @@ export function createDefaultChatConfig(): ChatConfig {
     ttsParallelEnabled: false,
     ttsParallelLanes: 2,
     openaiApiKeySecretSave: false,
+    memoryEnabled: true,
+    memoryConsolidateOnChatClose: true,
+    memoryLlmSummarizeEnabled: true,
+    memoryEmotionScoreEnabled: true,
     apiKey: ''
   }
 }

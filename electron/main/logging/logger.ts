@@ -62,9 +62,21 @@ export function formatLogLine(input: {
   stack?: string
   at?: Date
 }): string {
+  const detailText =
+    input.detail == null
+      ? ''
+      : typeof input.detail === 'string'
+        ? input.detail
+        : (() => {
+            try {
+              return JSON.stringify(input.detail)
+            } catch {
+              return String(input.detail)
+            }
+          })()
   const parts = [`[${timestampLocal(input.at)}]`, `[${input.level}]`, `[${input.scope}]`, input.message]
-  if (input.detail?.trim()) {
-    parts.push(`| ${input.detail.trim().replace(/\s+/g, ' ')}`)
+  if (detailText.trim()) {
+    parts.push(`| ${detailText.trim().replace(/\s+/g, ' ')}`)
   }
   const head = parts.join(' ')
   if (input.stack?.trim()) {

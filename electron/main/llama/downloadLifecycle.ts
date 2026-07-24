@@ -91,7 +91,7 @@ export async function cancelLlamaDownload(): Promise<{ ok: true; detail: string 
 
 /**
  * 聊天窗关闭（含点 X）：有下载在飞或磁盘半成品 → 等同取消下载；
- * 否则仅停止本应用托管的 llama-server。
+ * 否则 L-delay：先记忆整理（可调 LLM），再停止本应用托管的 llama-server。
  */
 export async function onChatWindowClosed(): Promise<void> {
   const inflight = Boolean(activeDownloadAbort && !activeDownloadAbort.signal.aborted)
@@ -101,7 +101,9 @@ export async function onChatWindowClosed(): Promise<void> {
     await cancelLlamaDownload()
     return
   }
-  await stopManagedLlamaServer()
+  const { runConsolidateThenStopLlama } = await import('../memory/runtime')
+  logInfo('llama', 'onChatWindowClosed: L-delay consolidate then stop managed server')
+  await runConsolidateThenStopLlama(() => stopManagedLlamaServer())
 }
 
 /** 下载 AbortError 后：清半成品并停本应用 llama（供 session catch 使用）。 */

@@ -59,4 +59,18 @@ describe('stripTextForTts', () => {
     expect(stripTextForTts('开心😊(´・ω・`)呀。')).toBe('开心呀。')
     expect(stripTextForTts('(´・ω・`)')).toBe('')
   })
+
+  it('removes narrative parentheses for TTS but keeps spoken text', () => {
+    expect(stripTextForTts('（轻轻点头）你好呀。')).toBe('你好呀。')
+    expect(stripTextForTts('我在想（其实有点紧张）要不要说。')).toBe('我在想要不要说。')
+    expect(stripTextForTts('(smiles) Hi.')).toBe('Hi.')
+    expect(stripTextForTts('（外层（内心独白））说出口了。')).toBe('说出口了。')
+  })
+
+  it('removes ellipsis runs for TTS', () => {
+    expect(stripTextForTts('然后...就这样。')).toBe('然后就这样。')
+    expect(stripTextForTts('......')).toBe('')
+    expect(stripTextForTts('嗯……好吧。')).toBe('嗯好吧。')
+    expect(stripTextForTts('等一下......')).toBe('等一下')
+  })
 })

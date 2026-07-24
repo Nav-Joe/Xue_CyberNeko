@@ -46,17 +46,14 @@ describe('createChatSegmentCoordinator', () => {
     expect(mockSession.waitUntilIdle).toHaveBeenCalled()
   })
 
-  it('enqueues TTS segments with emoji stripped for synthesis', async () => {
-    const revealed: string[] = []
+  it('enqueues TTS segments with narrative parentheses stripped for synthesis', async () => {
     const coordinator = createChatSegmentCoordinator({
       ttsEnabled: true,
-      onRevealSegment: (seg) => revealed.push(seg)
+      onRevealSegment: () => {}
     })
-    coordinator.pushDelta('开心😊呀。')
+    coordinator.pushDelta('（歪头）你好呀。')
     await coordinator.flush()
-    expect(mockSession.enqueue).toHaveBeenCalledWith('开心😊呀。', '开心呀。')
-    expect(mockSession.markStreamComplete).toHaveBeenCalledTimes(1)
-    expect(mockSession.waitUntilIdle).toHaveBeenCalled()
+    expect(mockSession.enqueue).toHaveBeenCalledWith('（歪头）你好呀。', '你好呀。')
   })
 
   it('pushDelta + flush only enqueues each segment once', async () => {

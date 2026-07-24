@@ -41,13 +41,14 @@
 ## Prompt 构建
 
 - `formatCharacterSystemPrompt(card)` — 角色卡 → system 文本。
-- `buildChatPromptMessages({ card, history, userInput })` — `@langchain/core` `ChatPromptTemplate`，输出 `ChatHistoryMessage[]`（`user` / `assistant` / `system`），供 llama-server 与 OpenAI 形 API 共用。
+- `formatChatLocalTimeLabel(now?)` — 本轮本地时间一行（`当前本地时间：YYYY-MM-DD HH:mm（周X）`）。
+- `buildChatPromptMessages({ card, history, userInput, memoryBlock?, now? })` — `@langchain/core` `ChatPromptTemplate`，输出 `ChatHistoryMessage[]`（`user` / `assistant` / `system`），供 llama-server 与 OpenAI 形 API 共用；system 顺序为角色卡 → 本地时间 → 记忆块（核心/画像/召回）。偷看标记不进 system：打开记忆空间后，**下一轮**发给 LLM 的 `user` 内容前会拼 `【用户（时间）偷看了…】`（UI 气泡与 `raw_logs` 仍只保留用户原文）。
 - `listCharacterRagDocumentIds(card)` — M4 RAG 预留。
 
 ## TTS 分段（模块 1）
 
 - `splitTextForTts` / `drainCompleteTtsSegments` — 按句末标点切分；流式缓冲与整段回复共用。
-- `stripTextForTts` / `containsKaomoji` — TTS 推理前去掉 emoji 与颜文字；UI 展示仍保留原文。
+- `stripTextForTts` / `containsKaomoji` — TTS 推理前去掉 emoji、颜文字、「（）」/「()」旁白与省略号（`...` / `…`）；UI 展示仍保留原文。
 
 ## 开发入口（人工验证）
 
@@ -62,9 +63,10 @@
 | Composable | `useChatSession.ts` — messages、send、clear、错误态、流式（local_llama） |
 | UI | `ChatMessageList.vue` + `ChatComposer.vue` + `ChatWindowView.vue` |
 | Prompt | `buildChatPromptMessages` + 当前 **active** 角色卡 |
-| LLM | `llmChat` / `llmChatWithRetry` — 软错误（网络、5xx、429 等）最多自动重试 3 次；硬错误（Key/余额/配置）立即失败 |
-| 持久化 | M3 仅内存会话；关闭聊天窗 / 清空会话即丢弃全部消息，不写磁盘（M4 记忆预留） |
-| 上下文窗口 | 发往 LLM 前 `historyWindow.ts` 截断：`local_llama` 最近 **10 轮**，`openai_api` 最近 **30 轮**（1 轮 = user + assistant）；UI 仍展示本会话全部气泡 |
+| LLM | `llmChat` / `llmChatWithRetry` — 软错误（网络、5xx、429 等）最多自动重试 3 次；硬错误（Key/余额/配置）立即失败；通用包装 `withLlmChatRetry` 供记忆总结等复用 |
+| 持久化 | 本窗 UI 仍仅内存；关窗丢气泡。`memoryEnabled` 时写入 `raw_logs`；发往 LLM 的先验历史改从 DB 取最近 N 轮（见下） |
+| 上下文窗口 | `local_llama` **10** 轮 / `openai_api` **30** 轮（1 轮 = user + 连续 assistant）。记忆开：`memory-get-recent-history` 读 `raw_logs`（timestamp 从新往旧）；记忆关或 IPC 失败：回退内存 `historyWindow`。UI 不回填跨窗气泡。另：全局 raw 达 **20/50** 轮时，本轮 LLM+TTS 结束后日常总结并裁回 **10/30**（见 memory CONTRACT） |
+| 记忆注入（M4.2 / M4.2.5） | 按 `llmMode` 分层：`openai_api` 核心≤5/~300tok、总结&lt;1024tok；`local_llama` 核心≤2/~100tok、总结&lt;254tok。key_facts 类 RAG（含 `period_summaries`）+ significance 优先；非空用户画像 100% 注入且不占总结预算。发消息时 fire-and-forget 周/月滚 |
 
 ## 聊天设置（模块 5）
 

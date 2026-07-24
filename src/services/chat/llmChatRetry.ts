@@ -106,18 +106,16 @@ export type LlmChatRetryHooks = {
   retryDelayMs?: number
 }
 
-/** 软错误 / 网络问题自动重试，硬错误立即抛出 */
-export async function llmChatWithRetry(
-  config: ChatConfigView,
-  request: LlmChatRequest,
-  streamHandlerFactory?: (attempt: number) => LlmStreamHandler | undefined,
+/** 软错误 / 网络问题自动重试，硬错误立即抛出（可供记忆总结等复用） */
+export async function withLlmChatRetry<T>(
+  run: (attempt: number) => Promise<T>,
   hooks?: LlmChatRetryHooks
-): Promise<LlmChatResult> {
+): Promise<T> {
   let lastError = new Error('LLM 请求失败')
 
   for (let attempt = 0; attempt <= LLM_CHAT_MAX_RETRIES; attempt += 1) {
     try {
-      return await llmChat(config, request, streamHandlerFactory?.(attempt))
+      return await run(attempt)
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
       const { retryable } = classifyLlmChatError(lastError)
@@ -130,4 +128,17 @@ export async function llmChatWithRetry(
   }
 
   throw lastError
+}
+
+/** 软错误 / 网络问题自动重试，硬错误立即抛出 */
+export async function llmChatWithRetry(
+  config: ChatConfigView,
+  request: LlmChatRequest,
+  streamHandlerFactory?: (attempt: number) => LlmStreamHandler | undefined,
+  hooks?: LlmChatRetryHooks
+): Promise<LlmChatResult> {
+  return withLlmChatRetry(
+    (attempt) => llmChat(config, request, streamHandlerFactory?.(attempt)),
+    hooks
+  )
 }

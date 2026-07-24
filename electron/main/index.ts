@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { join } from 'path'
 
 import './logging/registerErrorHandlers'
-import { logFatal, logInfo } from './logging/logger'
+import { logFatal, logInfo, logWarn } from './logging/logger'
 import { registerLoggingIpc } from './ipc/logging'
 
 import { registerAppDialogsIpc } from './ipc/appDialogs'
@@ -21,6 +21,9 @@ import {
   registerChatWindowIpc,
   restoreWindowsAfterChat
 } from './windows/chatCoordination'
+import { registerMemoryIpc } from './ipc/memory'
+import { initMemorySubsystem, finalizeForAppQuit } from './memory/runtime'
+import { stopManagedLlamaServer } from './llama/session'
 import { createHomeWindow, getHomeWindow, notifyHomeVisibility, setQuitting } from './windows/homeWindow'
 import {
   createPetWindow,
@@ -157,11 +160,41 @@ function registerIpc(): void {
   })
 
   registerChatWindowIpc()
+  registerMemoryIpc()
 }
 
-app.on('before-quit', () => {
+let quittingFinalizeStarted = false
+
+app.on('before-quit', (event) => {
   setQuitting(true)
   appInstanceLock.clearLock(process.pid)
+
+  if (quittingFinalizeStarted) {
+    return
+  }
+  // L-delay：先藏窗体让用户感觉已退出，后台完成总结再 kill llama 并真正退出
+  event.preventDefault()
+  quittingFinalizeStarted = true
+
+  const hideAll = (): void => {
+    try {
+      getHomeWindow()?.hide()
+      getPetWindow()?.hide()
+    } catch {
+      /* ignore */
+    }
+  }
+  hideAll()
+
+  void (async () => {
+    try {
+      await finalizeForAppQuit(() => stopManagedLlamaServer())
+    } catch (error) {
+      logWarn('main', 'before-quit finalize failed', error)
+    } finally {
+      app.exit(0)
+    }
+  })()
 })
 
 app.whenReady().then(() => {
@@ -169,6 +202,7 @@ app.whenReady().then(() => {
     appInstanceLock.writeLock(process.pid, 'app')
     resetExperimentalFeaturesOnStartup()
     reconcileVoiceRuntimeConfig()
+    initMemorySubsystem()
     setChatWindowLifecycle({
       onOpened: prepareWindowsForChat,
       onClosed: restoreWindowsAfterChat

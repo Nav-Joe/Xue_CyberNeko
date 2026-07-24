@@ -10,6 +10,10 @@ Electron 主进程读写 `{userData}/chat-config.json`；渲染进程经 IPC `ch
 | `ttsEnabled` | `true` |
 | `ttsParallelEnabled` | `false` |
 | `ttsParallelLanes` | `2` |
+| `openaiApiKeySecretSave` | `false` |
+| `memoryEnabled` | `true`（M4；可在聊天设置关闭） |
+| `memoryLlmSummarizeEnabled` | `true`（关闭或失败则不总结） |
+| `memoryEmotionScoreEnabled` | `true`（落库分数/关键词并晋升核心池；总结与打分为同一次 LLM） |
 | `local.selectedBaseUrl` | 见 `llmConstants.DEFAULT_LLAMA_BASE_URL` |
 | `local.selectedModelId` | `""` |
 | `local.outputFormat` | `openai` |
