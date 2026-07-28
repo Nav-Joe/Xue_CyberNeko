@@ -7,7 +7,7 @@ export const CHAT_TTS_MAX_BATCH_SIZE = 5
 
 /**
  * 并行档软保险：已合成但未按序释放的 slot 上限 = parallelLanes × 此系数。
- * 写死常量，不进配置（OPT-07）。
+ * 写死常量，不进用户配置。
  */
 export const CHAT_TTS_READY_BUFFER_LANES_MULTIPLIER = 3
 
@@ -47,7 +47,7 @@ export const CHAT_TTS_MAX_SYNTH_CONCURRENCY = CHAT_TTS_MAX_BATCH_SIZE
 
 /**
  * 串行：相对释放指针的预取窗（≤ CHAT_TTS_MAX_BATCH_SIZE）。
- * 并行（OPT-07）：合成并发按 synthInFlight &lt; lanes；就绪 blob 留 slot；
+ * 并行：合成并发按 synthInFlight &lt; lanes；就绪 blob 留 slot；
  * releaseChain 仍按序释放；另有 readyButUnreleased &lt; lanes×3 软保险。
  */
 export function createChatTtsSession(options: {

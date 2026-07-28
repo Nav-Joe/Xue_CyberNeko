@@ -41,7 +41,7 @@ export function requireMemoryDb(): MemoryDatabase {
   return getMemoryDb()
 }
 
-/** 渲染进程关窗前可先记下 sessionId，供随后 L-delay 整理使用。 */
+/** 渲染进程关窗前可先记下 sessionId，供随后「关窗延迟整理」使用。 */
 export function notePreferredConsolidateSession(sessionId?: string): void {
   if (sessionId?.trim()) {
     preferredSessionId = sessionId.trim()
@@ -49,7 +49,7 @@ export function notePreferredConsolidateSession(sessionId?: string): void {
 }
 
 /**
- * L-delay：先做记忆整理（可调 LLM），再 stopLlama。
+ * 关窗延迟整理：先做记忆总结（可调 LLM），再 stopLlama。
  * 同一次关窗 / 退出可共用同一 Promise，避免重复总结或过早 kill。
  */
 export function runConsolidateThenStopLlama(stopLlama: () => Promise<{ ok: boolean }>): Promise<void> {
@@ -80,7 +80,7 @@ export function runConsolidateThenStopLlama(stopLlama: () => Promise<{ ok: boole
   return finalizeInflight
 }
 
-/** begin 前等待关窗 L-delay（避免与总结抢 LLM / 端口）；超时仍继续以免卡死开聊。 */
+/** begin 前等待关窗延迟整理（避免与总结抢 LLM / 端口）；超时仍继续以免卡死开聊。 */
 export async function awaitChatCloseFinalize(timeoutMs = 120_000): Promise<void> {
   if (!finalizeInflight) return
   logInfo('memory', 'awaitChatCloseFinalize: waiting for L-delay consolidate/stop')
@@ -132,7 +132,7 @@ export async function finalizeForAppQuit(stopLlama: () => Promise<{ ok: boolean 
   }
 }
 
-/** @deprecated 关窗整理已并入 L-delay；保留空操作以免旧 IPC 炸 */
+/** @deprecated 关窗整理已并入关窗延迟整理；保留空操作以免旧 IPC 炸 */
 export function scheduleConsolidateOnChatClose(sessionId?: string): void {
   notePreferredConsolidateSession(sessionId)
 }

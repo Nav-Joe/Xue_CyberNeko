@@ -1,7 +1,7 @@
 /**
  * llama-server 会话：探测 / 启动 / 停止（下载安装见 sessionBootstrapAssets）。
  *
- * 生命周期状态机（OPT-03）与文件职责边界见 `./CONTRACT.md`。
+ * 生命周期状态机与文件职责边界见 `./CONTRACT.md`。
  *
  *   none ──(外部已有)──► external ──(stop)──► none（不 kill）
  *     └────(本应用 spawn)──► app_spawned ──(stop)──► none（kill managedPid）
@@ -34,6 +34,7 @@ import {
   reconcileInterruptedLlamaDownloads
 } from './downloadLifecycle'
 import {
+  decideProbeOwnershipReconcile,
   decideSnapshotStopAction,
   decideStopAction,
   isManagedLlamaRunning as isAppOwnedLlamaAlive,
@@ -266,10 +267,29 @@ export async function probeLocalLlamaServer(): Promise<{ serverRunning: boolean;
   const preferredPort = Number(new URL(configuredBaseUrl).port || LLAMA_SERVER_PORT)
   try {
     const { baseUrl, alreadyRunning } = await resolveLlamaListenPort(LLAMA_SERVER_HOST, preferredPort)
+    applyProbeOwnershipReconcile(alreadyRunning)
     return { serverRunning: alreadyRunning, baseUrl: alreadyRunning ? baseUrl : undefined }
   } catch {
+    applyProbeOwnershipReconcile(false)
     return { serverRunning: false }
   }
+}
+
+/** 探测后对齐内存所有权：不杀进程、不 spawn（见 decideProbeOwnershipReconcile）。 */
+function applyProbeOwnershipReconcile(serverRunning: boolean): void {
+  const next = decideProbeOwnershipReconcile({ ownership, serverRunning })
+  if (next === null) return
+  if (next === 'external') {
+    ownership = 'external'
+    managedProcess = null
+    managedPid = null
+    clearPidDiagnostic()
+    logInfo('llama', 'probe: port up, ownership none → external')
+    return
+  }
+  ownership = 'none'
+  clearPidDiagnostic()
+  logInfo('llama', 'probe: port down, ownership external → none')
 }
 
 export async function downloadDefaultLocalModel(
@@ -327,7 +347,7 @@ async function runBeginLlamaChatSession(
   options: BeginLlamaSessionOptions = {}
 ): Promise<LlamaBootstrapResult> {
   try {
-    // 关窗 L-delay 未结束时先等：避免总结结束 stop 误杀本次新 spawn（见 app-2026-07-28）
+    // 关窗延迟整理未结束时先等：避免总结结束 stop 误杀本次新 spawn（见 app-2026-07-28）
     await awaitChatCloseFinalize()
     await reconcileInterruptedLlamaDownloads()
 

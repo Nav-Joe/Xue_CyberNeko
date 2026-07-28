@@ -1,4 +1,4 @@
-import { BrowserWindow, screen } from 'electron'
+import { app, BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 
 import { attachWindowDiagnostics } from '../logging/registerErrorHandlers'
@@ -159,6 +159,15 @@ export function createPetWindow(): void {
 
   petWindow.on('ready-to-show', () => {
     showPetWindowIfNeeded()
+  })
+
+  // 任务栏 / 系统关闭桌宠窗：走正规退出（停 llama、收尾），不要只拆掉前端留主进程。
+  // Home 点 X 仍是 hide 回桌宠，见 homeWindow.ts。
+  petWindow.on('close', (event) => {
+    if (!app.isQuitting()) {
+      event.preventDefault()
+      app.quit()
+    }
   })
 
   petWindow.on('closed', () => {

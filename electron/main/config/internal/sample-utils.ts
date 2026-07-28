@@ -26,6 +26,16 @@ export function sampleHasReference(sampleDir: string): boolean {
   return existsSync(join(sampleDir, 'reference.wav'))
 }
 
+/**
+ * TTS / reconcile 意义上的「样本可推理」：与 Python `_active_sample_ready` 一致（wav+txt）。
+ * 列表/切换展示仍用 `sampleHasReference`（仅 wav）。
+ */
+export function sampleReadyForTts(sampleDir: string): boolean {
+  return (
+    existsSync(join(sampleDir, 'reference.wav')) && existsSync(join(sampleDir, 'reference.txt'))
+  )
+}
+
 export function generateSampleFolderId(): string {
   return `vf_${randomBytes(4).toString('hex')}`
 }

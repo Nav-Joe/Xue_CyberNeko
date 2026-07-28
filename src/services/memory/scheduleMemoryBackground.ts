@@ -1,5 +1,5 @@
 /**
- * 记忆后台调度（OPT-10）：fire-and-forget，不 await。
+ * 记忆后台调度：发起后不等待（不 await）。
  * 禁止把 consolidate / period 总结放进「首 token 之前」的 await 链。
  */
 export function scheduleMemoryBackground(

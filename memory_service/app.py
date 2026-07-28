@@ -1,10 +1,10 @@
 """
-memory_service — M4 异步 LLM 侧车（总结 / 后续情感打分）。
+memory_service — 可选的独立 Python 小服务（总结 / 后续情感打分）。
 
 边界：
 - 禁止直接打开 Electron `{userData}/memory.db`
 - 仅接收 Node 经 HTTP 投递的 JSON，返回结果由 Node 落库
-- M4.1：提供模板/LLM 总结端点；默认可由 Node 本地模板降级，本服务可选启动
+- 提供模板/LLM 总结端点；默认可由 Node 本地模板降级，本服务可选启动
 """
 
 from __future__ import annotations

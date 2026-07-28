@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { decideSnapshotStopAction, decideStopAction, isManagedLlamaRunning } from '../managedOwnership'
+import {
+  decideProbeOwnershipReconcile,
+  decideSnapshotStopAction,
+  decideStopAction,
+  isManagedLlamaRunning
+} from '../managedOwnership'
 import { createSingleFlight } from '../singleFlight'
 
 describe('decideStopAction（kill 真值表 · 不读 pid 文件）', () => {
@@ -37,7 +42,27 @@ describe('decideStopAction（kill 真值表 · 不读 pid 文件）', () => {
   })
 })
 
-describe('decideSnapshotStopAction（L-delay 只杀关窗快照 pid）', () => {
+describe('decideProbeOwnershipReconcile（探测对齐所有权）', () => {
+  it('端口已通 + none → external', () => {
+    expect(decideProbeOwnershipReconcile({ ownership: 'none', serverRunning: true })).toBe('external')
+  })
+
+  it('端口已通 + external / app_spawned → 不变', () => {
+    expect(decideProbeOwnershipReconcile({ ownership: 'external', serverRunning: true })).toBeNull()
+    expect(decideProbeOwnershipReconcile({ ownership: 'app_spawned', serverRunning: true })).toBeNull()
+  })
+
+  it('端口不通 + external → none', () => {
+    expect(decideProbeOwnershipReconcile({ ownership: 'external', serverRunning: false })).toBe('none')
+  })
+
+  it('端口不通 + app_spawned / none → 不变（避免启动中途误清）', () => {
+    expect(decideProbeOwnershipReconcile({ ownership: 'app_spawned', serverRunning: false })).toBeNull()
+    expect(decideProbeOwnershipReconcile({ ownership: 'none', serverRunning: false })).toBeNull()
+  })
+})
+
+describe('decideSnapshotStopAction（关窗延迟停机只杀快照 pid）', () => {
   it('snapshot null → 不 kill、不清 runtime', () => {
     expect(
       decideSnapshotStopAction({
@@ -63,6 +88,17 @@ describe('decideSnapshotStopAction（L-delay 只杀关窗快照 pid）', () => {
       decideSnapshotStopAction({
         ownership: 'app_spawned',
         managedPid: 7777,
+        snapshotPid: 4242
+      })
+    ).toEqual({ pidToKill: 4242, clearRuntime: false })
+  })
+
+  it('ownership 已是 external 但仍有旧快照 → 仍杀快照 pid，不清 runtime', () => {
+    // 关窗时是 app_spawned；延迟期间所有权若变成 external，也不要 clear 错状态
+    expect(
+      decideSnapshotStopAction({
+        ownership: 'external',
+        managedPid: null,
         snapshotPid: 4242
       })
     ).toEqual({ pidToKill: 4242, clearRuntime: false })

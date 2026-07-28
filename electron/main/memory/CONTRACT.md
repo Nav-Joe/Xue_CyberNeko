@@ -41,10 +41,10 @@
 | `memory-maybe-period-rollup` | 异步周/月滚总结（数月短路→周→月）；**月成功后**尝试更新 `user_profile`；失败不删源 |
 
 启动：`initMemorySubsystem()` → `openMemoryDb()` + `migrate()`。  
-关窗：**L-delay** — `onChatWindowClosed` → `runConsolidateThenStopLlama`（先总结并**累积**写入 `session_summaries`，再 stop llama）。  
+关窗：**延迟整理** — `onChatWindowClosed` → `runConsolidateThenStopLlama`（先总结并**累积**写入 `session_summaries`，再 stop llama）。  
 退出应用：藏窗 → 同上 finalize → `app.exit`。  
 渲染 `memory-notify-chat-closed` 仅 `notePreferredConsolidateSession`。  
-**Preload（OPT-11 A）：** `electron/preload/memoryApi.ts` → 扁平展开进 `preload/index.ts` 的 `electronAPI`；键名与上表 channel 一一对应，禁止改成嵌套 `electronAPI.memory.*`。
+**Preload：** `electron/preload/memoryApi.ts` → 扁平展开进 `preload/index.ts` 的 `electronAPI`；键名与上表 channel 一一对应，禁止改成嵌套 `electronAPI.memory.*`。
 
 ### 出库（聊天 LLM 历史）
 
@@ -54,14 +54,14 @@
 - UI 气泡仍只展示本窗内存，不回填旧消息。
 - IPC 失败时回退内存 `historyWindow` 截断；记忆关闭时只用内存截断。
 
-### 与聊天热路径的调度分档（OPT-10 · 禁止总结堵首 token）
+### 与聊天发送路径的调度分档（禁止总结堵首 token）
 
 渲染入口：`src/services/memory/memoryClient.ts` + `scheduleMemoryBackground.ts`；编排：`useChatSession.sendUserMessage`。
 
 | 档 | 时机 | 调用形态 | 示例 | 硬约束 |
 |----|------|----------|------|--------|
 | ① Prompt 必等 | 发消息前、LLM 请求前 | **`await`** | `getRecentHistory` / `getPromptContext` / `consumePendingPeeks` | 只读进 prompt；**禁止**把 consolidate / period 总结 LLM 塞进此档 |
-| ② 开局 F&F | 与 ① 同时段启动 | **`scheduleMemoryBackground`（不 await）** | `memory-maybe-period-rollup`；user `append-raw-log` | **不得**阻塞首 token；失败静默 |
+| ② 开局后台 | 与 ① 同时段启动 | **`scheduleMemoryBackground`（不 await）** | `memory-maybe-period-rollup`；user `append-raw-log` | **不得**阻塞首 token；失败静默 |
 | ③ 轮后 | 本轮 LLM+TTS **全部释放**且 assistant raw 已写 | assistant raw **`await`**；mid consolidate **`scheduleMemoryBackground`（不 await）** | `memory-maybe-mid-session-consolidate` | **不堵本轮首 token，也不拖下一句发送**；与关窗总结靠主进程 `consolidateChain` 串行；本地档可能与下一轮聊天抢同一 LLM |
 
 关窗 consolidate / 主进程 `consolidateChain` 仍串行互斥；与 ② 开局 rollup 可能时间重叠，属有意设计。
@@ -76,7 +76,7 @@
   - OpenAI：全局 raw **≥50 轮** → 总结最旧超额轮次 → 成功后裁到最近 **30** 轮（窗口在 30–50 间滚动）
   - 本地：全局 raw **≥20 轮** → 同理裁到最近 **10** 轮（10–20）
   - 失败不裁 raw；与关窗总结串行互斥
-  - **调度（OPT-10 B）：** 渲染侧 `maybeMidSessionConsolidateInBackground`（F&F）；`sending` 在本轮 UI/TTS 结束后即释放，总结在后台跑（见上表 ③）
+  - **调度：** 渲染侧 `maybeMidSessionConsolidateInBackground`（后台发起）；`sending` 在本轮 UI/TTS 结束后即释放，总结在后台跑（见上表 ③）
 
 ### 周 / 月滚总结 + 用户画像（含原 M4.3「经常性行为」）
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from voice_forge_paths import (
     OFFICIAL_SAMPLE_ID,
     get_active_sample_info,
+    is_touch_cache_ready,
     read_voice_forge_config,
     resolve_active_sample_dir,
     sample_paths,
@@ -12,6 +13,8 @@ from voice_forge_paths import (
 from voice_forge_session import (
     FLOW_CREATE_VOICE,
     PHASE_AWAITING_REVIEW,
+    PHASE_CANCELLED,
+    PHASE_COMPLETED,
     PHASE_GENERATING,
     PHASE_PENDING_RESTART,
     PHASE_PREWARMING,
@@ -33,26 +36,30 @@ def _active_sample_ready() -> bool:
     return ref_wav.is_file() and ref_text.is_file()
 
 
-def _should_clear_stuck_session(session: dict | None, *, touch_mode: str) -> bool:
+def _official_touch_cache_ready() -> bool:
+    """与 Electron isOfficialTouchCacheReady 对齐：#7 升级须预热缓存可用。"""
+    sample_dir = resolve_active_sample_dir()
+    if sample_dir is None:
+        return False
+    return is_touch_cache_ready(sample_dir)
+
+
+def _should_clear_stuck_session(session: dict | None) -> bool:
+    """与 Electron shouldClearStuckSession 同一张表（与 touch_mode 无关）。"""
     if not session:
         return False
+    if session.get("flow") != FLOW_CREATE_VOICE:
+        return False
     phase = session.get("phase")
-    flow = session.get("flow")
-
-    if touch_mode == "curated":
-        if flow != FLOW_CREATE_VOICE:
-            return False
-        if phase == PHASE_AWAITING_REVIEW:
-            return False
-        if phase in {PHASE_PENDING_RESTART, PHASE_GENERATING}:
-            return not _active_sample_ready()
-        return phase in {PHASE_PREWARMING, PHASE_GENERATING}
-
-    if flow != FLOW_CREATE_VOICE:
+    if phase == PHASE_AWAITING_REVIEW:
+        return False
+    if phase in {PHASE_CANCELLED, PHASE_COMPLETED}:
         return False
     if phase == PHASE_PREWARMING:
         return True
-    return False
+    if phase in {PHASE_PENDING_RESTART, PHASE_GENERATING}:
+        return not _active_sample_ready()
+    return True
 
 
 def _read_official_use_curated_clips() -> bool:
@@ -112,7 +119,7 @@ def reconcile_runtime_voice_config() -> str:
         invalid = not folder_id or not _active_sample_ready()
         if invalid:
             write_touch_mode("curated")
-            if _should_clear_stuck_session(session, touch_mode="curated"):
+            if _should_clear_stuck_session(session):
                 clear_session()
             print(
                 "[TTS/Config] 自定义语料配置无效，已回退到精选音频模式",
@@ -128,7 +135,13 @@ def reconcile_runtime_voice_config() -> str:
             )
             return "curated"
 
-    if mode == "curated" and is_official and not use_curated_clips and _active_sample_ready():
+    if (
+        mode == "curated"
+        and is_official
+        and not use_curated_clips
+        and _active_sample_ready()
+        and _official_touch_cache_ready()
+    ):
         write_touch_mode("custom_corpus")
         print(
             "[TTS/Config] 官方声线使用自定义语料，已切换为语料预热模式",
@@ -136,7 +149,7 @@ def reconcile_runtime_voice_config() -> str:
         )
         return "custom_corpus"
 
-    if _should_clear_stuck_session(session, touch_mode=mode):
+    if _should_clear_stuck_session(session):
         clear_session()
         print("[TTS/Config] 已清理中断的音色工坊会话", flush=True)
 

@@ -1,7 +1,7 @@
 /**
- * llama-server 进程所有权（OPT-03）。
+ * llama-server 进程所有权。
  *
- * 状态图见同目录 CONTRACT.md。
+ * 状态图与启停矩阵见同目录 CONTRACT.md。
  * pid 文件不参与本模块任何决策。
  */
 
@@ -18,13 +18,13 @@ export type StopDecision = {
   reason: 'not_app_owned' | 'app_owned_but_no_pid' | 'app_spawned'
 }
 
-/** 关窗 L-delay 结束时：是否清当前内存态（仅当仍指向关窗快照 pid 时）。 */
+/** 关窗整理结束后：是否清当前内存态（仅当仍指向关窗快照 pid 时）。 */
 export type SnapshotStopDecision = {
   pidToKill: number | null
   clearRuntime: boolean
 }
 
-/** 关聊天窗时：仅本应用 spawn 的进程可 kill；不读 pid 文件。 */
+/** 关聊天窗时：仅本应用拉起的进程可 kill；不读 pid 文件。 */
 export function decideStopAction(state: {
   ownership: LlamaOwnership
   managedPid: number | null
@@ -39,7 +39,7 @@ export function decideStopAction(state: {
 }
 
 /**
- * L-delay 专用：只杀关窗瞬间的 pid；若期间已 begin 出新进程则不清 runtime、不误杀新 pid。
+ * 关窗延迟停机专用：只杀关窗瞬间的 pid；若期间已重新 begin 出新进程则不清 runtime、不误杀新 pid。
  */
 export function decideSnapshotStopAction(state: {
   ownership: LlamaOwnership
@@ -52,6 +52,24 @@ export function decideSnapshotStopAction(state: {
   const stillSame =
     state.ownership === 'app_spawned' && state.managedPid === state.snapshotPid
   return { pidToKill: state.snapshotPid, clearRuntime: stillSame }
+}
+
+/**
+ * 探测端口后如何改所有权（不 kill、不 spawn）。
+ * - 端口已通且内存还是「没管」→ 记成「外部已有」，避免前端跳过 begin 后主进程仍以为没人管
+ * - 端口不通且原先是「外部」→ 清回「没管」
+ * - 本应用拉起的进程：探测不改所有权（避免启动中途误清）
+ */
+export function decideProbeOwnershipReconcile(state: {
+  ownership: LlamaOwnership
+  serverRunning: boolean
+}): LlamaOwnership | null {
+  if (state.serverRunning) {
+    if (state.ownership === 'none') return 'external'
+    return null
+  }
+  if (state.ownership === 'external') return 'none'
+  return null
 }
 
 /**

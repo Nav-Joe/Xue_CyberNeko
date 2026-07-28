@@ -3,13 +3,13 @@ import { scheduleMemoryBackground } from './scheduleMemoryBackground'
 import type { MemoryTimelineItem } from './types'
 
 /**
- * 渲染侧记忆 IPC 客户端（OPT-10 分档）：
+ * 渲染侧记忆 IPC 客户端（按调用时机分三档）：
  *
  * | 档 | 含义 | 本文件示例 |
  * |----|------|------------|
  * | ① Prompt 必等 | 发消息前 await，结果进本轮 prompt；允许拖首 token，但禁止塞总结 LLM | history / promptBlock / peeks |
- * | ② 开局 F&F | `scheduleMemoryBackground`，不阻塞首 token | period rollup；user raw append |
- * | ③ 轮后 F&F | 本轮 LLM+TTS 结束后；assistant raw **await 落库**后，mid consolidate **不 await** | assistant raw + mid consolidate |
+ * | ② 开局后台 | `scheduleMemoryBackground`，不阻塞首 token | period rollup；user raw append |
+ * | ③ 轮后后台 | 本轮 LLM+TTS 结束后；assistant raw **await 落库**后，mid consolidate **不 await** | assistant raw + mid consolidate |
  */
 
 export async function getMemoryStatus(): Promise<{
@@ -33,7 +33,7 @@ export async function appendMemoryRawLog(payload: {
   return result?.ok === true
 }
 
-/** ② 开局 F&F：写 user raw，失败静默。 */
+/** ② 开局后台：写 user raw，失败静默。 */
 export function appendMemoryRawLogInBackground(payload: {
   sessionId: string
   role: 'user' | 'assistant' | 'system'
@@ -90,7 +90,7 @@ export async function consumePendingPeeksForUserTurn(): Promise<string> {
   }
 }
 
-/** ② 开局 F&F：周/月滚总结，不阻塞首 token。 */
+/** ② 开局后台：周/月滚总结，不阻塞首 token。 */
 export function maybeRunPeriodRollup(): void {
   scheduleMemoryBackground('period-rollup', () =>
     window.electronAPI?.memoryMaybePeriodRollup?.()
@@ -99,7 +99,7 @@ export function maybeRunPeriodRollup(): void {
 
 /**
  * ③ 轮后：满轮日常总结并裁窗口（可 await，供测试 / 主进程外调用）。
- * 聊天热路径请用 `maybeMidSessionConsolidateInBackground`（OPT-10 B）。
+ * 聊天发送路径请用 `maybeMidSessionConsolidateInBackground`（后台发起，不拖下一句发送）。
  * 失败静默。
  */
 export async function maybeMidSessionConsolidate(sessionId: string): Promise<void> {
@@ -110,7 +110,7 @@ export async function maybeMidSessionConsolidate(sessionId: string): Promise<voi
   }
 }
 
-/** ③ 轮后 F&F：不拖 `sending`/`replyPending`；与关窗总结仍靠主进程 consolidateChain 串行。 */
+/** ③ 轮后后台：不拖 `sending`/`replyPending`；与关窗总结仍靠主进程 consolidateChain 串行。 */
 export function maybeMidSessionConsolidateInBackground(sessionId: string): void {
   scheduleMemoryBackground('mid-session-consolidate', () =>
     maybeMidSessionConsolidate(sessionId)

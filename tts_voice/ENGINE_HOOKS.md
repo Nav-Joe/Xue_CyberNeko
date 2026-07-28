@@ -67,7 +67,7 @@ Qwen 音色工坊与第三方引擎语料（`alt_engine_corpus`）共用 `audio_
 - **切换 TTS 引擎**（Qwen ↔ Bert）时使用**不同缓存目录**；目标目录已有有效 manifest + wav 时直接复用，不会互相清空后重跑全库。
 - 保存语料时若引擎已在内存中就绪，**不会**重新加载模型，只跑增量 TTS。
 
-### 全量 vs 增量（可测契约 · OPT-09）
+### 全量 vs 增量（可测契约）
 
 实现：`audio_cache_policy.should_full_rebuild` / `lines_missing_from_cache`；单测：`tts_voice/tests/test_audio_cache_policy.py`。
 

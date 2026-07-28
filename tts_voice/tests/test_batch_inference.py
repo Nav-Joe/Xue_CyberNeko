@@ -247,6 +247,64 @@ class BatchInferenceDispatcherTest(unittest.TestCase):
 
         self.assertEqual(done_order, ["a", "b"])
 
+    def test_parallel_pool_peak_concurrency_does_not_exceed_lanes(self) -> None:
+        # CONTRACT：并行档 semaphore 与前端 lanes 对齐，峰时并发 ≤ lanes
+        engine = _MockBatchEngine()
+        lock = threading.Lock()
+        active = 0
+        peak = 0
+        hold = threading.Event()
+
+        def delayed_synth(
+            texts: list[str],
+            speaker_id: int = 0,
+            seed: int | None = None,
+        ) -> list[bytes]:
+            del speaker_id, seed
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            hold.wait(timeout=2)
+            with lock:
+                active -= 1
+            text = texts[0]
+            _MockBatchEngine.batch_calls.append(list(texts))
+            return [f"batch:{text}".encode()]
+
+        engine.synthesize_batch = delayed_synth  # type: ignore[method-assign]
+        results: dict[int, bytes] = {}
+
+        def worker(order: int, text: str) -> None:
+            results[order] = dispatch_synthesize_chat(
+                engine,
+                text,
+                order=order,
+                parallel_lanes=2,
+            )
+
+        threads = [
+            threading.Thread(target=worker, args=(0, "a")),
+            threading.Thread(target=worker, args=(1, "b")),
+            threading.Thread(target=worker, args=(2, "c")),
+        ]
+        for thread in threads:
+            thread.start()
+        time.sleep(0.05)
+        with lock:
+            self.assertLessEqual(peak, 2)
+            self.assertLessEqual(active, 2)
+        hold.set()
+        for thread in threads:
+            thread.join(timeout=5)
+
+        self.assertEqual(set(results.keys()), {0, 1, 2})
+        self.assertLessEqual(peak, 2)
+
+    def test_max_batch_size_matches_frontend_serial_prefetch_window(self) -> None:
+        # 串行窗两侧都写 5，但含义不同：前端=HTTP 预取上限；此处=非 chat micro-batch
+        self.assertEqual(MAX_BATCH_SIZE, 5)
+
 
 if __name__ == "__main__":
     print(f"MAX_BATCH_SIZE={MAX_BATCH_SIZE} MAX_WAIT_MS={MAX_WAIT_MS}")

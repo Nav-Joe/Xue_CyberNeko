@@ -1,5 +1,5 @@
 /**
- * HTTP 下载与镜像回退（OPT-12 B）。
+ * HTTP 下载与镜像回退。
  *
  * 只负责：probe / 写 partial / 镜像尝试 / Abort。
  * 禁止：zip 解压、模型目录 sweep、进程生命周期、IPC。

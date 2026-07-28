@@ -16,7 +16,7 @@ export function logChatSegmentDebug(message: string, detail?: string): void {
   }
 }
 
-/** 聊天 TTS 进度（BUG-TTS-01 P1-a）：写入 app-*.log，便于队头卡住追溯 */
+/** 聊天 TTS 进度：写入 app-*.log，便于队头卡住时对照日志追溯 */
 export function logChatTtsDebug(message: string, detail?: string): void {
   const head = `[chat-tts] ${message}`
   if (detail?.trim()) {

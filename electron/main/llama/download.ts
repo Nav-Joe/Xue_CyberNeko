@@ -1,5 +1,5 @@
 /**
- * llama 下载工具门面（OPT-12 B）。
+ * llama 下载工具统一入口（再导出）。
  * 实现拆在 `downloadHttp.ts`（HTTP/镜像）与 `downloadArtifacts.ts`（partial/zip/sweep）。
  * 调用方继续从本文件 import，避免扩散改动面。
  */

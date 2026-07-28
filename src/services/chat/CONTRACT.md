@@ -65,8 +65,8 @@
 | Prompt | `buildChatPromptMessages` + 当前 **active** 角色卡 |
 | LLM | `llmChat` / `llmChatWithRetry` — 软错误（网络、5xx、429 等）最多自动重试 3 次；硬错误（Key/余额/配置）立即失败；通用包装 `withLlmChatRetry` 供记忆总结等复用 |
 | 持久化 | 本窗 UI 仍仅内存；关窗丢气泡。`memoryEnabled` 时写入 `raw_logs`；发往 LLM 的先验历史改从 DB 取最近 N 轮（见下） |
-| 上下文窗口 | `local_llama` **10** 轮 / `openai_api` **30** 轮（1 轮 = user + 连续 assistant）。记忆开：`memory-get-recent-history` 读 `raw_logs`（timestamp 从新往旧）；记忆关或 IPC 失败：回退内存 `historyWindow`。UI 不回填跨窗气泡。另：全局 raw 达 **20/50** 轮时，本轮 LLM+TTS 结束后日常总结并裁回 **10/30**（见 memory CONTRACT；OPT-10 B：满轮总结 F&F，不拖下一句发送） |
-| 记忆注入（M4.2 / M4.2.5） | 按 `llmMode` 分层：`openai_api` 核心≤5/~300tok、总结&lt;1024tok；`local_llama` 核心≤2/~100tok、总结&lt;254tok。key_facts 类 RAG（含 `period_summaries`）+ significance 优先；非空用户画像 100% 注入且不占总结预算。发消息时 **F&F** 周/月滚（`scheduleMemoryBackground`，不堵首 token；OPT-10） |
+| 上下文窗口 | `local_llama` **10** 轮 / `openai_api` **30** 轮（1 轮 = user + 连续 assistant）。记忆开：`memory-get-recent-history` 读 `raw_logs`（timestamp 从新往旧）；记忆关或 IPC 失败：回退内存 `historyWindow`。UI 不回填跨窗气泡。另：全局 raw 达 **20/50** 轮时，本轮 LLM+TTS 结束后日常总结并裁回 **10/30**（见 memory CONTRACT；满轮总结后台跑，不拖下一句发送） |
+| 记忆注入 | 按 `llmMode` 分层：`openai_api` 核心≤5/~300tok、总结&lt;1024tok；`local_llama` 核心≤2/~100tok、总结&lt;254tok。key_facts 类检索（含 `period_summaries`）+ significance 优先；非空用户画像 100% 注入且不占总结预算。发消息时后台发起周/月滚（`scheduleMemoryBackground`，不堵首 token） |
 
 ## 聊天设置（模块 5）
 
@@ -101,10 +101,32 @@
 | **`1`** | 同串行（窗=5） | 同串行有序路径（`>=2` 才进并行池） | **必须遵守** |
 | **`2`–`4`** | **`synthInFlight < lanes`**；就绪 blob 留 slot；释放仍按队头；另有硬编码软保险 `readyButUnreleased < lanes×3` | `ParallelChatPool`：最多 N 路 GPU，完成顺序任意 | 请求里**仍携带**；**后端忽略**。**有意设计，禁止修改** |
 
+### 人话说明：前后端怎么配合
+
+一句话：**谁先合成完不重要，谁先播必须按句序；并行只加快合成，不抢播放顺序。**
+
+```
+设置（开不开并行、几路）
+  → useChatSession 算出 parallelLanes（关并行=0，开=2/3/4）
+  → chatTtsPipeline 原样交给 chatTtsSession
+  → 每句 HTTP /tts（带 order + parallel_lanes）
+  → Python：lanes<2 按 order 单路排队；lanes≥2 最多 lanes 路一起合成（不管 order）
+  → 前端仍按第 1 句→第 2 句… 展示并播放
+```
+
+容易误会的点：
+
+1. **串行时的「5」**：前端最多挂大约 5 个还没播完的请求在路上；**不是** Python 开了 5 路 GPU。后端还是一句接一句按序号合成。  
+2. **并行时的 `order`**：请求里还会带序号（方便日志），但 **Python 并行池故意不按序号卡住**；若后端也按序号等，并行会假死或变回串行。顺序只靠前端「队头才能播」。  
+3. **`batch_inference` 这个名字**：里面既有触摸批量，也有聊天串行/并行。聊天并行走的是 `ParallelChatPool`，不是那条「凑一批再推理」的 micro-batch。  
+4. **改 lanes 时**：前端在飞合成数与后端信号量都应是同一个 lanes；有序播放始终只在前端。
+
+护栏测试：前端 `chatTtsSession.test.ts` / `chatTtsPipeline.test.ts`；后端 `tts_voice/tests/test_batch_inference.py`。
+
 补充：
 
 - UI / 配置类型仅为 `2|3|4`；API 仍允许 `1`（只文档化，**不**在本轮禁止）。  
-- 并行档：FE **合成并发**与 BE semaphore **必须同为 lanes**；有序 reveal/播放仍仅由 FE `releaseChain` 保证（OPT-07：不再用「未释放窗」卡住合成补槽）。  
+- 并行档：FE **合成并发**与 BE semaphore **必须同为 lanes**；有序 reveal/播放仍仅由 FE `releaseChain` 保证（不再用「未释放窗」卡住合成补槽）。  
 - 关闭 TTS 或未开并行时，`useChatSession` 传入 `ttsParallelLanes = 0`。
 
 Python 侧同文：`tts_voice/CONTRACT.md` §Chat TTS parallel。

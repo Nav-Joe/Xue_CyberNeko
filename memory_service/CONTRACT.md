@@ -1,6 +1,6 @@
 # memory_service — CONTRACT
 
-> M4 异步 LLM 侧车。与 Electron 主进程记忆库解耦。
+> 可选的独立 Python 小服务（总结相关）。与 Electron 主进程记忆库解耦。
 
 ## 边界
 
@@ -8,7 +8,7 @@
 - **禁止：** 直接打开 `{userData}/memory.db`；把记忆逻辑塞进 `tts_voice/`
 - **落库：** 仅 Node `electron/main/memory/` 写 SQLite
 
-## 端点（M4.1）
+## 端点
 
 | Method | Path | 说明 |
 |--------|------|------|
@@ -21,4 +21,4 @@
 .venv\Scripts\python.exe -m uvicorn memory_service.app:app --port 8766
 ```
 
-M4.1 Node 关窗总结走主进程聊天 LLM（`summarizeLlm.ts`），不依赖本服务在线；本服务 `/v1/summarize` 仍为可选侧车占位。
+Node 关窗总结走主进程聊天 LLM（`summarizeLlm.ts`），不依赖本服务在线；本服务 `/v1/summarize` 仍为可选占位端点。

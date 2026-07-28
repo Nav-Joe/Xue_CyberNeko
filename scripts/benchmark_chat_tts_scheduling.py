@@ -31,7 +31,7 @@ AlgoName = Literal[
     "serial_ordered_window",  # 当前：滑动窗口 + GPU 严格按序串行
     "batch_window",  # 每窗最多 5 句一次 synthesize_batch
     "first_single_rest_batch",  # 旧：首句单独 + 后续 batch-5
-    "parallel_pool_2",  # 方案 A：2 路 GPU 并发 + 按序释放
+    "parallel_pool_2",  # 有限并发：2 路 GPU + 按序释放
     "parallel_pool_3",
     "parallel_pool_5",  # 理想上限（单卡 rarely 可达）
 ]
@@ -236,7 +236,7 @@ def simulate_parallel_pool(
     pool_size: int,
     name: str,
 ) -> SimResult:
-    """方案 A：最多 pool_size 路 synth 并行 + 滑动窗口 + 严格按序释放。"""
+    """有限并发：最多 pool_size 路 synth 并行 + 滑动窗口 + 严格按序释放。"""
     chars = _char_counts(texts)
     n = len(chars)
     if n == 0:
@@ -440,7 +440,7 @@ def print_report(all_results: dict[str, list[SimResult]], gap_weight: float, par
     print("=" * 72)
     if winner.startswith("parallel_pool"):
         print(
-            f"- 综合最优倾向 **{winner}**（方案 A 有限并发 + 按序释放）。\n"
+            f"- 综合最优倾向 **{winner}**（有限并发 + 按序释放）。\n"
             "- 消费级单卡建议先试 parallel_pool_2 或 _3，勿默认 _5。\n"
             "- 总墙钟通常优于纯串行，句间空档明显缩短（后续句可提前推理完）。"
         )

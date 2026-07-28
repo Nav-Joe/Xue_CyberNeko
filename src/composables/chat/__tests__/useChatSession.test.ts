@@ -156,7 +156,7 @@ describe('useChatSession', () => {
     expect(maybeMidSessionConsolidateInBackground).toHaveBeenCalledWith(session.sessionId)
   })
 
-  it('OPT-10: period rollup is sync F&F before prompt history await', async () => {
+  it('period rollup starts in background before awaiting prompt history', async () => {
     vi.mocked(loadChatConfigView).mockResolvedValue({
       ...createDefaultChatConfigView(),
       llmMode: 'openai_api',
@@ -183,7 +183,7 @@ describe('useChatSession', () => {
     expect(getRecentMemoryHistory).toHaveBeenCalled()
   })
 
-  it('OPT-10 B: mid-session consolidate is F&F so sending clears without waiting', async () => {
+  it('mid-session consolidate runs in background so sending clears without waiting', async () => {
     vi.mocked(loadChatConfigView).mockResolvedValue({
       ...createDefaultChatConfigView(),
       llmMode: 'openai_api',

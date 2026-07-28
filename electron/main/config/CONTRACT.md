@@ -54,36 +54,69 @@ Python：`voice_runtime_repair.py` → `reconcile_runtime_voice_config()`
 
 | # | TS | Python | 备注 |
 |---|---|---|---|
-| 1 | `phase === 'cancelled'` → `cancelVoiceForgeReview()` | 无 | 见不对称 A3 |
-| 2 | `pending` 自定义声线 + `curated` → `cancelVoiceForgeReview()` | 无 | 见不对称 A3 |
+| 1 | `phase === 'cancelled'` → `cancelVoiceForgeReview()` | 无（不执行产品级取消） | **A3 永久分工** |
+| 2 | `pending` 自定义声线 + `curated` → `cancelVoiceForgeReview()` | 无 | **A3 永久分工** |
 | 3 | `alt_engine_corpus` + Qwen → `curated` | L93–100 | 一致 |
-| 4 | `alt_engine_corpus` 非 Qwen → 保持 mode（early `return`） | L93–109 后继续可进 #8 session 清理；缺 corpus 另见 A1 | 见不对称 A1 / A4 |
-| 5 | 无效 `custom_corpus` → curated + 重置官方 + 可能 `rmSync` orphan | L111–121：仅 `write_touch_mode` + 条件 `clear_session` | 见不对称 A2 / A5 |
+| 4 | `alt_engine_corpus` 非 Qwen：缺文件 → curated；否则保持 mode，并按 #8 清 stuck session | 同：缺文件 → curated；否则保持并可清 stuck | **A1/A4 已统一** |
+| 5 | 无效 `custom_corpus` → curated + **Electron 可删孤儿目录/重置 forge**；就绪谓词 **wav+txt** | 仅改 touch mode + 条件清 session；就绪谓词 **wav+txt**；**不删盘、不改 forge** | **A5 已统一（就绪）**；**A2 永久分工（删盘）** |
 | 6 | 官方 + `officialUseCuratedClips` → `curated` | L123–129 | 一致 |
-| 7 | curated + 官方 + `!useCurated` + **`isOfficialTouchCacheReady()`** → `custom_corpus` | curated + 官方 + `!useCurated` + **`_active_sample_ready()`** → `custom_corpus` | 见不对称 A6（谓词不同，勿当成「一致」） |
-| 8 | stuck session：非 `awaiting_review`/`pending_restart` 即清 | `_should_clear_stuck_session`（按 mode 分支） | 见不对称 A4 / A7 |
+| 7 | curated + 官方 + `!useCurated` + **`isOfficialTouchCacheReady()`** → `custom_corpus` | 同：另需 **`is_touch_cache_ready`**（与 Electron 对齐） | **A6 已统一** |
+| 8 | stuck session：见下方真相表 | 同左 | **A7 已统一** |
 
-### 已知不对称（有意保留 · 业务语义待后续决策统一）
+### 已知不对称 / 分工
 
-> **标记说明：** 下列差异均为 **「有意保留，业务语义待后续决策统一」**，**不是**「已确认永久差异」。  
-> 在维护者明确统一策略前，禁止「只改一端让两边碰巧对齐」而不改本文档。  
+> **标记说明：**  
+> - **待统一**：业务语义待维护者拍板后再改一端。  
+> - **永久产品分工**：两端职责不同，**不是**要消掉的漂移；改代码时须遵守，禁止为「对称」让 TTS 做 Electron 的破坏性清理（或反之未经决策互换）。  
 > Python 单测见 `tts_voice/tests/test_reconcile.py`，用例注释引用下方编号（A1–A7）。
 
 | ID | 主题 | Electron (TS) | Python | 有意保留说明 / 根因 |
 |----|------|---------------|--------|---------------------|
-| **A1** | alt 语料文件缺失 | `#4` 非 Qwen 时直接 `return mode`，**不**检查 `corpus.custom.json` | `CUSTOM_CORPUS_PATH` 不存在 → `write_touch_mode("curated")` | **有意保留，业务语义待后续决策统一。** 根因倾向：Python 为 TTS 运行时守护（无语料文件则无法走第三方预热）；TS reconcile 假定语料由 UI/`writeTouchConfig` 写入，缺失交由 TTS 启动/sync 路径补。是否统一到「两端都回退」待决策。 |
-| **A2** | 无效 custom 的破坏性清理 | `#5` 回退 curated 时：`rmSync` 孤儿 `custom_sample/{id}` + `writeVoiceForgeConfig` 重置官方 + `clearVoiceForgeSession` | 仅 `write_touch_mode("curated")`，可选 `clear_session()`；**不删**样本目录、**不重写** `voice-forge.json` activeSample | **有意保留，业务语义待后续决策统一。** 根因倾向：Electron 启动态负责「用户可见配置」纠偏与删半成品声线；Python 侧避免 TTS 进程误删用户样本目录。是否让 Python 同步销毁磁盘待决策。 |
-| **A3** | cancelled / pending 会话 | `#1`/`#2` → `cancelVoiceForgeReview()` 全量恢复 | 无 `cancelled` / pending+curated 分支 | **有意保留，业务语义待后续决策统一。** 根因倾向：取消审阅流程绑定 Electron UI/`voice-flow`；Python 会话文件多作跨重启提示，不执行产品级「取消工坊」副作用。 |
-| **A4** | alt 保持后的 session 清理 | `#4` early `return`，**跳过** `#8` | alt 保持后仍可进入 `_should_clear_stuck_session`（如 `prewarming` 会清） | **有意保留，业务语义待后续决策统一。** 根因倾向：TS 把 alt 视为「非音色工坊链路」并早退；Python sync 频率高，需清卡住的 create_voice 预热会话。是否让 TS 在 alt 下也清 session 待决策。 |
-| **A5** | 「样本就绪」判定（#5 无效与 #7 升级共用相关谓词） | `sampleHasReference` = 仅 `reference.wav`（`sample-utils.ts`） | `_active_sample_ready` = `reference.wav` **且** `reference.txt` | **有意保留，业务语义待后续决策统一。** **根因（代码职责推断）：** Electron 多处用 wav 是否存在表示「声线目录已有参考音可列出/切换」；Python 克隆/推理路径需要文本对齐（`sample_paths` 同时交出 wav+txt），故 TTS reconcile 要求双文件。仅有 wav、无 txt 时：TS 可能认为有效，Python `#5` 判无效并回退 curated。是否统一谓词待决策。 |
-| **A6** | `#7` curated→custom 升级门槛 | `isOfficialTouchCacheReady()`（pointer `ready` 或 touch_cache manifest+`0.wav`） | `_active_sample_ready()`（wav+txt，**不**要求 touch_cache） | **有意保留，业务语义待后续决策统一。** **根因（代码职责推断）：** Electron 桌宠播放路径在关掉精选后希望「预热缓存已可用」再切 `custom_corpus`，避免一点击就全走实时推理；Python 作为 TTS 服务在用户关闭 `officialUseCuratedClips` 且参考音齐备时尽早切 mode，以便后续 sync/prewarm **去建** cache。同盘「有 reference、无 touch_cache」时：Python 可升到 `custom_corpus`，Electron 可能仍留在 `curated`。 |
-| **A7** | stuck session 清理策略细节 | `create_voice` 且 phase 非 review/restart → 清 | curated 下对 restart/generating 看参考音是否就绪等（见 `_should_clear_stuck_session`） | **有意保留，业务语义待后续决策统一。** 根因待查处可并存：矩阵分支在双端独立演化；完整真相表尚未 Formalize。暂不强制对齐。 |
+| **A1** | alt 语料文件缺失 | 缺 `corpus.custom.json` → `curated` | 同左 | **已统一（跟 Python）**：两端缺文件都退精选。Electron：`reconcile.ts` #4；Python：原有行为。 |
+| **A2** | 无效 custom 的破坏性清理 | `#5` 回退 curated 时：可 `rmSync` 孤儿样本目录 + 重置官方 forge + 清 session | 仅 `write_touch_mode("curated")`，可选清 session；**永不**删样本目录、**不重写** `voice-forge.json` activeSample | **永久产品分工**：破坏性清理只在 Electron；TTS 进程禁止替用户删盘。不是「待统一的漂移」。 |
+| **A3** | cancelled / pending 会话 | `#1`/`#2` → `cancelVoiceForgeReview()` 全量恢复 | 无 `cancelled` / pending+curated 分支；不清「取消」语义 | **永久产品分工**：取消工坊 / 审阅恢复只在 Electron；Python 不把 session 当产品取消按钮。不是「待统一的漂移」。 |
+| **A4** | alt 保持后的 session 清理 | 保持 alt 时按 #8 清 stuck session | 同左 | **已统一**：alt 下也会跑 #8；具体清哪些 phase 见下方 **卡住 session 清理真相表**。 |
+| **A5** | 「样本就绪」判定（reconcile #5） | `#5` 用 `sampleReadyForTts`（wav+txt）；列表/切换仍用 `sampleHasReference`（仅 wav） | `_active_sample_ready`（wav+txt） | **已统一**：修盘是否有效自定义与 Python 一致。展示「有没有参考音」仍可只看 wav。#7 升级门槛仍见 **A6**（cache vs reference）。 |
+| **A6** | `#7` curated→custom 升级门槛 | `isOfficialTouchCacheReady()`（pointer `ready` 或 touch_cache manifest+`0.wav`） | `_active_sample_ready()` **且** `is_touch_cache_ready()` | **已统一（跟 Electron）**：关精选后须预热缓存可用再升 `custom_corpus`，避免一点击就全走实时推理。 |
+| **A7** | stuck session 清理 | 见下方 **卡住 session 清理真相表** | 同左 | **已统一**：两端同一张表；`cancelled` 仍由 A3（Electron #1）做产品取消，#8 不清 cancelled。 |
 
-**其它小差异（同样有意保留，业务语义待后续决策统一）：**
+### 卡住 session 清理真相表（双端同一张，与 mode 无关）
 
-- Python `normalize_touch_mode` 支持更多别名（如 `third_party` → `alt_engine_corpus`）；TS `normalizeTouchMode` 别名集更小。  
-- Python 可读环境变量 `TOUCH_MODE`；Electron reconcile 不读。  
-- 官方 folderId 别名：Python `_OFFICIAL_FOLDER_IDS` 含 `default` / `official`；TS 侧以 `kind==='official'` / `OFFICIAL_SAMPLE_ID` 为主。
+前提：仅当 `flow === create_voice`。「清」= 删 `voice-forge-session.json` / `clear_session`。  
+`样本就绪` = wav+txt（与 A5 一致）。
+
+| phase | 清？ |
+|-------|------|
+| `awaiting_review` | 否（待审保留） |
+| `cancelled` | 否（交给 A3；Electron #1 另做取消工坊） |
+| `completed` | 否 |
+| `prewarming` | **是** |
+| `pending_restart` / `generating` | 样本**未**就绪才清；齐了则保留 |
+| 其它未知 phase | **是**（当卡住） |
+
+实现：`stuckSessionPolicy.shouldClearStuckSession` ↔ `voice_runtime_repair._should_clear_stuck_session`。
+
+---
+
+## 人话说明：两边修盘在干什么
+
+一句话：**磁盘上的触摸模式 / 声线 / 工坊会话，Electron 启动时修一次，Python 在加载和切模式时修得更勤；多数规则已对齐，少数是永久产品分工（A2/A3）。**
+
+| 谁 | 何时跑 reconcile |
+|----|------------------|
+| Electron | 基本只在应用启动 |
+| Python | 加载模型、`/touch-mode/sync`、预热前后等 |
+
+| 文件 | 常见谁写 |
+|------|----------|
+| `touch-mode.env` | UI/`writeTouchConfig`；两端 reconcile 都可能改 |
+| `voice-forge.json` | Electron 工坊/切声线；Python reconcile **通常不重写** activeSample（无效 custom 时见 A2） |
+| `voice-forge-session.json` | 工坊流程；两端按同一张卡住 session 表清理 |
+| `experimental-voice-upload.json` | 仅 Electron；Python 不读 |
+
+改规则前：先改本 CONTRACT → 再 **只改一端** → 跑 `test:tts` 与（若动 TS 策略）`stuckSessionPolicy` vitest → 人工切触摸模式/换引擎/重启对照。
+
+---
 
 ## 写序约束
 

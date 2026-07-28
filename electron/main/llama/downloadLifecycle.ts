@@ -1,5 +1,5 @@
 /**
- * 本地下载中断 / 取消 / 关窗调和（OPT-03c）。
+ * 本地下载中断 / 取消 / 关窗后的收尾。
  *
  * 职责边界见 `./CONTRACT.md` §文件职责。
  * 与 session 的 stop：通过 `bindLlamaSessionStop` 注入，避免循环 import。
@@ -26,7 +26,7 @@ export function bindLlamaSessionStop(fn: StopManagedFn): void {
   stopManagedLlamaServer = fn
 }
 
-/** session 注入：关窗瞬间快照 app_spawned 的 pid（供 L-delay 结束时只杀该 pid）。 */
+/** session 注入：关窗瞬间快照 app_spawned 的 pid（供关窗延迟整理结束时只杀该 pid）。 */
 export function bindLlamaManagedPidSnapshot(fn: SnapshotPidFn): void {
   snapshotAppSpawnedPid = fn
 }
@@ -98,7 +98,7 @@ export async function cancelLlamaDownload(): Promise<{ ok: true; detail: string 
 
 /**
  * 聊天窗关闭（含点 X）：有下载在飞或磁盘半成品 → 等同取消下载；
- * 否则 L-delay：先记忆整理（可调 LLM），再停止本应用托管的 llama-server。
+ * 否则关窗延迟整理：先记忆总结（可调 LLM），再停止本应用托管的 llama-server。
  */
 export async function onChatWindowClosed(): Promise<void> {
   const inflight = Boolean(activeDownloadAbort && !activeDownloadAbort.signal.aborted)

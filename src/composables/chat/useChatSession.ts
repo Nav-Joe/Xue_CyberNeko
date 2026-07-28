@@ -150,7 +150,7 @@ export function useChatSession() {
     let memoryBlock = ''
     let llmUserInput = text
     if (config.value.memoryEnabled) {
-      // ② 开局 F&F：禁止 await（OPT-10）；不堵首 token
+      // ② 开局后台：禁止 await；不堵首 token
       maybeRunPeriodRollup()
       // ① Prompt 必等：历史 / 注入块 / 偷看前缀（读路径，禁止夹带总结 LLM）
       const fromDb = await getRecentMemoryHistory(maxRounds)
@@ -171,7 +171,7 @@ export function useChatSession() {
     }
     messages.value.push(userMessage)
     if (config.value.memoryEnabled) {
-      // ② 开局 F&F：user raw
+      // ② 开局后台：写 user raw
       appendMemoryRawLogInBackground({ sessionId, role: 'user', content: text })
     }
 
@@ -271,7 +271,7 @@ export function useChatSession() {
       }
       removeTypingPlaceholder()
       if (config.value.memoryEnabled && result.content.trim()) {
-        // ③ 轮后：assistant raw 须先落库；满轮总结 F&F（OPT-10 B），不拖 sending 复位
+        // ③ 轮后：assistant raw 须先落库；满轮总结后台跑，不拖 sending 复位
         await appendMemoryRawLog({
           sessionId,
           role: 'assistant',

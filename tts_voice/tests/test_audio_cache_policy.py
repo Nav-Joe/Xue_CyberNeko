@@ -1,4 +1,4 @@
-"""OPT-09：audio_cache_policy 键 / 过期契约（ENGINE_HOOKS 全量 vs 增量）。"""
+"""audio_cache_policy 键 / 过期契约（ENGINE_HOOKS 全量 vs 增量）。"""
 
 from __future__ import annotations
 

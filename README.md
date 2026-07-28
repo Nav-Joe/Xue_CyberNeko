@@ -2,7 +2,7 @@
 
 一个会动、会聊、会悄悄观察你的 Live2D 桌面 AI 桌宠。
 
-**当前版本：V0.4.0b（早期开发版本）**
+**当前版本：V0.4.1（早期开发版本）**
 
 > **文档语言 / Docs:** [中文 README](README.md)（本页）· [English README](README.en.md)
 
@@ -191,7 +191,7 @@ Xue_CyberNeko/
 │   └── services/
 │       ├── chat/          # LLM、TTS 流水线、角色卡
 │       └── memory/        # 记忆 IPC 客户端
-├── memory_service/        # 可选侧车（总结相关，无用户库）
+├── memory_service/        # 可选独立服务（总结相关，无用户库）
 ├── tts_voice/             # FastAPI TTS + engines
 ├── voice_forge/           # 音色工坊样本
 ├── scripts/               # 安装、启动、benchmark、记忆测脚手架

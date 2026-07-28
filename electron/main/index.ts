@@ -172,7 +172,7 @@ app.on('before-quit', (event) => {
   if (quittingFinalizeStarted) {
     return
   }
-  // L-delay：先藏窗体让用户感觉已退出，后台完成总结再 kill llama 并真正退出
+  // 关窗延迟整理：先藏窗体让用户感觉已退出，后台完成总结再 kill llama 并真正退出
   event.preventDefault()
   quittingFinalizeStarted = true
 

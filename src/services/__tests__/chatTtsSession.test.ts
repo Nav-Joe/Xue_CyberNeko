@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { abortActiveChatTtsSession, CHAT_TTS_MAX_BATCH_SIZE, createChatTtsSession } from '../chatTtsSession'
+import {
+  abortActiveChatTtsSession,
+  CHAT_TTS_MAX_BATCH_SIZE,
+  CHAT_TTS_READY_BUFFER_LANES_MULTIPLIER,
+  createChatTtsSession
+} from '../chatTtsSession'
 import { fetchChatTtsBlob, playChatAudioBlob } from '../ttsPlayer'
 
 vi.mock('../ttsPlayer', () => ({
@@ -228,7 +233,7 @@ describe('createChatTtsSession', () => {
     expect(fetchChatTtsBlob).toHaveBeenCalledTimes(2)
     expect(gates.has('seg-3')).toBe(false)
 
-    // 队头仍未完成：完成第 2 句应释放合成槽，提交第 3 句（OPT-07）
+    // 队头仍未完成：完成第 2 句应释放合成槽，提交第 3 句
     gates.get('seg-2')?.()
     await vi.waitFor(() => {
       expect(fetchChatTtsBlob).toHaveBeenCalledTimes(3)
@@ -307,7 +312,96 @@ describe('createChatTtsSession', () => {
     expect(fetchChatTtsBlob).toHaveBeenCalledWith('hello', 0, 0, 3)
   })
 
+  it('parallel mode never submits more than lanes concurrent fetches', async () => {
+    // chat CONTRACT：并行档 synthInFlight < lanes（与后端 semaphore 对齐）
+    let inFlight = 0
+    let peakInFlight = 0
+    const gates = new Map<string, () => void>()
+    vi.mocked(fetchChatTtsBlob).mockImplementation(
+      (text) =>
+        new Promise((resolve) => {
+          inFlight += 1
+          peakInFlight = Math.max(peakInFlight, inFlight)
+          gates.set(text, () => {
+            inFlight -= 1
+            resolve(new Blob([text]))
+          })
+        })
+    )
+
+    const session = createChatTtsSession({
+      onRevealSegment: () => {},
+      parallelLanes: 2
+    })
+    session.enqueueAll(
+      Array.from({ length: 6 }, (_, i) => {
+        const id = `seg-${i + 1}`
+        return { displaySegment: id, ttsText: id }
+      })
+    )
+    session.markStreamComplete()
+    await delay(15)
+
+    expect(peakInFlight).toBeLessThanOrEqual(2)
+    expect(fetchChatTtsBlob).toHaveBeenCalledTimes(2)
+
+    for (let i = 1; i <= 6; i += 1) {
+      gates.get(`seg-${i}`)?.()
+      await delay(5)
+    }
+    await session.waitUntilIdle()
+    expect(peakInFlight).toBeLessThanOrEqual(2)
+  })
+
+  it('parallel mode reveals in queue order even when later segments finish first', async () => {
+    // chat CONTRACT：并行时后端完成序可乱，展示/播放仍按队头
+    const gates = new Map<string, () => void>()
+    vi.mocked(fetchChatTtsBlob).mockImplementation(
+      (text) =>
+        new Promise((resolve) => {
+          gates.set(text, () => resolve(new Blob([text])))
+        })
+    )
+
+    const timeline: string[] = []
+    vi.mocked(playChatAudioBlob).mockImplementation(async (blob) => {
+      timeline.push(`play:${await blob.text()}`)
+    })
+
+    const session = createChatTtsSession({
+      onRevealSegment: (seg) => timeline.push(`reveal:${seg}`),
+      parallelLanes: 2
+    })
+    session.enqueue('a', 'a')
+    session.enqueue('b', 'b')
+    session.enqueue('c', 'c')
+    session.markStreamComplete()
+    await delay(10)
+
+    gates.get('b')?.()
+    await delay(10)
+    expect(timeline).not.toContain('reveal:b')
+
+    gates.get('c')?.()
+    await delay(10)
+    expect(timeline.filter((e) => e.startsWith('reveal:'))).toEqual([])
+
+    gates.get('a')?.()
+    await session.waitUntilIdle()
+
+    expect(timeline.filter((e) => e.startsWith('reveal:'))).toEqual([
+      'reveal:a',
+      'reveal:b',
+      'reveal:c'
+    ])
+    expect(timeline.filter((e) => e.startsWith('play:'))).toEqual(['play:a', 'play:b', 'play:c'])
+  })
+
   it('exports max batch size constant', () => {
     expect(CHAT_TTS_MAX_BATCH_SIZE).toBe(5)
+  })
+
+  it('exports ready-buffer multiplier matching contract soft cap lanes×3', () => {
+    expect(CHAT_TTS_READY_BUFFER_LANES_MULTIPLIER).toBe(3)
   })
 })

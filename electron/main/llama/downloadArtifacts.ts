@@ -1,5 +1,5 @@
 /**
- * 下载半成品 / 解压 / 模型目录清扫（OPT-12 B）。
+ * 下载半成品 / 解压 / 模型目录清扫。
  *
  * 只负责：`.partial` / `.expected`、zip 展平、GGUF 列表与 incomplete sweep。
  * 禁止：HTTP 拉取、AbortController 编排、IPC。

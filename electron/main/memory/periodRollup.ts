@@ -22,8 +22,8 @@ export type PeriodRollupResult = {
  * 对话开局异步调用：数月短路 → 周（可多次）→ 月。
  * 失败不删源；同会话有 cooldown。
  *
- * OPT-08：periodWeekly / periodMonthly / periodPromote / periodRollupMeta；
- * 本文件为唯一对外门面（meta/prune 经本模块 re-export）。
+ * 实现拆在 periodWeekly / periodMonthly / periodPromote / periodRollupMeta；
+ * 本文件为唯一对外入口（meta/prune 经本模块 re-export）。
  */
 export async function maybeRunPeriodRollups(
   db: MemoryDatabase,

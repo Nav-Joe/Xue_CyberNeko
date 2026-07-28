@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron'
 
 /**
- * 记忆域 preload API（OPT-11 A）。
+ * 记忆域 preload API。
  * 扁平挂到 `window.electronAPI`（键名 / IPC channel 不变）。
  */
 export const memoryApi = {

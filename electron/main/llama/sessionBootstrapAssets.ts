@@ -1,5 +1,5 @@
 /**
- * llama bootstrap 资产安装/下载编排（OPT-12 A）。
+ * llama 启动资产：安装/下载编排。
  *
  * 只负责：找/下 llama-server zip、下默认 GGUF、进度桥。
  * 禁止：spawn、ownership、begin 单飞、写 chat-config（仍在 session.ts）。

@@ -38,9 +38,10 @@ docs/
 notes/
 私人/
 
-# ── 巨型文件守卫（OPT-06，仅维护者本地使用，不入库）──
+# ── 巨型文件守卫（仅维护者本地使用，不入库）──
 scripts/check-file-budgets.mjs
 scripts/file-budget-allowlist.json
+scripts/check-comment-internal-tags.mjs
 
 # ── 密钥与凭据（防御性规则；正常应在 userData，勿复制进仓库）──
 .secrets/
