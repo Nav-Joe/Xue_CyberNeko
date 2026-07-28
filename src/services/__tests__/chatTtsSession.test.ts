@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { CHAT_TTS_MAX_BATCH_SIZE, createChatTtsSession } from '../chatTtsSession'
+import { abortActiveChatTtsSession, CHAT_TTS_MAX_BATCH_SIZE, createChatTtsSession } from '../chatTtsSession'
 import { fetchChatTtsBlob, playChatAudioBlob } from '../ttsPlayer'
 
 vi.mock('../ttsPlayer', () => ({
@@ -20,6 +20,10 @@ describe('createChatTtsSession', () => {
     vi.clearAllMocks()
     vi.mocked(fetchChatTtsBlob).mockImplementation(async (text) => new Blob([`audio:${text}`]))
     vi.mocked(playChatAudioBlob).mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    abortActiveChatTtsSession()
   })
 
   it('enqueueAll submits up to five synth jobs after all segments are registered', async () => {
@@ -273,7 +277,7 @@ describe('createChatTtsSession', () => {
     }
 
     await delay(20)
-    const cappedCalls = fetchChatTtsBlob.mock.calls.length
+    const cappedCalls = vi.mocked(fetchChatTtsBlob).mock.calls.length
     expect(cappedCalls).toBeGreaterThanOrEqual(2)
     expect(cappedCalls).toBeLessThan(10)
     expect(gates.has('seg-1')).toBe(true)

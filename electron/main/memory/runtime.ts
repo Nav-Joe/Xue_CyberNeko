@@ -80,6 +80,18 @@ export function runConsolidateThenStopLlama(stopLlama: () => Promise<{ ok: boole
   return finalizeInflight
 }
 
+/** begin 前等待关窗 L-delay（避免与总结抢 LLM / 端口）；超时仍继续以免卡死开聊。 */
+export async function awaitChatCloseFinalize(timeoutMs = 120_000): Promise<void> {
+  if (!finalizeInflight) return
+  logInfo('memory', 'awaitChatCloseFinalize: waiting for L-delay consolidate/stop')
+  await Promise.race([
+    finalizeInflight,
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, timeoutMs)
+    })
+  ])
+}
+
 /** 等待进行中的整理（带超时）。 */
 async function awaitMemoryFinalizeForQuit(timeoutMs = 60_000): Promise<void> {
   if (!finalizeInflight) {

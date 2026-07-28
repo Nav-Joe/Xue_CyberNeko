@@ -16,7 +16,7 @@ import {
 } from '../../services/chat/historyWindow'
 import { buildChatPromptMessages } from '../../services/chat/promptBuilder'
 import { stopSpeaking } from '../../services/ttsPlayer'
-import { appendMemoryRawLog, consumePendingPeeksForUserTurn, getMemoryPromptBlock, getRecentMemoryHistory, maybeMidSessionConsolidate, maybeRunPeriodRollup, notifyMemoryChatClosed } from '../../services/memory/memoryClient'
+import { appendMemoryRawLog, appendMemoryRawLogInBackground, consumePendingPeeksForUserTurn, getMemoryPromptBlock, getRecentMemoryHistory, maybeMidSessionConsolidateInBackground, maybeRunPeriodRollup, notifyMemoryChatClosed } from '../../services/memory/memoryClient'
 import type {
   CharacterCard,
   ChatConfigView,
@@ -150,7 +150,9 @@ export function useChatSession() {
     let memoryBlock = ''
     let llmUserInput = text
     if (config.value.memoryEnabled) {
+      // ② 开局 F&F：禁止 await（OPT-10）；不堵首 token
       maybeRunPeriodRollup()
+      // ① Prompt 必等：历史 / 注入块 / 偷看前缀（读路径，禁止夹带总结 LLM）
       const fromDb = await getRecentMemoryHistory(maxRounds)
       if (fromDb !== null) {
         priorHistory = fromDb
@@ -169,7 +171,8 @@ export function useChatSession() {
     }
     messages.value.push(userMessage)
     if (config.value.memoryEnabled) {
-      void appendMemoryRawLog({ sessionId, role: 'user', content: text })
+      // ② 开局 F&F：user raw
+      appendMemoryRawLogInBackground({ sessionId, role: 'user', content: text })
     }
 
     let typingPlaceholderId: string | null = createMessageId()
@@ -268,13 +271,13 @@ export function useChatSession() {
       }
       removeTypingPlaceholder()
       if (config.value.memoryEnabled && result.content.trim()) {
+        // ③ 轮后：assistant raw 须先落库；满轮总结 F&F（OPT-10 B），不拖 sending 复位
         await appendMemoryRawLog({
           sessionId,
           role: 'assistant',
           content: result.content.trim()
         })
-        // 本轮 LLM+TTS 已全部释放后再检日常总结（满 50/20 轮 → 裁回 30/10）
-        await maybeMidSessionConsolidate(sessionId)
+        maybeMidSessionConsolidateInBackground(sessionId)
       }
     } catch (err) {
       retryAttempt.value = 0

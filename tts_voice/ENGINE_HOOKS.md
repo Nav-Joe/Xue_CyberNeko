@@ -59,13 +59,28 @@ engines:
 
 ## 语料缓存与增量预热
 
-Qwen 音色工坊与第三方引擎语料（`alt_engine_corpus`）共用 `audio_cache.py` 逻辑：
+Qwen 音色工坊与第三方引擎语料（`alt_engine_corpus`）共用 `audio_cache.py` + `audio_cache_policy.py`：
 
 - 每个语料库对应一份 `touch_cache/manifest.json`（Qwen 按声线目录；Bert 等在 `voice_forge/other_custom_cache/{engine}/touch_cache/`）。
 - **修改语料后**只删除/重合成**变更或新增**的句子（×3 变体），未改动的句子保留 WAV。
 - **全量重建**仅在：同目录下引擎/权重/克隆声线变更、manifest 缺失或 wav 不完整等情况下触发。
 - **切换 TTS 引擎**（Qwen ↔ Bert）时使用**不同缓存目录**；目标目录已有有效 manifest + wav 时直接复用，不会互相清空后重跑全库。
 - 保存语料时若引擎已在内存中就绪，**不会**重新加载模型，只跑增量 TTS。
+
+### 全量 vs 增量（可测契约 · OPT-09）
+
+实现：`audio_cache_policy.should_full_rebuild` / `lines_missing_from_cache`；单测：`tts_voice/tests/test_audio_cache_policy.py`。
+
+| 条件 | 预期 |
+|------|------|
+| `manifest` 缺失 | **全量** |
+| `manifest.backend` ≠ 当前 backend | **全量** |
+| Qwen 且 `active_sample.folderId` 与当前声线不一致 | **全量** |
+| 存有非空 `engine_hash` 且 ≠ 当前 `compute_engine_hash()` | **全量**（权重/配置/克隆参考音变更） |
+| 存有非空 `engine_hash` 且相等 | **不全量**；语料增删改走 **增量**（`line_hash` / 缺 wav → `lines_missing`） |
+| 某句 `line_hash` 变化、缺 entry、或缺 0/1/2.wav | 该句进增量列表；未变且三变体齐全 → **不重合成** |
+
+键语义（禁止无故改动）：`text_key` / `line_content_hash`（sha256 strip 后取 16 hex）；`engine_hash`（24）；`source_hash`（engine_hash + 语料文件 bytes → 24）。
 
 ### 触摸实时推理
 

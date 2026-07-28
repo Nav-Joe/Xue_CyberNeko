@@ -171,15 +171,19 @@ async function consolidateOnChatCloseInner(
     }
 
     const sessionIds = listDistinctRawSessionIds(db)
-    const target =
-      preferredSessionId && sessionIds.includes(preferredSessionId)
-        ? preferredSessionId
-        : sessionIds[0]
-
-    if (!target) {
-      return { ok: false, reason: 'empty' }
+    // 关窗主动总结：只整理「本窗记下的 session」；无新对话（该 session 无 raw）则跳过。
+    // 禁止回退到 sessionIds[0]，否则「打开聊天啥都没说就关」也会反复打 LLM。
+    const preferred = preferredSessionId?.trim()
+    if (!preferred) {
+      logInfo('memory', 'consolidateOnChatClose skipped', 'no preferred session')
+      return { ok: false, reason: 'empty', detail: 'no_preferred_session' }
+    }
+    if (!sessionIds.includes(preferred)) {
+      logInfo('memory', 'consolidateOnChatClose skipped', 'preferred session has no raw logs')
+      return { ok: false, reason: 'empty', detail: 'no_raw_for_session' }
     }
 
+    const target = preferred
     const logs = listRawLogsForSession(db, target)
     if (logs.length === 0) {
       return { ok: false, reason: 'empty' }

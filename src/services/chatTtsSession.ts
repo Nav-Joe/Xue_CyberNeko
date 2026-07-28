@@ -1,3 +1,4 @@
+import { logChatTtsDebug, logChatTtsWarn } from './chat/chatDebugLog'
 import { abortActiveChatTtsSession, setActiveChatTtsSession } from './chatTtsSessionRegistry'
 import { fetchChatTtsBlob, playChatAudioBlob } from './ttsPlayer'
 
@@ -10,11 +11,20 @@ export const CHAT_TTS_MAX_BATCH_SIZE = 5
  */
 export const CHAT_TTS_READY_BUFFER_LANES_MULTIPLIER = 3
 
+/** 队头未就绪持续超过此时间则周期性 WARN（仅日志，不改调度） */
+const HEAD_WAIT_WARN_MS = 5000
+const HEAD_WAIT_POLL_MS = 5000
+
 type SegmentSlot = {
   displaySegment: string
   ttsText: string
   /** undefined=推理中或未提交；null=跳过合成；Blob=就绪 */
   blob: Blob | null | undefined
+}
+
+function previewTtsText(text: string, max = 24): string {
+  const t = text.trim().replace(/\s+/g, ' ')
+  return t.length > max ? `${t.slice(0, max)}…` : t
 }
 
 export type ChatTtsSession = {
@@ -59,6 +69,54 @@ export function createChatTtsSession(options: {
 
   const parallelLanes = options.parallelLanes ?? 0
   const isParallelMode = parallelLanes >= 2
+  let headWaitSinceMs: number | null = null
+  let headWaitTimer: ReturnType<typeof setInterval> | null = null
+  let lastHeadWaitWarnAtMs = 0
+
+  function sessionSnapshot(): string {
+    return `lanes=${parallelLanes} release=${nextReleaseIndex} pendingSubmit=${pendingSubmitIndex} inFlight=${synthInFlight} segs=${segments.length} readyUnreleased=${readyButUnreleasedCount()}`
+  }
+
+  function clearHeadWaitHeartbeat(): void {
+    headWaitSinceMs = null
+    lastHeadWaitWarnAtMs = 0
+    if (headWaitTimer != null) {
+      clearInterval(headWaitTimer)
+      headWaitTimer = null
+    }
+  }
+
+  /** 队头卡在未就绪时每 5s 打一条 WARN，便于区分「算得慢」与「真卡死」 */
+  function syncHeadWaitHeartbeat(): void {
+    if (aborted) {
+      clearHeadWaitHeartbeat()
+      return
+    }
+    const head = segments[nextReleaseIndex]
+    const waiting = Boolean(head && !isSlotReady(head))
+    if (!waiting) {
+      clearHeadWaitHeartbeat()
+      return
+    }
+    if (headWaitSinceMs == null) headWaitSinceMs = Date.now()
+    if (headWaitTimer != null) return
+    headWaitTimer = setInterval(() => {
+      if (aborted || headWaitSinceMs == null) {
+        clearHeadWaitHeartbeat()
+        return
+      }
+      const headSlot = segments[nextReleaseIndex]
+      if (!headSlot || isSlotReady(headSlot)) {
+        clearHeadWaitHeartbeat()
+        return
+      }
+      const waitedMs = Date.now() - headWaitSinceMs
+      if (waitedMs < HEAD_WAIT_WARN_MS) return
+      if (Date.now() - lastHeadWaitWarnAtMs < HEAD_WAIT_POLL_MS) return
+      lastHeadWaitWarnAtMs = Date.now()
+      logChatTtsWarn('head waiting for blob', `order=${nextReleaseIndex} waitedMs=${waitedMs} ${sessionSnapshot()} preview="${previewTtsText(headSlot.ttsText)}"`)
+    }, HEAD_WAIT_POLL_MS)
+  }
 
   function isIdle(): boolean {
     return (
@@ -71,6 +129,7 @@ export function createChatTtsSession(options: {
 
   function notifyMaybeIdle(): void {
     if (!isIdle()) return
+    clearHeadWaitHeartbeat()
     const waiters = idleWaiters
     idleWaiters = []
     for (const resolve of waiters) {
@@ -109,19 +168,37 @@ export function createChatTtsSession(options: {
     const order = nextSynthOrder
     nextSynthOrder += 1
     synthInFlight += 1
+    const startedAt = Date.now()
+    logChatTtsDebug(
+      'startSynth',
+      `order=${order} ${sessionSnapshot()} preview="${previewTtsText(slot.ttsText)}"`
+    )
+    syncHeadWaitHeartbeat()
     void fetchChatTtsBlob(slot.ttsText.trim(), 0, order, parallelLanes)
       .then((blob) => {
-        if (!aborted) slot.blob = blob
+        if (aborted) return
+        slot.blob = blob
+        logChatTtsDebug(
+          'synth ready',
+          `order=${order} ms=${Date.now() - startedAt} bytes=${blob.size} ${sessionSnapshot()}`
+        )
       })
       .catch((error) => {
         console.error('[TTS] 聊天分段合成失败，请确认语音服务已启动', error)
-        if (!aborted) slot.blob = null
+        if (!aborted) {
+          slot.blob = null
+          logChatTtsWarn(
+            'synth failed',
+            `order=${order} ms=${Date.now() - startedAt} ${sessionSnapshot()} err=${error instanceof Error ? error.message : String(error)}`
+          )
+        }
       })
       .finally(() => {
         synthInFlight -= 1
         // 并行：非队头完成时也要补槽；串行：窗口可能因本句就绪而可再提交
         trySubmitMore()
         scheduleRelease()
+        syncHeadWaitHeartbeat()
         notifyMaybeIdle()
       })
   }
@@ -142,6 +219,7 @@ export function createChatTtsSession(options: {
       slot.blob = undefined
       startSynth(slot)
     }
+    syncHeadWaitHeartbeat()
     notifyMaybeIdle()
   }
 
@@ -150,10 +228,18 @@ export function createChatTtsSession(options: {
       if (aborted) return
 
       const slot = segments[nextReleaseIndex]
-      if (!slot || !isSlotReady(slot)) return
+      if (!slot || !isSlotReady(slot)) {
+        syncHeadWaitHeartbeat()
+        return
+      }
 
+      const releaseOrder = nextReleaseIndex
       const current = slot
       nextReleaseIndex += 1
+      logChatTtsDebug(
+        'release',
+        `order=${releaseOrder} hasAudio=${Boolean(current.blob)} ${sessionSnapshot()} preview="${previewTtsText(current.displaySegment)}"`
+      )
       trySubmitMore()
 
       options.onRevealSegment(current.displaySegment)
@@ -168,6 +254,7 @@ export function createChatTtsSession(options: {
       if (!aborted && segments[nextReleaseIndex] && isSlotReady(segments[nextReleaseIndex])) {
         scheduleRelease()
       }
+      syncHeadWaitHeartbeat()
       notifyMaybeIdle()
     })
   }
@@ -218,6 +305,7 @@ export function createChatTtsSession(options: {
 
     abort(): void {
       aborted = true
+      clearHeadWaitHeartbeat()
       segments.length = 0
       nextReleaseIndex = 0
       pendingSubmitIndex = 0

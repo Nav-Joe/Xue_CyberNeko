@@ -293,12 +293,15 @@ class ParallelChatPool:
         text: str,
         speaker_id: int = 0,
         seed: int | None = None,
+        order: int | None = None,
     ) -> bytes:
         cleaned = text.strip()
         if not cleaned:
             raise ValueError("text 不能为空")
 
         self._sem.acquire()
+        started = time.monotonic()
+        order_hint = f" order={order}" if order is not None else ""
         try:
             if hasattr(engine, "synthesize_batch"):
                 wav = engine.synthesize_batch(
@@ -309,10 +312,18 @@ class ParallelChatPool:
             else:
                 wav = engine.synthesize(cleaned, speaker_id=speaker_id, seed=seed)
             preview = f'"{cleaned[:16]}..."' if len(cleaned) > 16 else f'"{cleaned}"'
-            print(f"[TTS/Parallel] lanes={self._lanes} {preview}", flush=True)
+            dur_ms = int((time.monotonic() - started) * 1000)
+            print(
+                f"[TTS/Parallel] lanes={self._lanes}{order_hint} {dur_ms}ms {preview}",
+                flush=True,
+            )
             return wav
         except Exception as error:  # noqa: BLE001
-            print(f"[TTS/Parallel] 失败 lanes={self._lanes}: {error}", flush=True)
+            dur_ms = int((time.monotonic() - started) * 1000)
+            print(
+                f"[TTS/Parallel] 失败 lanes={self._lanes}{order_hint} {dur_ms}ms: {error}",
+                flush=True,
+            )
             traceback.print_exc()
             raise
         finally:
@@ -343,6 +354,7 @@ def dispatch_synthesize_chat(
             text,
             speaker_id=speaker_id,
             seed=seed,
+            order=order,
         )
     return dispatch_synthesize_immediate(
         engine,

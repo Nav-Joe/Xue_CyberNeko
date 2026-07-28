@@ -1,20 +1,23 @@
 # llama-server 会话生命周期（OPT-03 / OPT-03c / OPT-03d）
 
 > **位置：** `electron/main/llama/CONTRACT.md`  
-> **对照实现：** `session.ts` · `downloadLifecycle.ts` · `modelResolve.ts` · `managedOwnership.ts` · `singleFlight.ts` · `download.ts` · `constants.ts`  
+> **对照实现：** `session.ts` · `sessionBootstrapAssets.ts` · `downloadLifecycle.ts` · `modelResolve.ts` · `managedOwnership.ts` · `singleFlight.ts` · `download.ts`（门面）· `downloadHttp.ts` · `downloadArtifacts.ts` · `constants.ts`  
 > **相关：** `src/services/chat/CONTRACT.md`（本地 bootstrap IPC）
 
 ---
 
-## 文件职责（写死 · OPT-03c / OPT-03d）
+## 文件职责（写死 · OPT-03c / OPT-03d / OPT-12 A+B）
 
 | 文件 | **只负责** | **禁止塞进** |
 |------|------------|--------------|
-| `session.ts` | 探测端口 / 下载安装调用 / spawn·waitReady / ownership 内存态 / `begin` 单飞 / `stopManagedLlamaServer` | AbortController、cancel、reconcile、onChatWindowClosed、sweep 编排、GGUF 路径解析 |
-| `downloadLifecycle.ts` | abort scope、`reconcileInterruptedLlamaDownloads`、`cancelLlamaDownload`、`onChatWindowClosed`、`afterDownloadAborted`、调用 `download.ts` 的 sweep | spawn、ownership 赋值、端口探测、写 chat-config、`resolveUsableLocalModelPath` |
+| `session.ts` | 探测端口 / spawn·waitReady / ownership 内存态 / `begin` 单飞 / `stopManagedLlamaServer`；调用 bootstrap 资产下载 | AbortController、cancel、reconcile、onChatWindowClosed、sweep 编排、GGUF 路径解析、server zip/默认模型下载实现 |
+| `sessionBootstrapAssets.ts` | `resolveLlamaServerExe`、`ensureLlamaServerExe`、`downloadDefaultLocalModelFile`、bootstrap 进度桥 | spawn、ownership、begin 单飞、写 chat-config、cancel/关窗 |
+| `downloadLifecycle.ts` | abort scope、`reconcileInterruptedLlamaDownloads`、`cancelLlamaDownload`、`onChatWindowClosed`、`afterDownloadAborted`、调用 `download` 门面的 sweep | spawn、ownership 赋值、端口探测、写 chat-config、`resolveUsableLocalModelPath` |
 | `modelResolve.ts` | `resolveUsableLocalModelPath`、`getLocalModelStatus`；按 `MIN_USABLE_GGUF_BYTES` / `.expected` 清残缺 GGUF | spawn、abort、IPC、写 chat-config |
 | `constants.ts` | 含 **`MIN_USABLE_GGUF_BYTES`**（lifecycle 与 modelResolve 共用，禁止各写一份） | 运行时状态 |
-| `download.ts` | HTTP 下载、`.partial` / `.expected`、纯函数 sweep | 进程生命周期、IPC |
+| `download.ts` | 再导出门面（调用方统一从此 import） | 新业务逻辑（实现放 Http / Artifacts） |
+| `downloadHttp.ts` | HTTP probe / 写 partial / 镜像回退 / Abort | zip 解压、模型目录 sweep、IPC、进程生命周期 |
+| `downloadArtifacts.ts` | `.partial` / `.expected`、zip 展平、GGUF 列表与 incomplete sweep | HTTP 拉取、Abort 编排、IPC |
 | `managedOwnership.ts` | ownership 类型、`decideStopAction` / `isManagedLlamaRunning` 纯函数 | I/O、下载 |
 
 **双向依赖解法（写死）：** `downloadLifecycle` **不得** import `session`。`session` 在定义 `stopManagedLlamaServer` 后调用 `bindLlamaSessionStop(stopManagedLlamaServer)`；lifecycle 取消/关窗只调该注入回调。
@@ -104,10 +107,10 @@ Caller C ──┘         │
 
 | 时机 | 行为 |
 |------|------|
-| 聊天窗 `closed` | `onChatWindowClosed`：若有下载在飞或磁盘半成品 → `cancelLlamaDownload`；否则 **L-delay**：先记忆整理（可调 LLM）再 `stopManagedLlamaServer` |
+| 聊天窗 `closed` | `onChatWindowClosed`：若有下载在飞或磁盘半成品 → `cancelLlamaDownload`；否则 **L-delay**：先记忆整理再 `stopManagedLlamaServer({ onlyPid: 关窗快照 })`，避免误杀关窗后重新 begin 的新进程 |
 | 应用 `before-quit` | 先藏窗（体感已退出）→ 等待整理完成 → kill 本应用 llama → `app.exit` |
-| 再次进聊天 | `ensureLocalLlamaReady` / `beginLlamaChatSession` 先 `reconcileInterruptedLlamaDownloads`（abort orphan + sweep） |
-| 再次点下载 | `downloadDefaultLocalModel` 开头同样 reconcile |
+| 再次进聊天 | `begin` / 下载前先 `awaitChatCloseFinalize`（等 L-delay），再 `reconcileInterruptedLlamaDownloads` |
+| 再次点下载 | 同上：先等 L-delay，再 reconcile |
 
 UI：引导遮罩（download_server / download_model）与设置页下载进度均提供「取消下载」。
 

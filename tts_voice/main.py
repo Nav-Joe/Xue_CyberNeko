@@ -20,7 +20,7 @@ from services.engine_lifecycle import load_model, shutdown
 from services.runtime_state import get_runtime, init_runtime
 
 APP_TITLE = "Xue Cyber Neko TTS"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0b"
 
 
 @asynccontextmanager

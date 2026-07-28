@@ -15,13 +15,20 @@ import {
 } from './download'
 import { llamaModelsDir } from './paths'
 
-type StopManagedFn = () => Promise<{ ok: boolean }>
+type StopManagedFn = (options?: { onlyPid?: number | null }) => Promise<{ ok: boolean }>
+type SnapshotPidFn = () => number | null
 
 let stopManagedLlamaServer: StopManagedFn = async () => ({ ok: true })
+let snapshotAppSpawnedPid: SnapshotPidFn = () => null
 
 /** session 在定义 stopManagedLlamaServer 后调用一次，打破 lifecycle ↔ session 循环依赖。 */
 export function bindLlamaSessionStop(fn: StopManagedFn): void {
   stopManagedLlamaServer = fn
+}
+
+/** session 注入：关窗瞬间快照 app_spawned 的 pid（供 L-delay 结束时只杀该 pid）。 */
+export function bindLlamaManagedPidSnapshot(fn: SnapshotPidFn): void {
+  snapshotAppSpawnedPid = fn
 }
 
 /** 当前下载的 AbortController；取消下载时 abort，并清理半成品。 */
@@ -102,8 +109,12 @@ export async function onChatWindowClosed(): Promise<void> {
     return
   }
   const { runConsolidateThenStopLlama } = await import('../memory/runtime')
-  logInfo('llama', 'onChatWindowClosed: L-delay consolidate then stop managed server')
-  await runConsolidateThenStopLlama(() => stopManagedLlamaServer())
+  const pidAtClose = snapshotAppSpawnedPid()
+  logInfo(
+    'llama',
+    `onChatWindowClosed: L-delay consolidate then stop managed server (snapshotPid=${pidAtClose ?? 'none'})`
+  )
+  await runConsolidateThenStopLlama(() => stopManagedLlamaServer({ onlyPid: pidAtClose }))
 }
 
 /** 下载 AbortError 后：清半成品并停本应用 llama（供 session catch 使用）。 */

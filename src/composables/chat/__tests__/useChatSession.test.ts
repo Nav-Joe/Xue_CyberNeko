@@ -6,7 +6,7 @@ import { getActiveCharacterCard, loadCharacterCardsStore } from '../../../servic
 import { llmChatWithRetry } from '../../../services/chat/llmChatRetry'
 import { buildChatPromptMessages } from '../../../services/chat/promptBuilder'
 import { createChatSegmentCoordinator } from '../../../services/chat/chatTtsPipeline'
-import { appendMemoryRawLog, getRecentMemoryHistory, maybeMidSessionConsolidate } from '../../../services/memory/memoryClient'
+import { appendMemoryRawLogInBackground, getRecentMemoryHistory, maybeMidSessionConsolidateInBackground, maybeRunPeriodRollup } from '../../../services/memory/memoryClient'
 import { createDefaultChatConfigView } from '../../../services/chat/chatConfigDefaults'
 import { OPENAI_API_MAX_HISTORY_ROUNDS } from '../../../services/chat/historyWindow'
 import type { CharacterCard, CharacterCardsStore } from '../../../services/chat/types'
@@ -18,11 +18,13 @@ vi.mock('../../../services/chat/promptBuilder')
 vi.mock('../../../services/chat/chatTtsPipeline')
 vi.mock('../../../services/memory/memoryClient', () => ({
   appendMemoryRawLog: vi.fn().mockResolvedValue(true),
+  appendMemoryRawLogInBackground: vi.fn(),
   getRecentMemoryHistory: vi.fn().mockResolvedValue(null),
   getMemoryPromptBlock: vi.fn().mockResolvedValue(''),
   consumePendingPeeksForUserTurn: vi.fn().mockResolvedValue(''),
   maybeRunPeriodRollup: vi.fn(),
   maybeMidSessionConsolidate: vi.fn().mockResolvedValue(undefined),
+  maybeMidSessionConsolidateInBackground: vi.fn(),
   notifyMemoryChatClosed: vi.fn().mockResolvedValue(undefined)
 }))
 
@@ -150,9 +152,66 @@ describe('useChatSession', () => {
     ])
     expect(call?.userInput).toBe('新问题')
     expect(session.messages.value[0]?.content).toBe('新问题')
-    expect(appendMemoryRawLog).toHaveBeenCalled()
-    expect(maybeMidSessionConsolidate).toHaveBeenCalledWith(session.sessionId)
+    expect(appendMemoryRawLogInBackground).toHaveBeenCalled()
+    expect(maybeMidSessionConsolidateInBackground).toHaveBeenCalledWith(session.sessionId)
   })
+
+  it('OPT-10: period rollup is sync F&F before prompt history await', async () => {
+    vi.mocked(loadChatConfigView).mockResolvedValue({
+      ...createDefaultChatConfigView(),
+      llmMode: 'openai_api',
+      memoryEnabled: true,
+      ttsEnabled: false
+    })
+    let historyStarted = false
+    let rollupBeforeHistory = false
+    vi.mocked(maybeRunPeriodRollup).mockImplementation(() => {
+      rollupBeforeHistory = !historyStarted
+    })
+    vi.mocked(getRecentMemoryHistory).mockImplementation(async () => {
+      historyStarted = true
+      await new Promise((resolve) => setTimeout(resolve, 15))
+      return null
+    })
+
+    const session = useChatSession()
+    await session.initSession()
+    await session.sendUserMessage('你好')
+
+    expect(maybeRunPeriodRollup).toHaveBeenCalledOnce()
+    expect(rollupBeforeHistory).toBe(true)
+    expect(getRecentMemoryHistory).toHaveBeenCalled()
+  })
+
+  it('OPT-10 B: mid-session consolidate is F&F so sending clears without waiting', async () => {
+    vi.mocked(loadChatConfigView).mockResolvedValue({
+      ...createDefaultChatConfigView(),
+      llmMode: 'openai_api',
+      memoryEnabled: true,
+      ttsEnabled: false
+    })
+    let consolidateStarted = false
+    let resolveConsolidate!: () => void
+    const consolidateGate = new Promise<void>((resolve) => {
+      resolveConsolidate = resolve
+    })
+    vi.mocked(maybeMidSessionConsolidateInBackground).mockImplementation(() => {
+      consolidateStarted = true
+      void consolidateGate
+    })
+
+    const session = useChatSession()
+    await session.initSession()
+    await session.sendUserMessage('你好')
+
+    expect(consolidateStarted).toBe(true)
+    expect(maybeMidSessionConsolidateInBackground).toHaveBeenCalledWith(session.sessionId)
+    expect(session.sending.value).toBe(false)
+    expect(session.replyPending.value).toBe(false)
+
+    resolveConsolidate()
+  })
+
   it('replaces the stream coordinator while keeping reply pending through retry', async () => {
     vi.mocked(loadChatConfigView).mockResolvedValue({ ...createDefaultChatConfigView(), llmMode: 'local_llama', ttsEnabled: false })
     const coordinators: Array<ReturnType<typeof createChatSegmentCoordinator>> = []

@@ -18,6 +18,12 @@ export type StopDecision = {
   reason: 'not_app_owned' | 'app_owned_but_no_pid' | 'app_spawned'
 }
 
+/** 关窗 L-delay 结束时：是否清当前内存态（仅当仍指向关窗快照 pid 时）。 */
+export type SnapshotStopDecision = {
+  pidToKill: number | null
+  clearRuntime: boolean
+}
+
 /** 关聊天窗时：仅本应用 spawn 的进程可 kill；不读 pid 文件。 */
 export function decideStopAction(state: {
   ownership: LlamaOwnership
@@ -30,6 +36,22 @@ export function decideStopAction(state: {
     return { shouldKill: false, pid: null, reason: 'app_owned_but_no_pid' }
   }
   return { shouldKill: true, pid: state.managedPid, reason: 'app_spawned' }
+}
+
+/**
+ * L-delay 专用：只杀关窗瞬间的 pid；若期间已 begin 出新进程则不清 runtime、不误杀新 pid。
+ */
+export function decideSnapshotStopAction(state: {
+  ownership: LlamaOwnership
+  managedPid: number | null
+  snapshotPid: number | null
+}): SnapshotStopDecision {
+  if (state.snapshotPid === null) {
+    return { pidToKill: null, clearRuntime: false }
+  }
+  const stillSame =
+    state.ownership === 'app_spawned' && state.managedPid === state.snapshotPid
+  return { pidToKill: state.snapshotPid, clearRuntime: stillSame }
 }
 
 /**

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import random
 import shutil
@@ -11,6 +10,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import audio_cache_policy as policy
+from audio_cache_policy import VARIANT_COUNT, VARIANT_SEEDS
 from services.batch_inference import dispatch_synthesize
 from voice_forge_paths import (
     get_active_sample_info,
@@ -18,8 +19,8 @@ from voice_forge_paths import (
     write_touch_cache_pointer,
 )
 
-VARIANT_COUNT = 3
-VARIANT_SEEDS = (42, 1337, 9001)
+# 对外兼容再导出
+__all__ = ["AudioCacheManager", "VARIANT_COUNT", "VARIANT_SEEDS"]
 
 
 class AudioCacheManager:
@@ -51,7 +52,7 @@ class AudioCacheManager:
         self._last_error: str | None = None
 
     def text_key(self, text: str) -> str:
-        return hashlib.sha256(text.strip().encode("utf-8")).hexdigest()[:16]
+        return policy.text_key(text)
 
     def _cache_sample_dir(self) -> Path | None:
         """与当前 cache_dir 对应的声线目录（优先 reference.wav，而非全局 activeSample）。"""
@@ -62,106 +63,34 @@ class AudioCacheManager:
         return resolve_active_sample_dir()
 
     def _folder_id_for_sample_dir(self, sample_dir: Path | None) -> str | None:
-        if sample_dir is None:
-            return None
-        profile_path = sample_dir / "profile.json"
-        if profile_path.is_file():
-            try:
-                profile = json.loads(profile_path.read_text(encoding="utf-8"))
-                folder_id = profile.get("folderId")
-                if isinstance(folder_id, str) and folder_id.strip():
-                    return folder_id.strip()
-            except json.JSONDecodeError:
-                pass
-        meta_path = sample_dir / "meta.json"
-        if meta_path.is_file():
-            try:
-                meta = json.loads(meta_path.read_text(encoding="utf-8"))
-                folder_id = meta.get("folderId")
-                if isinstance(folder_id, str) and folder_id.strip():
-                    return folder_id.strip()
-            except json.JSONDecodeError:
-                pass
-        name = sample_dir.name.strip()
-        return name or None
+        return policy.folder_id_for_sample_dir(sample_dir)
 
     def _active_sample_identity(self) -> bytes:
-        """稳定标识克隆参考音（不含语料、不含 voice-forge 展示名等易变字段）。"""
-        payload: dict[str, str] = {}
-        sample_dir = self._cache_sample_dir()
-        folder_id = self._folder_id_for_sample_dir(sample_dir)
-        if folder_id:
-            payload["folderId"] = folder_id
-
-        ref_path = self.qwen_clone_ref
-        if ref_path is None and sample_dir is not None:
-            candidate = sample_dir / "reference.wav"
-            if candidate.is_file():
-                ref_path = candidate
-
-        if ref_path and ref_path.is_file():
-            payload["ref"] = hashlib.sha256(ref_path.read_bytes()).hexdigest()[:24]
-
-        if sample_dir is not None:
-            meta_path = sample_dir / "meta.json"
-            if meta_path.is_file():
-                try:
-                    meta = json.loads(meta_path.read_text(encoding="utf-8"))
-                    fingerprint = meta.get("fingerprint")
-                    if isinstance(fingerprint, str) and fingerprint.strip():
-                        payload["fingerprint"] = fingerprint.strip()
-                except json.JSONDecodeError:
-                    pass
-
-        if not payload:
-            return b""
-
-        return json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        return policy.active_sample_identity_bytes(self._cache_sample_dir(), self.qwen_clone_ref)
 
     def compute_engine_hash(self) -> str:
-        """克隆引擎 / 后端身份（不含语料文本）。"""
-        digest = hashlib.sha256()
-        digest.update(self.backend.encode("utf-8"))
-
-        if self.backend == "qwen":
-            if self.qwen_config_path and self.qwen_config_path.is_file():
-                digest.update(self.qwen_config_path.read_bytes())
-            digest.update(self._active_sample_identity())
-            model_file = None
-            if self.qwen_model_dir:
-                model_file = self.qwen_model_dir / "model.safetensors"
-            if model_file and model_file.is_file():
-                stat = model_file.stat()
-                digest.update(f"{stat.st_size}:{int(stat.st_mtime)}".encode("utf-8"))
-        else:
-            if self.config_path and self.config_path.is_file():
-                digest.update(self.config_path.read_bytes())
-            if self.model_path and self.model_path.is_file():
-                stat = self.model_path.stat()
-                digest.update(f"{stat.st_size}:{int(stat.st_mtime)}".encode("utf-8"))
-
-        return digest.hexdigest()[:24]
+        return policy.compute_engine_hash(
+            self.backend,
+            qwen_config_path=self.qwen_config_path,
+            qwen_model_dir=self.qwen_model_dir,
+            qwen_clone_ref=self.qwen_clone_ref,
+            sample_dir=self._cache_sample_dir(),
+            config_path=self.config_path,
+            model_path=self.model_path,
+        )
 
     def compute_corpus_file_hash(self) -> str:
-        return hashlib.sha256(self.corpus_path.read_bytes()).hexdigest()[:16]
+        return policy.corpus_bytes_hash(self.corpus_path.read_bytes())
 
     def compute_source_hash(self) -> str:
-        """完整指纹（引擎 + 语料文件），用于 touch_cache 指针等。"""
-        digest = hashlib.sha256()
-        digest.update(self.compute_engine_hash().encode("utf-8"))
-        digest.update(self.corpus_path.read_bytes())
-        return digest.hexdigest()[:24]
+        return policy.source_hash_from_parts(
+            self.compute_engine_hash(),
+            self.corpus_path.read_bytes(),
+        )
 
     def collect_lines(self) -> list[str]:
         data = json.loads(self.corpus_path.read_text(encoding="utf-8"))
-        lines: set[str] = set()
-        for part_lines in data.values():
-            if not isinstance(part_lines, list):
-                continue
-            for line in part_lines:
-                if isinstance(line, str) and line.strip():
-                    lines.add(line.strip())
-        return sorted(lines)
+        return policy.collect_lines_from_corpus_data(data)
 
     def load_manifest(self) -> dict[str, Any] | None:
         if not self.manifest_path.is_file():
@@ -172,80 +101,36 @@ class AudioCacheManager:
             return None
 
     def _entry_wavs_complete(self, entry: dict[str, Any]) -> bool:
-        key = entry.get("key")
-        if not isinstance(key, str) or not key.strip():
-            return False
-        line_dir = self.cache_dir / key.strip()
-        for variant in range(VARIANT_COUNT):
-            if not (line_dir / f"{variant}.wav").is_file():
-                return False
-        return True
+        return policy.entry_wavs_complete(self.cache_dir, entry)
 
     def _active_sample_matches(self, manifest: dict[str, Any]) -> bool:
-        if self.backend != "qwen":
-            return True
-        manifest_active = manifest.get("active_sample")
-        if not isinstance(manifest_active, dict):
-            return True
-        cached_id = manifest_active.get("folderId")
-        if not isinstance(cached_id, str) or not cached_id.strip():
-            return True
         current_id = self._folder_id_for_sample_dir(self._cache_sample_dir())
-        if current_id and current_id.strip() != cached_id.strip():
-            return False
-        return True
+        return policy.active_sample_matches(self.backend, manifest, current_id)
 
     def _manifest_engine_matches(self, manifest: dict[str, Any]) -> bool:
-        if manifest.get("backend") != self.backend:
-            return False
-        engine_hash = manifest.get("engine_hash")
-        if isinstance(engine_hash, str) and engine_hash.strip():
-            return engine_hash == self.compute_engine_hash()
-        return True
+        return policy.manifest_engine_matches(manifest, self.backend, self.compute_engine_hash())
 
     def _line_content_hash(self, text: str) -> str:
-        return hashlib.sha256(text.strip().encode("utf-8")).hexdigest()[:16]
+        return policy.line_content_hash(text)
 
     def _line_entry_stale(self, line: str, entry: dict[str, Any] | None) -> bool:
-        if not isinstance(entry, dict) or not self._entry_wavs_complete(entry):
-            return True
-        stored_hash = entry.get("line_hash")
-        if isinstance(stored_hash, str) and stored_hash.strip():
-            return stored_hash != self._line_content_hash(line)
-        return False
+        complete = self._entry_wavs_complete(entry) if isinstance(entry, dict) else False
+        return policy.line_entry_stale(line, entry, wavs_complete=complete)
 
     def _lines_missing_from_cache(self, lines: list[str], entries: dict[str, Any]) -> list[str]:
-        missing: list[str] = []
-        for line in lines:
-            entry = entries.get(line)
-            if self._line_entry_stale(line, entry):
-                missing.append(line)
-        return missing
+        return policy.lines_missing_from_cache(lines, entries, cache_dir=self.cache_dir)
 
     def _should_full_rebuild(self, manifest: dict[str, Any] | None) -> bool:
         if not manifest:
             return True
-        if manifest.get("backend") != self.backend:
-            return True
-        if not self._active_sample_matches(manifest):
-            return True
-
-        engine_hash = self.compute_engine_hash()
-        stored_engine = manifest.get("engine_hash")
-        if isinstance(stored_engine, str) and stored_engine.strip():
-            return stored_engine != engine_hash
-
-        stored_source = manifest.get("source_hash")
-        if not isinstance(stored_source, str) or stored_source == self.compute_source_hash():
-            return False
-
-        stored_corpus = manifest.get("corpus_hash")
-        current_corpus = self.compute_corpus_file_hash()
-        if stored_corpus and stored_corpus == current_corpus:
-            return True
-        if stored_corpus is None:
-            return True
-        return False
+        return policy.should_full_rebuild(
+            manifest,
+            backend=self.backend,
+            engine_hash=self.compute_engine_hash(),
+            source_hash=self.compute_source_hash(),
+            corpus_hash=self.compute_corpus_file_hash(),
+            active_sample_ok=self._active_sample_matches(manifest),
+        )
 
     def _prune_removed_lines(self, entries: dict[str, dict[str, str]], current_lines: set[str]) -> None:
         for old_line in list(entries.keys()):

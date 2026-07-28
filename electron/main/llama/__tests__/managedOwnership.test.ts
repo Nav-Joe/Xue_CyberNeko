@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { decideStopAction, isManagedLlamaRunning } from '../managedOwnership'
+import { decideSnapshotStopAction, decideStopAction, isManagedLlamaRunning } from '../managedOwnership'
 import { createSingleFlight } from '../singleFlight'
 
 describe('decideStopAction（kill 真值表 · 不读 pid 文件）', () => {
@@ -34,6 +34,38 @@ describe('decideStopAction（kill 真值表 · 不读 pid 文件）', () => {
       pid: 4242,
       reason: 'app_spawned'
     })
+  })
+})
+
+describe('decideSnapshotStopAction（L-delay 只杀关窗快照 pid）', () => {
+  it('snapshot null → 不 kill、不清 runtime', () => {
+    expect(
+      decideSnapshotStopAction({
+        ownership: 'app_spawned',
+        managedPid: 99,
+        snapshotPid: null
+      })
+    ).toEqual({ pidToKill: null, clearRuntime: false })
+  })
+
+  it('仍是同一 pid → kill 且 clearRuntime', () => {
+    expect(
+      decideSnapshotStopAction({
+        ownership: 'app_spawned',
+        managedPid: 4242,
+        snapshotPid: 4242
+      })
+    ).toEqual({ pidToKill: 4242, clearRuntime: true })
+  })
+
+  it('已 begin 出新 pid → 只杀旧 pid，不清 runtime', () => {
+    expect(
+      decideSnapshotStopAction({
+        ownership: 'app_spawned',
+        managedPid: 7777,
+        snapshotPid: 4242
+      })
+    ).toEqual({ pidToKill: 4242, clearRuntime: false })
   })
 })
 

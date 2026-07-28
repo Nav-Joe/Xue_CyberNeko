@@ -29,6 +29,7 @@
 - **原因：** 展示与口型序由前端队头释放链（`nextReleaseIndex`）保证；若后端再按 order 串行等待，会与并行池死锁或退化为假并行。
 - **禁止：** 在 ParallelChatPool / `dispatch_synthesize_chat` 并行分支中恢复「必须等 order-1 完成」；禁止「为对齐字段」删掉前端 `order` 而不改契约与测试。
 - **对照测试：** `tts_voice/tests/test_batch_inference.py`（并行完成序可乱序）；前端 `chatTtsSession.test.ts`（乱序完成仍按序 reveal）。
+- **可观测性（BUG-TTS-01 P1-a）：** `[TTS/Parallel]` 可打印 `order` 与耗时；**仅日志**，不改变「池内忽略 order」的调度语义。
 
 ### 其它边界
 

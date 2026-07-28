@@ -1,5 +1,5 @@
 /**
- * llama-server 会话：探测 / 下载安装 / 启动 / 停止。
+ * llama-server 会话：探测 / 启动 / 停止（下载安装见 sessionBootstrapAssets）。
  *
  * 生命周期状态机（OPT-03）与文件职责边界见 `./CONTRACT.md`。
  *
@@ -24,43 +24,38 @@ import {
   LLAMA_READY_POLL_MS,
   LLAMA_READY_TIMEOUT_MS,
   LLAMA_SERVER_HOST,
-  LLAMA_SERVER_PORT,
-  buildDefaultModelMirrorUrls,
-  buildLlamaWinZipMirrorUrls
+  LLAMA_SERVER_PORT
 } from './constants'
-import {
-  downloadFileWithMirrors,
-  extractZipWindows,
-  flattenLlamaBin,
-  isDownloadAbortError,
-  type DownloadProgress
-} from './download'
+import { isDownloadAbortError } from './download'
 import {
   afterDownloadAborted,
-  beginDownloadAbortScope,
+  bindLlamaManagedPidSnapshot,
   bindLlamaSessionStop,
-  defaultLocalModelDest,
-  endDownloadAbortScope,
   reconcileInterruptedLlamaDownloads
 } from './downloadLifecycle'
 import {
+  decideSnapshotStopAction,
   decideStopAction,
   isManagedLlamaRunning as isAppOwnedLlamaAlive,
   type LlamaOwnership
 } from './managedOwnership'
 import { getLocalModelStatus, resolveUsableLocalModelPath } from './modelResolve'
-import { llamaBinDir, llamaInstallWorkDir, llamaModelsDir, llamaPidFile, llamaServerExeCandidates } from './paths'
+import { llamaPidFile } from './paths'
 import { isLlamaModelsResponse, resolveLlamaListenPort } from './probe'
+import {
+  downloadDefaultLocalModelFile,
+  emitBootstrapProgress,
+  ensureLlamaServerExe,
+  resolveLlamaServerExe,
+  type LlamaBootstrapProgress
+} from './sessionBootstrapAssets'
 import { createSingleFlight } from './singleFlight'
+import { awaitChatCloseFinalize } from '../memory/runtime'
 
 export type { LocalModelStatus } from './modelResolve'
 export { getLocalModelStatus } from './modelResolve'
-
-export type LlamaBootstrapProgress = {
-  phase: string
-  message: string
-  progress?: { done: number; total: number }
-}
+export type { LlamaBootstrapProgress } from './sessionBootstrapAssets'
+export { resolveLlamaServerExe } from './sessionBootstrapAssets'
 
 export type LlamaBootstrapResult =
   | {
@@ -125,36 +120,7 @@ function emitProgress(
   message: string,
   progress?: { done: number; total: number }
 ): void {
-  send?.({ phase, message, progress })
-}
-
-function createDownloadProgressHandler(
-  send: ((payload: LlamaBootstrapProgress) => void) | undefined,
-  phase: string,
-  title: string
-): (progress: DownloadProgress) => void {
-  let lastEmitAt = 0
-  return (progress: DownloadProgress) => {
-    const { done, total } = progress
-    const now = Date.now()
-    const percent = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
-    if (now - lastEmitAt < 120 && percent < 100) return
-    lastEmitAt = now
-    const message =
-      total > 0
-        ? `${title} ${percent}%`
-        : done > 0
-          ? `${title}（已下载 ${Math.round(done / 1024 / 1024)} MB）`
-          : title
-    emitProgress(send, phase, message, { done, total })
-  }
-}
-
-export function resolveLlamaServerExe(): string | null {
-  for (const candidate of llamaServerExeCandidates()) {
-    if (existsSync(candidate)) return candidate
-  }
-  return null
+  emitBootstrapProgress(send, phase, message, progress)
 }
 
 function modelIdFromFilename(fileName: string): string {
@@ -191,81 +157,6 @@ async function waitForLlamaReady(baseUrl: string, child?: ChildProcess | null): 
   throw new Error(
     `llama-server 启动超时 (${baseUrl})。若 8080 被 go-cqhttp 等程序占用，请关闭冲突程序或查看 ${join(logsDir(), 'llama-server.stderr.log')}`
   )
-}
-
-async function ensureLlamaServerExe(
-  send?: (payload: LlamaBootstrapProgress) => void
-): Promise<{ exePath: string; downloaded: boolean }> {
-  const existing = resolveLlamaServerExe()
-  if (existing) {
-    return { exePath: existing, downloaded: false }
-  }
-
-  emitProgress(send, 'download_server', '正在下载 llama-server…')
-  const binDir = llamaBinDir()
-  const workDir = llamaInstallWorkDir()
-  const zipPath = join(workDir, 'llama-server-download.zip')
-  const extractDir = join(workDir, 'extract')
-  mkdirSync(workDir, { recursive: true })
-  const signal = beginDownloadAbortScope()
-
-  try {
-    const serverResult = await downloadFileWithMirrors(
-      buildLlamaWinZipMirrorUrls(),
-      zipPath,
-      createDownloadProgressHandler(send, 'download_server', '正在下载 llama-server…'),
-      (source, index, total) => {
-        const hint = index === 0 ? '国内镜像' : `备用源 ${index + 1}/${total}`
-        logInfo('llama', `llama-server 下载: ${hint} (${source})`)
-        emitProgress(send, 'download_server', `正在从 ${source} 下载 llama-server…`)
-      },
-      signal
-    )
-    logInfo('llama', `llama-server 下载完成: ${serverResult.source}`)
-
-    emitProgress(send, 'install_server', '正在解压 llama-server…')
-    extractZipWindows(zipPath, extractDir)
-    const exePath = flattenLlamaBin(extractDir, binDir)
-    return { exePath, downloaded: true }
-  } finally {
-    endDownloadAbortScope(signal)
-    try {
-      rmSync(workDir, { recursive: true, force: true })
-    } catch {
-      // 临时目录可能被杀毒/索引短暂占用，忽略清理失败
-    }
-  }
-}
-
-async function downloadDefaultLocalModelFile(
-  send?: (payload: LlamaBootstrapProgress) => void
-): Promise<{ modelPath: string; downloaded: boolean }> {
-  mkdirSync(llamaModelsDir(), { recursive: true })
-  const existing = resolveUsableLocalModelPath()
-  if (existing) {
-    return { modelPath: existing, downloaded: false }
-  }
-
-  emitProgress(send, 'download_model', `正在下载默认模型 ${DEFAULT_LOCAL_MODEL_ID}…`)
-  const dest = defaultLocalModelDest()
-  const signal = beginDownloadAbortScope()
-  try {
-    const modelResult = await downloadFileWithMirrors(
-      buildDefaultModelMirrorUrls(),
-      dest,
-      createDownloadProgressHandler(send, 'download_model', `正在下载 ${DEFAULT_LOCAL_MODEL_ID}…`),
-      (source, index, total) => {
-        const hint = index === 0 ? '国内镜像' : `备用源 ${index + 1}/${total}`
-        logInfo('llama', `模型下载: ${hint} (${source})`)
-        emitProgress(send, 'download_model', `正在从 ${source} 下载 ${DEFAULT_LOCAL_MODEL_ID}…`)
-      },
-      signal
-    )
-    logInfo('llama', `模型下载完成: ${modelResult.source}`)
-    return { modelPath: dest, downloaded: true }
-  } finally {
-    endDownloadAbortScope(signal)
-  }
 }
 
 async function startManagedLlamaServer(
@@ -388,6 +279,7 @@ export async function downloadDefaultLocalModel(
   | { ok: false; detail: string; cancelled?: boolean }
 > {
   try {
+    await awaitChatCloseFinalize()
     await reconcileInterruptedLlamaDownloads()
     const model = await downloadDefaultLocalModelFile(send)
     const exePath = resolveLlamaServerExe()
@@ -435,6 +327,8 @@ async function runBeginLlamaChatSession(
   options: BeginLlamaSessionOptions = {}
 ): Promise<LlamaBootstrapResult> {
   try {
+    // 关窗 L-delay 未结束时先等：避免总结结束 stop 误杀本次新 spawn（见 app-2026-07-28）
+    await awaitChatCloseFinalize()
     await reconcileInterruptedLlamaDownloads()
 
     const currentConfig = readChatConfigFile()
@@ -505,7 +399,43 @@ async function runBeginLlamaChatSession(
   }
 }
 
-export async function stopManagedLlamaServer(): Promise<{ ok: boolean }> {
+export function snapshotAppSpawnedManagedPid(): number | null {
+  if (ownership !== 'app_spawned') return null
+  return managedPid
+}
+
+export async function stopManagedLlamaServer(options?: {
+  onlyPid?: number | null
+}): Promise<{ ok: boolean }> {
+  if (options && 'onlyPid' in options) {
+    const decision = decideSnapshotStopAction({
+      ownership,
+      managedPid,
+      snapshotPid: options.onlyPid ?? null
+    })
+    if (decision.clearRuntime) {
+      clearManagedRuntime()
+    } else if (decision.pidToKill != null) {
+      logInfo(
+        'llama',
+        `stopManagedLlamaServer(onlyPid=${decision.pidToKill}): skip clearRuntime (managedPid=${managedPid} ownership=${ownership})`
+      )
+    }
+    if (decision.pidToKill == null) {
+      return { ok: true }
+    }
+    try {
+      if (process.platform === 'win32') {
+        execSync(`taskkill /PID ${decision.pidToKill} /T /F`, { stdio: 'ignore' })
+      } else {
+        process.kill(decision.pidToKill)
+      }
+    } catch {
+      // 进程可能已退出
+    }
+    return { ok: true }
+  }
+
   const decision = decideStopAction({ ownership, managedPid })
   const pidToKill = decision.shouldKill ? decision.pid : null
 
@@ -527,8 +457,9 @@ export async function stopManagedLlamaServer(): Promise<{ ok: boolean }> {
   return { ok: true }
 }
 
-// 注入 stop，供 downloadLifecycle 取消 / 关窗调用（避免 lifecycle ↔ session 循环 import）
+// 注入 stop / pid 快照，供 downloadLifecycle 取消 / 关窗调用（避免 lifecycle ↔ session 循环 import）
 bindLlamaSessionStop(stopManagedLlamaServer)
+bindLlamaManagedPidSnapshot(snapshotAppSpawnedManagedPid)
 
 // 兼容再导出：IPC / 前端仍可从 session 或 lifecycle 导入
 export {
