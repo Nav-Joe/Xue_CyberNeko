@@ -9,6 +9,8 @@ import AltEngineCorpusSettings from './AltEngineCorpusSettings.vue'
 
 import OfficialTouchPlaybackSettings from './OfficialTouchPlaybackSettings.vue'
 
+import EmotionPluginSettings from './EmotionPluginSettings.vue'
+
 import RealtimeInferenceSettings from './RealtimeInferenceSettings.vue'
 
 import VoiceForgePanel from './VoiceForgePanel.vue'
@@ -290,6 +292,8 @@ onBeforeUnmount(() => {
       <section class="section">
 
         <OfficialTouchPlaybackSettings />
+
+        <EmotionPluginSettings />
 
         <button type="button" class="nav-row" @click="openAdvanced">
 

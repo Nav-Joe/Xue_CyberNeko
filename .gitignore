@@ -13,7 +13,9 @@ npm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 .idea/
+# Cursor：规则、本仓 skills、本地 Agent 配置一律不入库（勿把 ~/.cursor/skills 拷进仓库）
 .cursor/
+agent-transcripts/
 
 # OS
 .DS_Store
@@ -54,7 +56,7 @@ character-cards.json
 **/chat-config.json
 **/character-cards.json
 
-# ── M4 记忆隐私（权威路径：Electron userData/memory.db；下列防误拷入库）──
+# ── M4 / 情感模拟隐私（权威路径：Electron userData/memory.db；下列防误拷入库）──
 memory.db
 **/memory.db
 *.db-wal
@@ -64,6 +66,9 @@ memory.db
 **/memory-export*.json
 **/memory-dump*.json
 **/user-profile*.json
+**/desire-export*.json
+**/relationship-export*.json
+**/pet-touch-export*.json
 # 若把整包 userData 拷进仓库根目录
 /userData/
 **/AppData/**/memory.db

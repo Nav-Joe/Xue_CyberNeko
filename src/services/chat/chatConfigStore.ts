@@ -81,7 +81,12 @@ export async function saveChatConfigPatch(
   partial: Partial<
     Pick<
       ChatConfigView,
-      'memoryEnabled' | 'memoryConsolidateOnChatClose' | 'memoryLlmSummarizeEnabled' | 'memoryEmotionScoreEnabled'
+      | 'memoryEnabled'
+      | 'memoryConsolidateOnChatClose'
+      | 'memoryLlmSummarizeEnabled'
+      | 'memoryEmotionScoreEnabled'
+      | 'desireEnabled'
+      | 'relationshipEnabled'
     >
   >
 ): Promise<ChatConfigView> {

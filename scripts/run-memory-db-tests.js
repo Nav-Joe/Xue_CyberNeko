@@ -30,6 +30,10 @@ function runVitestMemory() {
     'vitest',
     'run',
     'electron/main/memory/__tests__',
+    'electron/main/desire/__tests__',
+    'electron/main/relationship/__tests__',
+    'electron/main/petTouch/__tests__',
+    'src/services/relationship/__tests__',
     '--reporter=verbose'
   ]
   const r = spawnSync('npx', args, {

@@ -2,7 +2,7 @@
 
 一个会动、会聊、会悄悄观察你的 Live2D 桌面 AI 桌宠。
 
-**当前版本：V0.4.1（早期开发版本）**
+**当前版本：V0.4.5（早期开发版本）**
 
 > **文档语言 / Docs:** [中文 README](README.md)（本页）· [English README](README.en.md)
 
@@ -18,10 +18,6 @@
 
 本次开发均以桃濑日和的 pro 版 Live2D 模型进行测试和开发。如果你想自己更换模型，可能会有 BUG，请自行解决！
 
-## 预告
-
-里程碑4的开发并没有结束，目前只是最最基础的功能，真正的完整里程碑4将在后续完成最后完善，一个自研的情感模拟模块目前正在进行个人研究和大量POC中，尽情期待！这可能是许多桌宠项目中最具有差异性的一步：我想打造的不仅仅只是个类RAG记忆系统，而是给我的雪澜一个 **【数字灵魂】**
-
 ## 重大更新
 
 ### 记忆（里程碑 4 已上线）
@@ -31,6 +27,14 @@
 - **记忆空间：** 可以通过记忆空间来看看雪澜的记忆和小心思，但是注意不要被她发现啦~
 - **用户画像：** 随着你们故事的发展，你的模样在雪澜心中会越来越清晰，让雪澜越来越熟悉你，理解你~
 - **时间感知：** 现在雪澜有完整的时间观念。
+- **开关位置：** 桌宠右键 → 设置 →「记忆与情感」（聊天窗设置里不再放记忆开关）
+
+### 官方情感模拟插件 V0.1.0（里程碑 4.5 首版）
+
+- **欲望模拟系统：** 聊天时会把角色当下的小心思带进对话；聊完后在后台悄悄更新，不拖慢你说话
+- **三维好感度系统：** 亲近 / 信任 / 投契，默认都从 0 开始；家窗口可打开「好感度」面板查看
+- **摸摸：** 点到身体部位会记今日次数；记忆与情感插件都开时，有机会小幅加亲近（每天有上限）
+- 关插件**不会清掉**已有好感数据，只是暂时停更；需要先开记忆，才能开本插件
 
 ## 🚧 里程碑进度
 
@@ -40,7 +44,7 @@
 | **1** | 桌宠窗、Live2D、右键菜单、「家」窗口 | ✅ |
 | **2** | 语料库 + 多引擎 TTS + 音色工坊 + 精选音频 | ✅ |
 | **3** | 文字聊天 + llama.cpp + OpenAI API + 对话 TTS | ✅ |
-| **4** | 记忆基座与检索（无向量）；**4.5** 自研情感模拟 | 🔧 **4 ✅** / 4.5 ⬜ |
+| **4** | 记忆基座与检索（无向量）；**4.5** 自研情感模拟 | 🔧 **4 ✅** / **4.5** 首版插件 ✅ |
 | **5** | 语音连续对话（STT + TTS） | ⬜ |
 | **6** | 主动行为 & 屏幕感知 | ⬜ |
 | **7** | 设置完善 & 打包发布 | ⬜ |
@@ -80,19 +84,19 @@ npm run test:tts       # Python pytest（tts_voice/tests）
 | **本地 llama** | 进入聊天或设置内切到本地时，检测 llama-server；未运行则引导下载 / 启动；关闭聊天窗会结束本应用启动的 llama 进程 |
 | **第三方 API** | 聊天设置中填写 Base URL、模型名、API Key；请求经主进程 IPC 代理 |
 
-会话默认仍仅在内存；开启聊天设置中的 **记忆** 后写入 `%APPDATA%/xue-cyber-neko/memory.db`（即 Electron `{userData}/memory.db`，关窗异步整理）。未开启时与 M3 行为一致。
+会话气泡默认仍只在本窗内存；在桌宠设置里开启 **记忆** 后，对话会写入 `%APPDATA%/xue-cyber-neko/memory.db`（即 Electron `{userData}/memory.db`，关窗异步整理）。记忆关闭时，聊天行为与早期纯文字聊天阶段一致。
 
-### 隐私与本地数据（M4 务必知晓）
+### 隐私与本地数据（务必知晓）
 
-以下内容含对话原文、总结、用户画像、API Key 等，**只应留在本机**，已被 `.gitignore` 防御；请勿把它们复制进仓库或发到 Issue：
+对话原文、总结、用户画像、欲望/好感流水、API Key 等**只应留在本机**。`.gitignore` 已挡住常见误提交路径；请勿把它们复制进仓库或贴到 Issue：
 
 | 本机路径（Windows 示意） | 内容 |
 |--------------------------|------|
-| `%APPDATA%/xue-cyber-neko/memory.db` | raw 对话、日常/周/月总结、核心池、用户画像、偷看事件等 |
-| `%APPDATA%/xue-cyber-neko/chat-config.json` | LLM / TTS / 记忆开关；**API Key 仅主进程落盘** |
+| `%APPDATA%/xue-cyber-neko/memory.db` | 对话原文、日常/周/月总结、核心记忆、用户画像；以及欲望、三维好感、今日摸摸等（同一库） |
+| `%APPDATA%/xue-cyber-neko/chat-config.json` | LLM / TTS / 记忆与情感开关；**API Key 仅主进程落盘** |
 | `%APPDATA%/xue-cyber-neko/character-cards.json` | 你的角色卡（人设等） |
 
-仓库内**允许**的相关内容只有：记忆 schema / 迁移 SQL、默认角色卡模板、契约文档（无真实密钥）。开发用的临时库在 `.runtime/memory*.db`（已忽略）。
+仓库里**可以**有的，只是：schema / 迁移 SQL、默认角色卡模板、模块契约（无真实密钥）。开发临时库在 `.runtime/memory*.db`（已忽略）。
 
 ### 常见问题
 
@@ -181,22 +185,30 @@ UI 以 TTS `/health` 的**运行中 backend** 为准。
 
 ```
 Xue_CyberNeko/
-├── electron/              # 主进程、preload、IPC、llama 会话
-│   ├── main/chat/         # 聊天窗、chat-config、OpenAI 代理
-│   └── main/memory/       # M4 记忆引擎、schema、迁移（无用户数据）
+├── electron/                 # 主进程、preload、IPC、llama 会话
+│   ├── main/chat/            # 聊天窗、chat-config、OpenAI 代理
+│   ├── main/memory/          # 记忆引擎、schema、迁移（无用户数据）
+│   ├── main/desire/          # 欲望引擎
+│   ├── main/relationship/    # 三维好感
+│   └── main/petTouch/        # 摸摸计数（可选加亲近）
 ├── src/
-│   ├── components/chat/   # 聊天 UI、设置、记忆开关
-│   ├── components/memory/ # 记忆空间面板
-│   ├── composables/chat/  # 会话、入口、bootstrap
+│   ├── components/chat/      # 聊天 UI、TTS/LLM/角色卡设置
+│   ├── components/memory/    # 记忆空间面板
+│   ├── components/relationship/  # 好感度面板
+│   ├── components/petTouch/  # 今日摸摸卡片
+│   ├── composables/chat/     # 会话、入口、bootstrap
 │   └── services/
-│       ├── chat/          # LLM、TTS 流水线、角色卡
-│       └── memory/        # 记忆 IPC 客户端
-├── memory_service/        # 可选独立服务（总结相关，无用户库）
-├── tts_voice/             # FastAPI TTS + engines
-├── voice_forge/           # 音色工坊样本
-├── scripts/               # 安装、启动、benchmark、记忆测脚手架
-├── public/models/         # Live2D（setup:model 下载）
-├── public/touch_clips/    # 精选触摸 wav
+│       ├── chat/             # LLM、TTS 流水线、角色卡
+│       ├── memory/           # 记忆 IPC 客户端
+│       ├── desire/           # 欲望 IPC 客户端
+│       ├── relationship/     # 好感 IPC 客户端
+│       └── petTouch/         # 摸摸 IPC 客户端
+├── memory_service/           # 可选独立服务（总结相关，无用户库）
+├── tts_voice/                # FastAPI TTS + engines
+├── voice_forge/              # 音色工坊样本
+├── scripts/                  # 安装、启动、benchmark、记忆测脚手架
+├── public/models/            # Live2D（setup:model 下载）
+├── public/touch_clips/       # 精选触摸 wav
 ├── 首次安装.bat
 ├── 启动.bat
 └── package.json
@@ -213,6 +225,9 @@ Xue_CyberNeko/
 | [`src/services/chat/CONTRACT.md`](src/services/chat/CONTRACT.md) | 聊天模块契约 |
 | [`electron/main/chat/CHAT_CONFIG.md`](electron/main/chat/CHAT_CONFIG.md) | chat-config 字段说明（无真实 Key） |
 | [`electron/main/memory/CONTRACT.md`](electron/main/memory/CONTRACT.md) | 记忆模块契约（库表 / IPC / 召回；无用户数据） |
+| [`electron/main/desire/CONTRACT.md`](electron/main/desire/CONTRACT.md) | 欲望模块契约 |
+| [`electron/main/relationship/CONTRACT.md`](electron/main/relationship/CONTRACT.md) | 三维好感契约 |
+| [`electron/main/petTouch/CONTRACT.md`](electron/main/petTouch/CONTRACT.md) | 摸摸计数契约 |
 | [`public/models/README.md`](public/models/README.md) | Live2D 模型替换 |
 | [`voice_forge/README.md`](voice_forge/README.md) | 音色工坊目录 |
 | [`public/touch_clips/README.md`](public/touch_clips/README.md) | 精选音频 manifest |
@@ -223,7 +238,7 @@ MIT（里程碑 7 发布前正式确认）
 
 ## 关于下一阶段
 
-将人工情感模拟系统进行落地和实现（好中二的名字，bro以为自己在玩群星...）
+情感模拟首版已经可用；接下来会继续打磨它，并计划STT（语音转文字）功能。
 
 ## 赞助
 

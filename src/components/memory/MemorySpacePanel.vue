@@ -101,7 +101,7 @@ onMounted(async () => {
 
         <main class="memory-space__main">
           <p v-if="!enabled" class="chat-theme__hint memory-space__status">
-            记忆未开启。请在文字聊天设置中启用后再查看。
+            记忆未开启。请在桌宠右键 → 设置中启用后再查看。
           </p>
           <template v-else>
             <div class="memory-space__toolbar">

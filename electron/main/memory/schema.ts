@@ -120,9 +120,96 @@ export const userProfile = sqliteTable('user_profile', {
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
 })
 
+/** 欲望状态（可并行多条；intensity 与 patience 解耦；混合时钟） */
+export const desireStates = sqliteTable(
+  'desire_states',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    /** 欲望强度 0～10；与 patience_* 无自动换算关系 */
+    intensity: real('intensity').notNull().default(0),
+    /** 忍耐上限（语境/LLM 可调） */
+    patienceMax: real('patience_max').notNull().default(100),
+    /** 当前忍耐剩余（默认由引擎按混合时钟扣减） */
+    patienceRemaining: real('patience_remaining').notNull().default(100),
+    /** active | urgent | fulfilled | abandoned | replaced */
+    state: text('state').notNull().default('active'),
+    /** 轮衰减倍率 d；Δ 为纯常数 × d */
+    decayRate: real('decay_rate').notNull().default(1),
+    /** 重逢保护期剩余对话轮；>0 时 ignored 仅 -0.5d 且禁止 urgent */
+    protectionTurnsRemaining: integer('protection_turns_remaining').notNull().default(0),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    /** 墙钟软处理锚点（长缺席重逢缓冲等；非主衰减） */
+    lastTickAt: integer('last_tick_at', { mode: 'timestamp_ms' }).notNull(),
+    /** 对话轮/有效互动锚点（主衰减） */
+    lastInteractionAt: integer('last_interaction_at', { mode: 'timestamp_ms' }).notNull(),
+    lastMentionedAt: integer('last_mentioned_at', { mode: 'timestamp_ms' }),
+    deadline: integer('deadline', { mode: 'timestamp_ms' })
+  },
+  (table) => ({
+    stateIdx: index('desire_states_state_idx').on(table.state)
+  })
+)
+
+/** 三维好感当前分（全局单行 id=default） */
+export const relationshipStates = sqliteTable('relationship_states', {
+  id: text('id').primaryKey(),
+  /** 亲近 -10～+10 */
+  closeness: real('closeness').notNull().default(0),
+  /** 信任 -10～+10 */
+  trust: real('trust').notNull().default(0),
+  /** 投契 -10～+10 */
+  rapport: real('rapport').notNull().default(0),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+})
+
+/** 好感分数变更事件流水（今日净变化等统计用） */
+export const relationshipEvents = sqliteTable(
+  'relationship_events',
+  {
+    id: text('id').primaryKey(),
+    /** closeness | trust | rapport */
+    dimension: text('dimension').notNull(),
+    delta: real('delta').notNull(),
+    /** micro | medium | high | extreme（可选） */
+    magnitude: text('magnitude'),
+    /** llm_turn | chat_close | 后续行为… */
+    source: text('source').notNull().default('llm_turn'),
+    reason: text('reason'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => ({
+    createdAtIdx: index('relationship_events_created_at_idx').on(table.createdAt),
+    dimensionCreatedAtIdx: index('relationship_events_dimension_created_at_idx').on(
+      table.dimension,
+      table.createdAt
+    )
+  })
+)
+
+/** 摸摸计数：按本地日历日一行；再用 affection_grants 封顶加亲近 */
+export const petTouchDaily = sqliteTable('pet_touch_daily', {
+  /** 本地日 YYYY-MM-DD */
+  dayKey: text('day_key').primaryKey(),
+  head: integer('head').notNull().default(0),
+  arms: integer('arms').notNull().default(0),
+  body: integer('body').notNull().default(0),
+  legs: integer('legs').notNull().default(0),
+  tail: integer('tail').notNull().default(0),
+  /** 当日已授予亲近次数（0～10）；加亲近时递增 */
+  affectionGrants: integer('affection_grants').notNull().default(0),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+})
+
 export type SessionSummary = typeof sessionSummaries.$inferSelect
 export type MemoryEvent = typeof memoryEvents.$inferSelect
 export type CoreMemory = typeof coreMemories.$inferSelect
 export type RawLog = typeof rawLogs.$inferSelect
 export type PeriodSummary = typeof periodSummaries.$inferSelect
 export type UserProfileRow = typeof userProfile.$inferSelect
+export type DesireState = typeof desireStates.$inferSelect
+export type RelationshipState = typeof relationshipStates.$inferSelect
+export type RelationshipEvent = typeof relationshipEvents.$inferSelect
+export type PetTouchDaily = typeof petTouchDaily.$inferSelect

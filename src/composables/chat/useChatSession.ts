@@ -17,6 +17,13 @@ import {
 import { buildChatPromptMessages } from '../../services/chat/promptBuilder'
 import { stopSpeaking } from '../../services/ttsPlayer'
 import { appendMemoryRawLog, appendMemoryRawLogInBackground, consumePendingPeeksForUserTurn, getMemoryPromptBlock, getRecentMemoryHistory, maybeMidSessionConsolidateInBackground, maybeRunPeriodRollup, notifyMemoryChatClosed } from '../../services/memory/memoryClient'
+import { getDesirePromptBlock, maybeDesireAfterTurnInBackground } from '../../services/desire/desireClient'
+import {
+  flushRelationshipOnChatClose,
+  getRelationshipPromptBlock,
+  noteRelationshipRoundMaybeEval
+} from '../../services/relationship/relationshipClient'
+import { getPetTouchPromptBlock } from '../../services/petTouch/petTouchClient'
 import type {
   CharacterCard,
   ChatConfigView,
@@ -118,6 +125,10 @@ export function useChatSession() {
 
   if (getCurrentScope()) {
     onScopeDispose(() => {
+      // 关窗前把未满 3 轮的好感缓冲送去后台鉴定（与记忆关窗并行、互不 await）
+      if (config.value?.memoryEnabled && config.value.desireEnabled) {
+        flushRelationshipOnChatClose()
+      }
       void notifyMemoryChatClosed(sessionId)
       clearSession()
     })
@@ -148,6 +159,9 @@ export function useChatSession() {
     const maxRounds = maxHistoryRoundsForMode(config.value.llmMode)
     let priorHistory = trimHistoryToRounds(toHistoryMessages(messages.value), maxRounds)
     let memoryBlock = ''
+    let desireBlock = ''
+    let relationshipBlock = ''
+    let petTouchBlock = ''
     let llmUserInput = text
     if (config.value.memoryEnabled) {
       // ② 开局后台：禁止 await；不堵首 token
@@ -162,6 +176,16 @@ export function useChatSession() {
       if (peekPrefix) {
         llmUserInput = `${peekPrefix}\n${text}`
       }
+      // 欲望注入依赖记忆总闸；此处只做重逢+注入，不轮扣
+      if (config.value.desireEnabled) {
+        desireBlock = await getDesirePromptBlock()
+      }
+      // 好感只读注入（随官方情感模拟插件总闸）
+      if (config.value.desireEnabled) {
+        relationshipBlock = await getRelationshipPromptBlock()
+      }
+      // 摸摸：只读并入 system（不另开 LLM；不绑情感插件）
+      petTouchBlock = await getPetTouchPromptBlock()
     }
     const userMessage: ChatUiMessage = {
       id: createMessageId(),
@@ -238,7 +262,10 @@ export function useChatSession() {
         card: activeCard.value,
         history: priorHistory,
         userInput: llmUserInput,
-        memoryBlock: memoryBlock || undefined
+        memoryBlock: memoryBlock || undefined,
+        desireBlock: desireBlock || undefined,
+        relationshipBlock: relationshipBlock || undefined,
+        petTouchBlock: petTouchBlock || undefined
       })
       const useStream = config.value.llmMode === 'local_llama'
 
@@ -278,6 +305,20 @@ export function useChatSession() {
           content: result.content.trim()
         })
         maybeMidSessionConsolidateInBackground(sessionId)
+        // 轮后后台欲望鉴定（空库门控在主进程）
+        if (config.value.desireEnabled) {
+          maybeDesireAfterTurnInBackground({
+            userText: text,
+            assistantText: result.content.trim()
+          })
+        }
+        // 好感每 3 轮鉴定；随情感插件总闸
+        if (config.value.desireEnabled) {
+          noteRelationshipRoundMaybeEval({
+            userText: text,
+            assistantText: result.content.trim()
+          })
+        }
       }
     } catch (err) {
       retryAttempt.value = 0

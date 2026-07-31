@@ -6,6 +6,7 @@ import { playRandomTouchClip } from './touchClipPlayer'
 import { isRealtimeInferenceEnabled } from './ttsSettings'
 import { isRealtimeTouchBusy, speakText } from './ttsPlayer'
 import type { BodyPart } from '../types/corpus'
+import { notePetTouchInBackground } from './petTouch/petTouchClient'
 
 import type { OpaqueHitData } from './live2dOpaqueBounds'
 
@@ -26,6 +27,9 @@ export async function handleModelTap(payload: ModelTapPayload): Promise<void> {
     payload.hitAreas,
     payload.opaqueHitData
   )
+
+  // 只要摸到就记账（与 TTS/语料模式无关）
+  notePetTouchInBackground(virtualPart)
 
   const hitLabel = payload.hitAreas.join(', ') || 'unknown'
 

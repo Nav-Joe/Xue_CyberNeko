@@ -82,6 +82,14 @@ function normalizeMemoryEmotionScoreEnabled(raw: unknown, fallback = true): bool
   return typeof raw === 'boolean' ? raw : fallback
 }
 
+function normalizeDesireEnabled(raw: unknown, fallback = true): boolean {
+  return typeof raw === 'boolean' ? raw : fallback
+}
+
+function normalizeRelationshipEnabled(raw: unknown, fallback = true): boolean {
+  return typeof raw === 'boolean' ? raw : fallback
+}
+
 function withTtsFields(
   config: Omit<
     ChatConfigFile,
@@ -93,6 +101,8 @@ function withTtsFields(
     | 'memoryConsolidateOnChatClose'
     | 'memoryLlmSummarizeEnabled'
     | 'memoryEmotionScoreEnabled'
+    | 'desireEnabled'
+    | 'relationshipEnabled'
   >,
   raw: LegacyChatConfig
 ): ChatConfigFile {
@@ -111,7 +121,9 @@ function withTtsFields(
     memoryEmotionScoreEnabled: normalizeMemoryEmotionScoreEnabled(
       raw.memoryEmotionScoreEnabled,
       true
-    )
+    ),
+    desireEnabled: normalizeDesireEnabled(raw.desireEnabled, true),
+    relationshipEnabled: normalizeRelationshipEnabled(raw.relationshipEnabled, true)
   }
 }
 
@@ -197,6 +209,8 @@ export function toChatConfigView(config: ChatConfigFile): ChatConfigView {
     memoryConsolidateOnChatClose: config.memoryConsolidateOnChatClose !== false,
     memoryLlmSummarizeEnabled: config.memoryLlmSummarizeEnabled !== false,
     memoryEmotionScoreEnabled: config.memoryEmotionScoreEnabled !== false,
+    desireEnabled: config.desireEnabled !== false,
+    relationshipEnabled: config.relationshipEnabled !== false,
     hasApiKey,
     apiKey: !secretSave && hasApiKey ? apiKey : undefined
   }
@@ -245,6 +259,8 @@ export function writeChatConfigFile(view: ChatConfigWritePatch): ChatConfigFile 
       view.memoryConsolidateOnChatClose ?? current.memoryConsolidateOnChatClose,
     memoryLlmSummarizeEnabled: view.memoryLlmSummarizeEnabled ?? current.memoryLlmSummarizeEnabled,
     memoryEmotionScoreEnabled: view.memoryEmotionScoreEnabled ?? current.memoryEmotionScoreEnabled,
+    desireEnabled: view.desireEnabled ?? current.desireEnabled,
+    relationshipEnabled: view.relationshipEnabled ?? current.relationshipEnabled,
     apiKey: view.clearApiKey ? '' : view.apiKey !== undefined ? view.apiKey : current.apiKey
   }
   const next = normalizeConfig(merged)

@@ -42,6 +42,12 @@ export async function buildChatPromptMessages(input: {
   userInput: string
   /** M4.2：核心记忆 + 加权摘要纯文本块，拼入 system */
   memoryBlock?: string
+  /** 欲望 Top-N 纯文本块，接在 memory 之后 */
+  desireBlock?: string
+  /** 三维关系姿态块，接在 desire 之后 */
+  relationshipBlock?: string
+  /** 摸摸：今日部位次数 + 亲近加分进度，接在 relationship 之后 */
+  petTouchBlock?: string
   /** 覆盖「现在」；默认 new Date()；单测可注入 */
   now?: Date
 }): Promise<ChatHistoryMessage[]> {
@@ -52,9 +58,15 @@ export async function buildChatPromptMessages(input: {
   const baseSystem = formatCharacterSystemPrompt(input.card)
   const clock = formatChatLocalTimeLabel(input.now ?? new Date())
   const memory = input.memoryBlock?.trim()
-  const system_prompt = memory
-    ? `${baseSystem}\n\n${clock}\n\n${memory}`
-    : `${baseSystem}\n\n${clock}`
+  const desire = input.desireBlock?.trim()
+  const relationship = input.relationshipBlock?.trim()
+  const petTouch = input.petTouchBlock?.trim()
+  const parts = [baseSystem, clock]
+  if (memory) parts.push(memory)
+  if (desire) parts.push(desire)
+  if (relationship) parts.push(relationship)
+  if (petTouch) parts.push(petTouch)
+  const system_prompt = parts.join('\n\n')
 
   const messages = await chatPromptTemplate.formatMessages({
     system_prompt,

@@ -32,6 +32,8 @@ export function createDefaultChatConfigView(): ChatConfigView {
     memoryConsolidateOnChatClose: true,
     memoryLlmSummarizeEnabled: true,
     memoryEmotionScoreEnabled: true,
+    desireEnabled: true,
+    relationshipEnabled: true,
     hasApiKey: false
   }
 }
@@ -49,6 +51,8 @@ export function createDefaultChatConfig(): ChatConfig {
     memoryConsolidateOnChatClose: true,
     memoryLlmSummarizeEnabled: true,
     memoryEmotionScoreEnabled: true,
+    desireEnabled: true,
+    relationshipEnabled: true,
     apiKey: ''
   }
 }

@@ -22,6 +22,9 @@ import {
   restoreWindowsAfterChat
 } from './windows/chatCoordination'
 import { registerMemoryIpc } from './ipc/memory'
+import { registerDesireIpc } from './ipc/desire'
+import { registerRelationshipIpc } from './ipc/relationship'
+import { registerPetTouchIpc } from './ipc/petTouch'
 import { initMemorySubsystem, finalizeForAppQuit } from './memory/runtime'
 import { stopManagedLlamaServer } from './llama/session'
 import { createHomeWindow, getHomeWindow, notifyHomeVisibility, setQuitting } from './windows/homeWindow'
@@ -161,6 +164,9 @@ function registerIpc(): void {
 
   registerChatWindowIpc()
   registerMemoryIpc()
+  registerDesireIpc()
+  registerRelationshipIpc()
+  registerPetTouchIpc()
 }
 
 let quittingFinalizeStarted = false

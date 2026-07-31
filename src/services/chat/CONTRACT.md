@@ -42,7 +42,7 @@
 
 - `formatCharacterSystemPrompt(card)` — 角色卡 → system 文本。
 - `formatChatLocalTimeLabel(now?)` — 本轮本地时间一行（`当前本地时间：YYYY-MM-DD HH:mm（周X）`）。
-- `buildChatPromptMessages({ card, history, userInput, memoryBlock?, now? })` — `@langchain/core` `ChatPromptTemplate`，输出 `ChatHistoryMessage[]`（`user` / `assistant` / `system`），供 llama-server 与 OpenAI 形 API 共用；system 顺序为角色卡 → 本地时间 → 记忆块（核心/画像/召回）。偷看标记不进 system：打开记忆空间后，**下一轮**发给 LLM 的 `user` 内容前会拼 `【用户（时间）偷看了…】`（UI 气泡与 `raw_logs` 仍只保留用户原文）。
+- `buildChatPromptMessages({ card, history, userInput, memoryBlock?, desireBlock?, relationshipBlock?, petTouchBlock?, now? })` — system 顺序为角色卡 → 本地时间 → 记忆块 → 欲望块 → 关系姿态块 → 今日摸摸状况。偷看标记不进 system：打开记忆空间后，**下一轮**发给 LLM 的 `user` 内容前会拼 `【用户（时间）偷看了…】`（UI 气泡与 `raw_logs` 仍只保留用户原文）。
 - `listCharacterRagDocumentIds(card)` — M4 RAG 预留。
 
 ## TTS 分段（模块 1）
@@ -67,12 +67,18 @@
 | 持久化 | 本窗 UI 仍仅内存；关窗丢气泡。`memoryEnabled` 时写入 `raw_logs`；发往 LLM 的先验历史改从 DB 取最近 N 轮（见下） |
 | 上下文窗口 | `local_llama` **10** 轮 / `openai_api` **30** 轮（1 轮 = user + 连续 assistant）。记忆开：`memory-get-recent-history` 读 `raw_logs`（timestamp 从新往旧）；记忆关或 IPC 失败：回退内存 `historyWindow`。UI 不回填跨窗气泡。另：全局 raw 达 **20/50** 轮时，本轮 LLM+TTS 结束后日常总结并裁回 **10/30**（见 memory CONTRACT；满轮总结后台跑，不拖下一句发送） |
 | 记忆注入 | 按 `llmMode` 分层：`openai_api` 核心≤5/~300tok、总结&lt;1024tok；`local_llama` 核心≤2/~100tok、总结&lt;254tok。key_facts 类检索（含 `period_summaries`）+ significance 优先；非空用户画像 100% 注入且不占总结预算。发消息时后台发起周/月滚（`scheduleMemoryBackground`，不堵首 token） |
+| 欲望注入 | 发消息前：记忆/欲望均开才注入 Top-N。轮后后台鉴定：有活跃每轮；无活跃则助手回复自我欲关键词强命中才调 LLM；未提及 open 默认 neutral；单次 create≤1 |
+| 好感鉴定 | 随「官方情感模拟插件」总闸（`desireEnabled`）+ 记忆总闸。渲染侧每 3 轮 / 关窗后台 → 主进程 LLM 提议并写库 |
+| 好感注入 | 发消息前只读三维分 + TAG → system（desire 之后） |
+| 好感面板 | 家窗口入口（类记忆空间）；雷达 + 条 + **今日**净变化；只读 |
+| 摸摸 prompt | 记忆开则注入今日部位次数；**不**绑情感插件（关插件仍报告摸摸次数） |
+| 情感插件 UI | 桌宠右键 → 设置 → `EmotionPluginSettings`（记忆总闸 + `desireEnabled`）；聊天设置不再放记忆/情感 |
 
 ## 聊天设置（模块 5）
 
 | 项 | 说明 |
 |----|------|
-| 入口 | 聊天窗标题栏 **⚙** → `ChatSettingsView.vue` 全屏替换聊天区 |
+| 入口 | 聊天窗标题栏 **⚙** → `ChatSettingsView.vue`（TTS / LLM / 角色卡；记忆与情感在桌宠右键设置） |
 | 返回 | 「← 返回聊天」→ 刷新 `useChatSession.initSession()` |
 | LLM | `ChatLlmSettings.vue` — `provide`/`inject`（`CHAT_LLM_SETTINGS_KEY`）+ 子组件 `ChatLlmModePicker` / `ChatLlmLocalSettings` / `ChatLlmOpenAiSettings`；枚举切换 `local_llama` / `openai_api`，仅展示当前模式对应配置区；逻辑仍在 `useChatLlmSettings` |
 | 角色卡 | `ChatCharacterCardSettings.vue` — CRUD + 名称 / 设定 / 喜好 |

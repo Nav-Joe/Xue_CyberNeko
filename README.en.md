@@ -2,7 +2,7 @@
 
 A Live2D desktop AI companion that moves, chats, and quietly watches over you.
 
-**Current version: V0.4.0b (early development)**
+**Current version: V0.4.5 (early development)**
 
 > **Docs languages:** [中文 README](README.md) · [English README](README.en.md) (this file)
 
@@ -18,10 +18,6 @@ Every test and every AI-generated change still goes through my manual testing an
 
 Development and testing are based on the **Hiyori Pro** Live2D model. If you swap in another model, you may hit bugs — please fix those on your own!
 
-## Coming soon
-
-Milestone 4 is **not** finished. What you see now is only the most basic slice. A fuller Milestone 4 will land later; a self-built affective / emotion-simulation module is currently in personal research and heavy POC. Stay tuned! This may be the most differentiating step among many desktop-pet projects: I don’t just want a RAG-like memory system — I want to give Xue Lan a **【digital soul】**.
-
 ## Highlights
 
 ### Memory (Milestone 4 shipped)
@@ -31,6 +27,14 @@ Milestone 4 is **not** finished. What you see now is only the most basic slice. 
 - **Memory Space:** peek at her memories and little thoughts — just try not to get caught~
 - **User profile:** as your story grows, the picture of you in her mind gets clearer — she learns you, and understands you better~
 - **Time awareness:** she now has a full sense of time.
+- **Where to toggle:** pet right-click → Settings → “Memory & Emotion” (the chat-window settings no longer host the memory switch)
+
+### Official emotion-simulation plugin V0.1.0 (Milestone 4.5 first release)
+
+- **Desire simulation:** brings the character’s current little wishes into the chat; updates quietly in the background after each turn so it doesn’t slow you down
+- **3D affection:** closeness / trust / rapport, all defaulting to 0; open the “Affection” panel from the Home window
+- **Pet touch:** tapping body parts counts today’s touches; with both memory and the emotion plugin on, a small closeness bump may apply (daily cap)
+- Turning the plugin **off does not wipe** existing affection data — it only pauses updates; memory must be on before you can enable this plugin
 
 ## 🚧 Milestone progress
 
@@ -40,7 +44,7 @@ Milestone 4 is **not** finished. What you see now is only the most basic slice. 
 | **1** | Pet window, Live2D, context menu, “Home” window | ✅ |
 | **2** | Corpus + multi-engine TTS + Voice Forge + curated clips | ✅ |
 | **3** | Text chat + llama.cpp + OpenAI API + chat TTS | ✅ |
-| **4** | Memory foundation & retrieval (no vectors); **4.5** self-built emotion sim | 🔧 **4 ✅** / 4.5 ⬜ |
+| **4** | Memory foundation & retrieval (no vectors); **4.5** self-built emotion sim | 🔧 **4 ✅** / **4.5** first plugin ✅ |
 | **5** | Continuous voice chat (STT + TTS) | ⬜ |
 | **6** | Proactive behavior & screen awareness | ⬜ |
 | **7** | Settings polish & packaging / release | ⬜ |
@@ -80,19 +84,19 @@ Expected result: a transparent desktop window with the Live2D catgirl; right-cli
 | **Local llama** | On entering chat or switching to local in settings, detects llama-server; if not running, guides download / start; closing the chat window stops the llama process this app started |
 | **Third-party API** | Set Base URL, model name, and API Key in chat settings; requests are proxied via main-process IPC |
 
-By default the session stays in memory only. With **Memory** enabled in chat settings, data is written to `%APPDATA%/xue-cyber-neko/memory.db` (Electron `{userData}/memory.db`, consolidated asynchronously on close). With memory off, behavior matches Milestone 3.
+Chat bubbles still live in this window’s memory by default. With **Memory** enabled in pet settings, dialogue is written to `%APPDATA%/xue-cyber-neko/memory.db` (Electron `{userData}/memory.db`, consolidated asynchronously on close). With memory off, chat behavior matches the earlier text-chat-only stage.
 
-### Privacy & local data (important for M4)
+### Privacy & local data (please read)
 
-The following may contain raw dialogue, summaries, user profile, API keys, etc. They **must stay on your machine**. `.gitignore` already guards them — **do not** copy them into the repo or paste them into Issues:
+Raw dialogue, summaries, user profile, desire / affection history, API keys, and similar data **must stay on your machine**. `.gitignore` already blocks common accidental commits — **do not** copy them into the repo or paste them into Issues:
 
 | Local path (Windows) | Contents |
 |----------------------|----------|
-| `%APPDATA%/xue-cyber-neko/memory.db` | Raw dialogue, daily/weekly/monthly summaries, core pool, user profile, peek events, etc. |
-| `%APPDATA%/xue-cyber-neko/chat-config.json` | LLM / TTS / memory toggles; **API Key is persisted only in the main process** |
+| `%APPDATA%/xue-cyber-neko/memory.db` | Raw dialogue, daily/weekly/monthly summaries, core memories, user profile; plus desire, 3D affection, today’s pet-touch counts, etc. (same DB) |
+| `%APPDATA%/xue-cyber-neko/chat-config.json` | LLM / TTS / memory & emotion toggles; **API Key is persisted only in the main process** |
 | `%APPDATA%/xue-cyber-neko/character-cards.json` | Your character cards (persona, etc.) |
 
-What **is** allowed in the repo: memory schema / migration SQL, default character-card templates, and contracts (no real secrets). Dev scratch DBs live under `.runtime/memory*.db` (ignored).
+What **is** allowed in the repo: schema / migration SQL, default character-card templates, and module contracts (no real secrets). Dev scratch DBs live under `.runtime/memory*.db` (ignored).
 
 ### FAQ
 
@@ -181,22 +185,30 @@ Integration details: `tts_voice/ENGINE_HOOKS.md`.
 
 ```
 Xue_CyberNeko/
-├── electron/              # Main process, preload, IPC, llama session
-│   ├── main/chat/         # Chat window, chat-config, OpenAI proxy
-│   └── main/memory/       # M4 memory engine, schema, migrations (no user data)
+├── electron/                 # Main process, preload, IPC, llama session
+│   ├── main/chat/            # Chat window, chat-config, OpenAI proxy
+│   ├── main/memory/          # Memory engine, schema, migrations (no user data)
+│   ├── main/desire/          # Desire engine
+│   ├── main/relationship/    # 3D affection
+│   └── main/petTouch/        # Pet-touch counts (optional closeness bump)
 ├── src/
-│   ├── components/chat/   # Chat UI, settings, memory toggle
-│   ├── components/memory/ # Memory Space panel
-│   ├── composables/chat/  # Session, entry, bootstrap
+│   ├── components/chat/      # Chat UI, TTS / LLM / character-card settings
+│   ├── components/memory/    # Memory Space panel
+│   ├── components/relationship/  # Affection panel
+│   ├── components/petTouch/  # Today’s pet-touch card
+│   ├── composables/chat/     # Session, entry, bootstrap
 │   └── services/
-│       ├── chat/          # LLM, TTS pipeline, character cards
-│       └── memory/        # Memory IPC client
-├── memory_service/        # Optional sidecar (summarization-related; no user DB)
-├── tts_voice/             # FastAPI TTS + engines
-├── voice_forge/           # Voice Forge samples
-├── scripts/               # Install, launch, benchmarks, memory test harness
-├── public/models/         # Live2D (via setup:model)
-├── public/touch_clips/    # Curated touch wavs
+│       ├── chat/             # LLM, TTS pipeline, character cards
+│       ├── memory/           # Memory IPC client
+│       ├── desire/           # Desire IPC client
+│       ├── relationship/     # Affection IPC client
+│       └── petTouch/         # Pet-touch IPC client
+├── memory_service/           # Optional sidecar (summarization-related; no user DB)
+├── tts_voice/                # FastAPI TTS + engines
+├── voice_forge/              # Voice Forge samples
+├── scripts/                  # Install, launch, benchmarks, memory test harness
+├── public/models/            # Live2D (via setup:model)
+├── public/touch_clips/       # Curated touch wavs
 ├── 首次安装.bat
 ├── 启动.bat
 └── package.json
@@ -213,6 +225,9 @@ Xue_CyberNeko/
 | [`src/services/chat/CONTRACT.md`](src/services/chat/CONTRACT.md) | Chat module contract |
 | [`electron/main/chat/CHAT_CONFIG.md`](electron/main/chat/CHAT_CONFIG.md) | chat-config fields (no real keys) |
 | [`electron/main/memory/CONTRACT.md`](electron/main/memory/CONTRACT.md) | Memory contract (tables / IPC / retrieval; no user data) |
+| [`electron/main/desire/CONTRACT.md`](electron/main/desire/CONTRACT.md) | Desire module contract |
+| [`electron/main/relationship/CONTRACT.md`](electron/main/relationship/CONTRACT.md) | 3D affection contract |
+| [`electron/main/petTouch/CONTRACT.md`](electron/main/petTouch/CONTRACT.md) | Pet-touch contract |
 | [`public/models/README.md`](public/models/README.md) | Replacing the Live2D model |
 | [`voice_forge/README.md`](voice_forge/README.md) | Voice Forge directories |
 | [`public/touch_clips/README.md`](public/touch_clips/README.md) | Curated audio manifest |
@@ -223,7 +238,7 @@ MIT (to be confirmed formally before Milestone 7 release)
 
 ## What’s next
 
-Ship and harden the human affective / emotion-simulation system (yes, a delightfully chuuni name — bro thinks he’s playing *Stellaris*…).
+The first emotion-simulation release is usable; next I’ll keep polishing it and plan STT (speech-to-text).
 
 ## Sponsorship
 

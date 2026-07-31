@@ -32,8 +32,6 @@ import ChatLlmSettings from './ChatLlmSettings.vue'
 
 import ChatTtsSettings from './ChatTtsSettings.vue'
 
-import ChatMemorySettings from './ChatMemorySettings.vue'
-
 
 
 
@@ -185,8 +183,6 @@ function onCardChanged(): void {
 
 
       <ChatTtsSettings @changed="onSettingsChanged" />
-
-      <ChatMemorySettings />
 
       <ChatLlmSettings
         :card="activeCard"

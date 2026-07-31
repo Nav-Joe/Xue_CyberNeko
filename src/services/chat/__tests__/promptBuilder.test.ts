@@ -42,14 +42,45 @@ describe('promptBuilder', () => {
     expect(system?.content).toContain('我爱你')
   })
 
-  it('includes local clock in system prompt', async () => {
+  it('appends desireBlock after memoryBlock in system prompt', async () => {
     const messages = await buildChatPromptMessages({
       card,
       history: [],
-      userInput: '几点了',
-      now: new Date(2026, 6, 23, 22, 57, 0)
+      userInput: '嗨',
+      memoryBlock: '【核心记忆】\n- 记得用户',
+      desireBlock: '【当前欲望（情感模拟·非真实生理需求）】\n- 欲望：草莓'
     })
-    const system = messages.find((m) => m.role === 'system')
-    expect(system?.content).toContain('当前本地时间：2026-07-23 22:57（周四）')
+    const system = messages.find((m) => m.role === 'system')?.content ?? ''
+    expect(system).toContain('核心记忆')
+    expect(system).toContain('当前欲望')
+    expect(system.indexOf('核心记忆')).toBeLessThan(system.indexOf('当前欲望'))
+  })
+
+  it('appends relationshipBlock after desireBlock in system prompt', async () => {
+    const messages = await buildChatPromptMessages({
+      card,
+      history: [],
+      userInput: '嗨',
+      memoryBlock: '【核心记忆】\n- 记得用户',
+      desireBlock: '【当前欲望】\n- 欲望：草莓',
+      relationshipBlock: '【当前关系姿态（情感模拟）】\n- 亲近 0｜正常'
+    })
+    const system = messages.find((m) => m.role === 'system')?.content ?? ''
+    expect(system).toContain('当前关系姿态')
+    expect(system.indexOf('核心记忆')).toBeLessThan(system.indexOf('当前欲望'))
+    expect(system.indexOf('当前欲望')).toBeLessThan(system.indexOf('当前关系姿态'))
+  })
+
+  it('appends petTouchBlock after relationshipBlock in system prompt', async () => {
+    const messages = await buildChatPromptMessages({
+      card,
+      history: [],
+      userInput: '嗨',
+      relationshipBlock: '【当前关系姿态（情感模拟）】\n- 亲近 0｜正常',
+      petTouchBlock: '【今日摸摸状况】\n- 合计：2 次'
+    })
+    const system = messages.find((m) => m.role === 'system')?.content ?? ''
+    expect(system).toContain('今日摸摸状况')
+    expect(system.indexOf('当前关系姿态')).toBeLessThan(system.indexOf('今日摸摸状况'))
   })
 })

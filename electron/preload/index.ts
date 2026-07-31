@@ -1,5 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { memoryApi } from './memoryApi'
+import { desireApi } from './desireApi'
+import { relationshipApi } from './relationshipApi'
+import { petTouchApi } from './petTouchApi'
 
 export type WindowType = 'pet' | 'home' | 'chat'
 
@@ -454,6 +457,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   ...memoryApi,
+  ...desireApi,
+  ...relationshipApi,
+  ...petTouchApi,
 
   reportClientError: (payload: {
     scope?: string

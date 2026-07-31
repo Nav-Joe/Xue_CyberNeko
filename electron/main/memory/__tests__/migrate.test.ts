@@ -38,8 +38,40 @@ describeMemoryDb('memory migrate()', () => {
     expect(names).toContain('session_summaries')
     expect(names).toContain('period_summaries')
     expect(names).toContain('user_profile')
+    expect(names).toContain('desire_states')
+    expect(names).toContain('relationship_states')
+    expect(names).toContain('relationship_events')
+    expect(names).toContain('pet_touch_daily')
     expect(names).toContain('__drizzle_migrations')
 
+    const desireCols = (
+      sqlite.prepare(`pragma table_info(desire_states)`).all() as { name: string }[]
+    ).map((r) => r.name)
+    expect(desireCols).toEqual(
+      expect.arrayContaining([
+        'intensity',
+        'patience_max',
+        'patience_remaining',
+        'protection_turns_remaining',
+        'last_interaction_at'
+      ])
+    )
+    const relStateCols = (
+      sqlite.prepare(`pragma table_info(relationship_states)`).all() as { name: string }[]
+    ).map((r) => r.name)
+    expect(relStateCols).toEqual(
+      expect.arrayContaining(['closeness', 'trust', 'rapport', 'updated_at'])
+    )
+    const relEventCols = (
+      sqlite.prepare(`pragma table_info(relationship_events)`).all() as { name: string }[]
+    ).map((r) => r.name)
+    expect(relEventCols).toEqual(
+      expect.arrayContaining(['dimension', 'delta', 'magnitude', 'source', 'created_at'])
+    )
+    const defaultRel = sqlite
+      .prepare(`select closeness, trust, rapport from relationship_states where id = 'default'`)
+      .get() as { closeness: number; trust: number; rapport: number }
+    expect(defaultRel).toEqual({ closeness: 0, trust: 0, rapport: 0 })
     const coreCols = (
       sqlite.prepare(`pragma table_info(core_memories)`).all() as { name: string }[]
     ).map((r) => r.name)

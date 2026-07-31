@@ -71,6 +71,10 @@ export interface ChatConfig {
   memoryLlmSummarizeEnabled: boolean
   /** M4.2：总结后情感打分与关键词；默认 true */
   memoryEmotionScoreEnabled: boolean
+  /** 欲望注入；默认 true；仍须 memoryEnabled */
+  desireEnabled: boolean
+  /** 三维好感鉴定/注入；默认 true；须 memoryEnabled；UI 随 desireEnabled 总闸 */
+  relationshipEnabled: boolean
   apiKey?: string
 }
 
@@ -87,6 +91,8 @@ export interface ChatConfigView {
   memoryConsolidateOnChatClose: boolean
   memoryLlmSummarizeEnabled: boolean
   memoryEmotionScoreEnabled: boolean
+  desireEnabled: boolean
+  relationshipEnabled: boolean
   hasApiKey: boolean
   /** 非私密保存时回显明文供原地编辑（password 框显示为圆点） */
   apiKey?: string

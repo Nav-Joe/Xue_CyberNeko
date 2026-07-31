@@ -304,6 +304,86 @@ interface ElectronAPI {
     | { ok: false; detail: string }
   >
   memoryNotifyChatClosed: (payload?: { sessionId?: string }) => Promise<{ ok: true }>
+  desireGetStatus: () => Promise<{
+    ready: boolean
+    memoryEnabled: boolean
+    desireEnabled: boolean
+    active: boolean
+  }>
+  desireGetPromptBlock: (payload?: {
+    nowMs?: number
+  }) => Promise<{ ok: true; block: string } | { ok: false; detail: string; block: string }>
+  desireInsertTest: (payload: {
+    name: string
+    description?: string
+    intensity?: number
+    patienceMax?: number
+    patienceRemaining?: number
+  }) => Promise<{ ok: true; id: string } | { ok: false; detail: string }>
+  desireApplyAfterTurn: (payload: {
+    userText: string
+    assistantText: string
+  }) => Promise<
+    | { ok: true; skipped?: string; createdIds?: string[]; touched?: number }
+    | { ok: false; detail: string }
+  >
+  relationshipGetStatus: () => Promise<{
+    ready: boolean
+    memoryEnabled: boolean
+    relationshipEnabled: boolean
+    active: boolean
+  }>
+  relationshipGetPromptBlock: () => Promise<
+    { ok: true; block: string } | { ok: false; detail: string; block: string }
+  >
+  relationshipGetSnapshot: (payload?: {
+    nowMs?: number
+  }) => Promise<
+    | {
+        ok: true
+        scores: { closeness: number; trust: number; rapport: number }
+        tags: { closeness: string; trust: string; rapport: string }
+        netToday: { closeness: number; trust: number; rapport: number }
+      }
+    | { ok: false; detail: string }
+  >
+  relationshipApplyEval: (payload: {
+    rounds: Array<{ userText: string; assistantText: string }>
+    source: 'llm_turn' | 'chat_close'
+  }) => Promise<{ ok: true; skipped?: string; applied?: number } | { ok: false; detail: string }>
+  petTouchGetToday: (payload?: {
+    nowMs?: number
+  }) => Promise<
+    | {
+        ok: true
+        dayKey: string
+        counts: Record<'head' | 'arms' | 'body' | 'legs' | 'tail', number>
+        total: number
+        affectionGrants: number
+        affectionCap: number
+        affectionEnabled: boolean
+      }
+    | { ok: false; detail: string }
+  >
+  petTouchGetPromptBlock: (payload?: {
+    nowMs?: number
+  }) => Promise<{ ok: true; block: string } | { ok: false; detail: string; block: string }>
+  petTouchRecord: (payload: {
+    part: 'head' | 'arms' | 'body' | 'legs' | 'tail'
+    nowMs?: number
+  }) => Promise<
+    | {
+        ok: true
+        dayKey: string
+        counts: Record<'head' | 'arms' | 'body' | 'legs' | 'tail', number>
+        total: number
+        affectionGrants: number
+        affectionCap: number
+        affectionEnabled: boolean
+        affectionGranted?: boolean
+      }
+    | { ok: false; detail: string }
+  >
   reportClientError: (payload: {
     scope?: string
     message: string

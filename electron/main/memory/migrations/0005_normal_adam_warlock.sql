@@ -1,0 +1,1 @@
+ALTER TABLE `desire_states` ADD `protection_turns_remaining` integer DEFAULT 0 NOT NULL;
