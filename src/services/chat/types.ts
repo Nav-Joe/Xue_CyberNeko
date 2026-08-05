@@ -51,7 +51,7 @@ export interface OpenAiApiConfigView {
 /** 聊天 TTS 并行推理并路（仅 parallel 模式） */
 export type ChatTtsParallelLanes = 2 | 3 | 4
 
-/** 持久化于 userData/chat-config.json（apiKey 仅主进程读写） */
+/** 主进程内存配置；磁盘上 Key 为 apiKeyEnc（safeStorage），见 CHAT_CONFIG.md */
 export interface ChatConfig {
   llmMode: ChatLlmMode
   local: LocalLlamaConfigView

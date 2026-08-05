@@ -20,6 +20,12 @@ import type {
   LocalLlamaConfigView,
   OpenAiApiConfigView
 } from '../../../src/services/chat/types'
+import {
+  buildDiskApiKeyFields,
+  createSafeStorageApiKeyCrypto,
+  resolveApiKeyFromDisk,
+  type ApiKeyCrypto
+} from './apiKeyAtRest'
 
 export type ChatConfigFile = ChatConfig
 
@@ -31,7 +37,11 @@ type LegacyChatConfig = Partial<ChatConfig> & {
   openaiBaseUrl?: string
   outputFormat?: ChatOutputFormat
   temperature?: number
+  /** 磁盘密文（base64）；内存态 ChatConfigFile 只用明文 apiKey */
+  apiKeyEnc?: string
 }
+
+const apiKeyCrypto: ApiKeyCrypto = createSafeStorageApiKeyCrypto()
 
 function configFilePath(): string {
   return join(app.getPath('userData'), 'chat-config.json')
@@ -193,6 +203,35 @@ function normalizeConfig(raw: LegacyChatConfig): ChatConfigFile {
   return migrateLegacyConfig(raw)
 }
 
+function toDiskPayload(config: ChatConfigFile): Record<string, unknown> {
+  const { apiKey: _memoryKey, ...rest } = config
+  const keyFields = buildDiskApiKeyFields(config.apiKey ?? '', apiKeyCrypto)
+  return { ...rest, ...keyFields }
+}
+
+function persistChatConfig(config: ChatConfigFile): void {
+  writeFileSync(configFilePath(), `${JSON.stringify(toDiskPayload(config), null, 2)}\n`, 'utf-8')
+}
+
+function omitApiKeyFields<T extends Record<string, unknown>>(raw: T): Omit<T, 'apiKey' | 'apiKeyEnc'> {
+  const { apiKey: _a, apiKeyEnc: _e, ...rest } = raw as T & ApiKeyDiskLoose
+  return rest
+}
+
+type ApiKeyDiskLoose = { apiKey?: string; apiKeyEnc?: string }
+
+function hydrateApiKey(raw: LegacyChatConfig, normalized: ChatConfigFile): {
+  config: ChatConfigFile
+  shouldRewrite: boolean
+} {
+  const { plain, shouldRewrite } = resolveApiKeyFromDisk(raw, apiKeyCrypto)
+  const withKey: ChatConfigFile = { ...normalized, apiKey: plain }
+  const hasEnc = typeof raw.apiKeyEnc === 'string' && Boolean(raw.apiKeyEnc.trim())
+  // 已有明文、加密可用但磁盘尚无密文 → 补写（勿用密文相等判断：每次 encrypt 可能不同）
+  const needsEncrypt = Boolean(plain.trim()) && apiKeyCrypto.isAvailable() && !hasEnc
+  return { config: withKey, shouldRewrite: shouldRewrite || needsEncrypt }
+}
+
 export function toChatConfigView(config: ChatConfigFile): ChatConfigView {
   const apiKey = config.apiKey?.trim() ?? ''
   const hasApiKey = Boolean(apiKey)
@@ -221,19 +260,23 @@ export function readChatConfigFile(): ChatConfigFile {
   mkdirSync(app.getPath('userData'), { recursive: true })
   if (!existsSync(filePath)) {
     const initial = createDefaultChatConfig()
-    writeFileSync(filePath, `${JSON.stringify(initial, null, 2)}\n`, 'utf-8')
+    persistChatConfig(initial)
     return initial
   }
   try {
     const parsed = JSON.parse(readFileSync(filePath, 'utf-8')) as LegacyChatConfig
     const normalized = normalizeConfig(parsed)
-    if (JSON.stringify(parsed) !== JSON.stringify(normalized)) {
-      writeFileSync(filePath, `${JSON.stringify(normalized, null, 2)}\n`, 'utf-8')
+    const { config, shouldRewrite } = hydrateApiKey(parsed, normalized)
+    const fieldsChanged =
+      JSON.stringify(omitApiKeyFields(parsed as Record<string, unknown>)) !==
+      JSON.stringify(omitApiKeyFields(normalized as unknown as Record<string, unknown>))
+    if (shouldRewrite || fieldsChanged) {
+      persistChatConfig(config)
     }
-    return normalized
+    return config
   } catch {
     const fallback = createDefaultChatConfig()
-    writeFileSync(filePath, `${JSON.stringify(fallback, null, 2)}\n`, 'utf-8')
+    persistChatConfig(fallback)
     return fallback
   }
 }
@@ -263,8 +306,9 @@ export function writeChatConfigFile(view: ChatConfigWritePatch): ChatConfigFile 
     relationshipEnabled: view.relationshipEnabled ?? current.relationshipEnabled,
     apiKey: view.clearApiKey ? '' : view.apiKey !== undefined ? view.apiKey : current.apiKey
   }
+  // 合并结果已是内存明文；落盘由 persist → apiKeyEnc（勿再走磁盘 hydrate）
   const next = normalizeConfig(merged)
-  writeFileSync(configFilePath(), `${JSON.stringify(next, null, 2)}\n`, 'utf-8')
+  persistChatConfig(next)
   return next
 }
 

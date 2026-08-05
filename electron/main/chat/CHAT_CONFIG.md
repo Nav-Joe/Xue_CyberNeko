@@ -1,6 +1,6 @@
 # 聊天配置 `chat-config.json`
 
-Electron 主进程读写 `{userData}/chat-config.json`；渲染进程经 IPC `chat-read-config` / `chat-write-config` 访问（不含 `apiKey` 明文）。
+Electron 主进程读写 `{userData}/chat-config.json`；渲染进程经 IPC `chat-read-config` / `chat-write-config` 访问（不含 `apiKey` 明文，除非关闭「密文保存」时回显供编辑）。
 
 ## 默认值（文件不存在或字段缺失时）
 
@@ -22,9 +22,17 @@ Electron 主进程读写 `{userData}/chat-config.json`；渲染进程经 IPC `ch
 | `openai.model` | `""` |
 | `openai.outputFormat` | `openai` |
 | `openai.temperature` | `0.7` |
-| `apiKey` | `""`（仅主进程存储） |
+| `apiKey` | `""`（磁盘上应为空；历史明文会在读取时迁移） |
+| `apiKeyEnc` | 缺省；有 Key 时为 `safeStorage.encryptString` 的 base64 |
 
 首次启动时主进程会创建带上述默认值的 JSON 文件。
+
+## API Key 落盘（safeStorage）
+
+- 主进程内存持有明文供 LLM 代理使用；**写入磁盘时**优先写成 `apiKeyEnc`，并把 `apiKey` 置空。
+- 读取时若仍有旧版明文 `apiKey`、且本机 `safeStorage.isEncryptionAvailable()`，自动加密回写并清除明文。
+- 加密不可用（少见，如部分 Linux 无密钥环）时回退明文 `apiKey` 并打 warn，避免丢 Key。
+- `openaiApiKeySecretSave` 只控制是否向渲染进程回显明文，与落盘加密正交。
 
 ## 自动保存
 
@@ -35,10 +43,11 @@ Electron 主进程读写 `{userData}/chat-config.json`；渲染进程经 IPC `ch
 - `writeChatConfigFile` 对未传入的字段**保留磁盘现有值**（勿用 `undefined` 覆盖）。
 - llama bootstrap 仅更新 `local.selectedBaseUrl` / `selectedModelId`，**不修改** `llmMode` 与 TTS 开关。
 - 用户选择 `openai_api` 时，进入聊天**跳过** llama bootstrap。
+- 实现：`apiKeyAtRest.ts` + `chat-config.ts`；勿在渲染进程持久化 Key。
 
 | 模块 | 路径 |
 |------|------|
-| 读写 / 迁移 | `electron/main/chat/chat-config.ts` |
+| 读写 / 迁移 / Key 落盘 | `electron/main/chat/chat-config.ts`、`apiKeyAtRest.ts` |
 | IPC | `electron/main/ipc/chatConfig.ts` |
 | 渲染进程 store | `src/services/chat/chatConfigStore.ts` |
 | 类型 | `src/services/chat/types.ts` |

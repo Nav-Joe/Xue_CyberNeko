@@ -1,14 +1,15 @@
 import type { ChatHistoryMessage, ChatLlmMode } from './types'
 
-/** 本地 llama-server 默认 -c 4096；预留 system + 当前轮 + 生成，约 10 轮中文对话 */
+/** 发给模型 / 总结后保留的 raw 轮数（本地 -c 4096 约 10 轮） */
 export const LOCAL_LLAMA_MAX_HISTORY_ROUNDS = 10
 
-/** 第三方 OpenAI 兼容 API：M3 固定保留最近 30 轮 */
+/** 发给模型 / 总结后保留的 raw 轮数（OpenAI 兼容） */
 export const OPENAI_API_MAX_HISTORY_ROUNDS = 30
 
 /**
  * 日常总结软上限（满则本轮 LLM+TTS 结束后触发会话总结并裁 raw）。
  * OpenAI：积累到 50 → 裁到 30；本地：积累到 20 → 裁到 10。
+ * 记忆开启时，这才是「对话窗口」的最高阈值。
  */
 export const LOCAL_LLAMA_SOFT_MAX_HISTORY_ROUNDS = 20
 export const OPENAI_API_SOFT_MAX_HISTORY_ROUNDS = 50
@@ -29,10 +30,17 @@ export function softKeepHistoryRoundsForMode(mode: ChatLlmMode): number {
   return maxHistoryRoundsForMode(mode)
 }
 
-/** 聊天 UI 提示：当前模式下 LLM 可见的最大对话轮数 */
-export function formatHistoryWindowHint(mode: ChatLlmMode): string {
-  const rounds = maxHistoryRoundsForMode(mode)
-  return `模型上下文最多保留最近 ${rounds} 轮对话（更早消息仍可在界面查看，但不会发给模型）`
+/**
+ * 聊天 UI 提示：与记忆窗口对齐。
+ * 记忆开：展示软上限（最高阈值）+ 总结后保留轮数；记忆关：仅展示发给模型的硬截断。
+ */
+export function formatHistoryWindowHint(mode: ChatLlmMode, memoryEnabled = true): string {
+  const keep = maxHistoryRoundsForMode(mode)
+  if (!memoryEnabled) {
+    return `模型上下文最多保留最近 ${keep} 轮对话（更早消息仍可在界面查看，但不会发给模型）`
+  }
+  const soft = softMaxHistoryRoundsForMode(mode)
+  return `对话窗口最高 ${soft} 轮（满后日常总结并保留最近 ${keep} 轮发给模型）`
 }
 
 /** 1 轮 = user + 其后连续 assistant（TTS 多气泡已在上游合并） */

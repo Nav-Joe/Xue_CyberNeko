@@ -34,9 +34,17 @@ describe('historyWindow', () => {
     expect(softKeepHistoryRoundsForMode('openai_api')).toBe(OPENAI_API_MAX_HISTORY_ROUNDS)
   })
 
-  it('formats ui hint per llm mode', () => {
-    expect(formatHistoryWindowHint('local_llama')).toContain('10 轮')
-    expect(formatHistoryWindowHint('openai_api')).toContain('30 轮')
+  it('formats ui hint per llm mode (memory on = soft max)', () => {
+    expect(formatHistoryWindowHint('local_llama', true)).toContain('最高 20 轮')
+    expect(formatHistoryWindowHint('local_llama', true)).toContain('最近 10 轮')
+    expect(formatHistoryWindowHint('openai_api', true)).toContain('最高 50 轮')
+    expect(formatHistoryWindowHint('openai_api', true)).toContain('最近 30 轮')
+  })
+
+  it('formats ui hint when memory off (keep-only hard trim)', () => {
+    expect(formatHistoryWindowHint('local_llama', false)).toContain('10 轮')
+    expect(formatHistoryWindowHint('openai_api', false)).toContain('30 轮')
+    expect(formatHistoryWindowHint('openai_api', false)).not.toContain('50')
   })
 
   it('splits user-assistant pairs into rounds', () => {

@@ -12,6 +12,7 @@ import { splitTextForTts } from '../../services/chat/textSplitter'
 import {
   formatHistoryWindowHint,
   maxHistoryRoundsForMode,
+  softMaxHistoryRoundsForMode,
   trimHistoryToRounds
 } from '../../services/chat/historyWindow'
 import { buildChatPromptMessages } from '../../services/chat/promptBuilder'
@@ -82,12 +83,15 @@ export function useChatSession() {
 
   const historyWindowHint = computed(() => {
     if (!config.value) return ''
-    return formatHistoryWindowHint(config.value.llmMode)
+    return formatHistoryWindowHint(config.value.llmMode, config.value.memoryEnabled === true)
   })
 
   const maxHistoryRounds = computed(() => {
     if (!config.value) return 0
-    return maxHistoryRoundsForMode(config.value.llmMode)
+    // 记忆开：UI「最高阈值」= 软上限；关：仍为发给模型的 keep
+    return config.value.memoryEnabled === true
+      ? softMaxHistoryRoundsForMode(config.value.llmMode)
+      : maxHistoryRoundsForMode(config.value.llmMode)
   })
 
   async function initSession(): Promise<void> {

@@ -1,5 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 
+import { logInfo } from '../logging/logger'
+
 export type AppLifecycleIpcDeps = {
   createHomeWindow: () => void
   setQuitting: (value: boolean) => void
@@ -17,8 +19,12 @@ export function registerAppLifecycleIpc(deps: AppLifecycleIpcDeps): void {
 
   ipcMain.handle('relaunch-app', async () => {
     if (!app.isPackaged) {
-      console.log('[Electron] dev soft-reload (keep dev server and TTS running)')
       const windows = BrowserWindow.getAllWindows()
+      logInfo(
+        'main',
+        'dev soft-reload: reloadIgnoringCache on all windows',
+        `count=${windows.length} (chat messages are in-memory and will be wiped)`
+      )
       await Promise.all(
         windows.map(
           (win) =>
@@ -35,7 +41,7 @@ export function registerAppLifecycleIpc(deps: AppLifecycleIpcDeps): void {
       return { ok: true, mode: 'reload' }
     }
 
-    console.log('[Electron] relaunch-app requested')
+    logInfo('main', 'relaunch-app requested (packaged)')
     deps.setQuitting(true)
     for (const win of BrowserWindow.getAllWindows()) {
       win.removeAllListeners('close')
