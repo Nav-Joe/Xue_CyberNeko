@@ -75,6 +75,14 @@ export interface ChatConfig {
   desireEnabled: boolean
   /** 三维好感鉴定/注入；默认 true；须 memoryEnabled；UI 随 desireEnabled 总闸 */
   relationshipEnabled: boolean
+  /** 语音输入总闸；默认 false（关 = 纯打字，与升级前一致） */
+  sttEnabled: boolean
+  /** 识别成功后自动发送；默认 false（只追加到输入框） */
+  sttAutoSend: boolean
+  /** 非空则直连该基址；空则按 8767–8772 探活 */
+  sttBaseUrl: string
+  /** 选中的麦克风 deviceId；空 = 系统默认 */
+  sttDeviceId: string
   apiKey?: string
 }
 
@@ -93,6 +101,10 @@ export interface ChatConfigView {
   memoryEmotionScoreEnabled: boolean
   desireEnabled: boolean
   relationshipEnabled: boolean
+  sttEnabled: boolean
+  sttAutoSend: boolean
+  sttBaseUrl: string
+  sttDeviceId: string
   hasApiKey: boolean
   /** 非私密保存时回显明文供原地编辑（password 框显示为圆点） */
   apiKey?: string

@@ -19,13 +19,15 @@ echo     - Node.js / Python ^(缺失时自动安装，见 scripts\win\runtime-ve
 echo     - Node.js 依赖 ^(npm install^)
 echo     - Python 虚拟环境 ^(.venv^)
 echo     - Qwen3-TTS 引擎依赖与 PyTorch
+echo     - STT 侧车依赖 ^(sherpa-onnx 等，stt_service\requirements.txt^)
+echo     - SenseVoice STT 模型 ^(约 230MB，.runtime\stt-models\^)
 echo     - Qwen3 模型：VoiceDesign 1.7B + Base 1.7B
 echo.
 echo   Live2D 模型将在安装完成后引导下载（桃濑日和）
 echo ========================================
 echo.
 
-echo [步骤 1/4] 检测运行环境...
+echo [步骤 1/5] 检测运行环境...
 echo.
 
 call "%~dp0win\check-node.cmd"
@@ -39,7 +41,7 @@ call "%~dp0win\check-disk-space.cmd" 15
 if errorlevel 1 exit /b 1
 
 echo.
-echo [步骤 2/4] 安装 Node 依赖...
+echo [步骤 2/5] 安装 Node 依赖...
 echo.
 
 call "%~dp0win\check-disk-space.cmd" 3
@@ -49,7 +51,7 @@ call npm install
 if errorlevel 1 exit /b 1
 
 echo.
-echo [步骤 3/4] 创建 Python 虚拟环境 ^(.venv^)...
+echo [步骤 3/5] 创建 Python 虚拟环境 ^(.venv^)...
 echo.
 
 call "%~dp0win\check-disk-space.cmd" 6
@@ -59,13 +61,30 @@ call "%~dp0win\ensure-venv.cmd"
 if errorlevel 1 exit /b 1
 
 echo.
-echo [步骤 4/4] 安装 TTS / Qwen3-TTS 依赖与 PyTorch...
+echo [步骤 4/5] 安装 TTS / Qwen3-TTS 依赖与 PyTorch...
 echo.
 
 call "%~dp0win\check-disk-space.cmd" 8
 if errorlevel 1 exit /b 1
 
 call "%~dp0win\install-tts-deps.cmd"
+if errorlevel 1 exit /b 1
+
+echo.
+echo [步骤 5/5] 安装 STT 侧车依赖...
+echo.
+
+call "%~dp0win\check-disk-space.cmd" 1
+if errorlevel 1 exit /b 1
+
+call "%~dp0win\install-stt-deps.cmd"
+if errorlevel 1 exit /b 1
+
+echo.
+echo [附加] 下载 SenseVoice STT 模型权重...
+echo.
+
+call "%~dp0win\install-stt-models.cmd"
 if errorlevel 1 exit /b 1
 
 echo.
@@ -87,13 +106,13 @@ if errorlevel 1 (
 echo.
 call "%~dp0win\prompt-live2d-model.cmd"
 if errorlevel 1 (
-  echo [警告] Live2D 模型尚未就绪，可先关闭本窗口，放置模型后再启动。
+  echo [WARN] Live2D model not ready yet. Close this window, place the model, then relaunch.
 )
 
 echo.
 echo ========================================
-echo   [完成] 首次安装已全部就绪。
-echo   请关闭本窗口，双击「启动.bat」运行桌宠。
+echo   [OK] First-time setup is complete.
+echo   Close this window, then run the launcher bat in the repo root.
 echo ========================================
 echo.
 pause
@@ -102,13 +121,14 @@ exit /b 0
 :already_done
 echo.
 echo ========================================
-echo   检测到已完成首次安装（所需环境均已就绪）
+echo   First-time setup already complete.
 echo.
-echo   无需重复安装。请关闭本窗口。
-echo   双击「启动.bat」即可运行桌宠。
+echo   No need to install again. You can close this window.
+echo   Next: run the launcher bat in the repo root.
 echo ========================================
 echo.
-echo   Qwen 模型下载见首次安装提示，或 scripts\win\install-qwen-models.cmd
+echo   Re-download Qwen: scripts/win/install-qwen-models.cmd
+echo   Re-download STT model: scripts/win/install-stt-models.cmd
 echo.
 pause
 exit /b 0

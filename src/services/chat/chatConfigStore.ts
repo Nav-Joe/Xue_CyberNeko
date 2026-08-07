@@ -87,9 +87,26 @@ export async function saveChatConfigPatch(
       | 'memoryEmotionScoreEnabled'
       | 'desireEnabled'
       | 'relationshipEnabled'
+      | 'sttEnabled'
+      | 'sttAutoSend'
+      | 'sttBaseUrl'
+      | 'sttDeviceId'
     >
   >
 ): Promise<ChatConfigView> {
+  const current = await loadChatConfigView()
+  return saveChatConfig({
+    ...current,
+    ...partial
+  })
+}
+
+export async function saveChatSttSettings(partial: {
+  sttEnabled?: boolean
+  sttAutoSend?: boolean
+  sttBaseUrl?: string
+  sttDeviceId?: string
+}): Promise<ChatConfigView> {
   const current = await loadChatConfigView()
   return saveChatConfig({
     ...current,

@@ -24,6 +24,10 @@ Electron 主进程读写 `{userData}/chat-config.json`；渲染进程经 IPC `ch
 | `openai.temperature` | `0.7` |
 | `apiKey` | `""`（磁盘上应为空；历史明文会在读取时迁移） |
 | `apiKeyEnc` | 缺省；有 Key 时为 `safeStorage.encryptString` 的 base64 |
+| `sttEnabled` | `false`（M5 语音输入总闸；关 = 无麦入口、无 STT 请求） |
+| `sttAutoSend` | `false`（`true` 识别后自动发送；`false` 追加到输入框） |
+| `sttBaseUrl` | `""`（空 = 客户端按 8767–8772 探 `/health`；非空则直连） |
+| `sttDeviceId` | `""`（空 = 系统默认麦；非空为 `MediaDeviceInfo.deviceId`） |
 
 首次启动时主进程会创建带上述默认值的 JSON 文件。
 
@@ -36,7 +40,7 @@ Electron 主进程读写 `{userData}/chat-config.json`；渲染进程经 IPC `ch
 
 ## 自动保存
 
-设置页内切换 LLM 模式、TTS / 并行开关、本地模型选择、OpenAI 字段等变更会**立即写回**此文件，无需重复进入设置。
+设置页内切换 LLM 模式、TTS / 并行开关、语音输入（STT）开关、本地模型选择、OpenAI 字段等变更会**立即写回**此文件，无需重复进入设置。开启 `sttEnabled` 时主进程会 ensure `stt_service`（已在跑则复用）；关闭时仅停止本应用拉起的侧车。
 
 ## 注意事项
 

@@ -25,8 +25,10 @@ import { registerMemoryIpc } from './ipc/memory'
 import { registerDesireIpc } from './ipc/desire'
 import { registerRelationshipIpc } from './ipc/relationship'
 import { registerPetTouchIpc } from './ipc/petTouch'
+import { registerSttIpc } from './ipc/stt'
 import { initMemorySubsystem, finalizeForAppQuit } from './memory/runtime'
 import { stopManagedLlamaServer } from './llama/session'
+import { stopManagedSttService } from './stt/session'
 import { createHomeWindow, getHomeWindow, notifyHomeVisibility, setQuitting } from './windows/homeWindow'
 import {
   createPetWindow,
@@ -167,6 +169,7 @@ function registerIpc(): void {
   registerDesireIpc()
   registerRelationshipIpc()
   registerPetTouchIpc()
+  registerSttIpc()
 }
 
 let quittingFinalizeStarted = false
@@ -194,7 +197,10 @@ app.on('before-quit', (event) => {
 
   void (async () => {
     try {
-      await finalizeForAppQuit(() => stopManagedLlamaServer())
+      await finalizeForAppQuit(async () => {
+        stopManagedSttService()
+        return stopManagedLlamaServer()
+      })
     } catch (error) {
       logWarn('main', 'before-quit finalize failed', error)
     } finally {

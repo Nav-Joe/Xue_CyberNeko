@@ -67,4 +67,8 @@ void bootstrapTouchConfig().finally(async () => {
   const app = createApp(RootApp)
   installVueErrorHandler(app)
   app.mount('#app')
+  // 启动时枚举麦克风：不弹权限；已授权则缓存带名称的列表，供设置页秒开
+  void import('./services/stt/micDevices')
+    .then((m) => m.warmMicDevicesInBackground())
+    .catch(() => undefined)
 })

@@ -32,6 +32,8 @@ import ChatLlmSettings from './ChatLlmSettings.vue'
 
 import ChatTtsSettings from './ChatTtsSettings.vue'
 
+import ChatSttSettings from './ChatSttSettings.vue'
+
 
 
 
@@ -183,6 +185,8 @@ function onCardChanged(): void {
 
 
       <ChatTtsSettings @changed="onSettingsChanged" />
+
+      <ChatSttSettings @changed="onSettingsChanged" />
 
       <ChatLlmSettings
         :card="activeCard"

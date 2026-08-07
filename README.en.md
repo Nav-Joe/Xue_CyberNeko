@@ -2,7 +2,7 @@
 
 A Live2D desktop AI companion that moves, chats, and quietly watches over you.
 
-**Current version: V0.4.6 (early development)**
+**Current version: V0.5.0 (early development)**
 
 > **Docs languages:** [中文 README](README.md) · [English README](README.en.md) (this file)
 
@@ -45,7 +45,7 @@ Development and testing are based on the **Hiyori Pro** Live2D model. If you swa
 | **2** | Corpus + multi-engine TTS + Voice Forge + curated clips | ✅ |
 | **3** | Text chat + llama.cpp + OpenAI API + chat TTS | ✅ |
 | **4** | Memory foundation & retrieval (no vectors); **4.5** self-built emotion sim | 🔧 **4 ✅** / **4.5** first plugin ✅ |
-| **5** | Continuous voice chat (STT + TTS) | ⬜ |
+| **5** | Chat-window voice input (STT); continuous / call-style TTS deferred | ✅ |
 | **6** | Proactive behavior & screen awareness | ⬜ |
 | **7** | Settings polish & packaging / release | ⬜ |
 
@@ -59,7 +59,7 @@ Development and testing are based on the **Hiyori Pro** Live2D model. If you swa
 
 ## Quick start
 
-1. Double-click **`首次安装.bat`** (once: npm, Live2D model, Python `.venv`, Qwen model check)
+1. Double-click **`首次安装.bat`** (once: npm, Live2D model, Python `.venv`, TTS/STT pip deps, SenseVoice / Qwen models)
 2. Double-click **`启动.bat`** (TTS window + pet; closing the pet also stops TTS)
 3. **Home → Text chat**, or use the chat shortcut beside the pet
 
@@ -83,6 +83,7 @@ Expected result: a transparent desktop window with the Live2D catgirl; right-cli
 |------|--------|
 | **Local llama** | On entering chat or switching to local in settings, detects llama-server; if not running, guides download / start; closing the chat window stops the llama process this app started |
 | **Third-party API** | Set Base URL, model name, and API Key in chat settings; requests are proxied via main-process IPC |
+| **Voice input (STT)** | Enable in chat settings; tap mic → speak → end → fill the draft or auto-send (off by default; call-style continuous voice deferred) |
 
 Chat bubbles still live in this window’s memory by default. With **Memory** enabled in pet settings, dialogue is written to `%APPDATA%/xue-cyber-neko/memory.db` (Electron `{userData}/memory.db`, consolidated asynchronously on close). With memory off, chat behavior matches the earlier text-chat-only stage.
 
@@ -190,20 +191,23 @@ Xue_CyberNeko/
 │   ├── main/memory/          # Memory engine, schema, migrations (no user data)
 │   ├── main/desire/          # Desire engine
 │   ├── main/relationship/    # 3D affection
-│   └── main/petTouch/        # Pet-touch counts (optional closeness bump)
+│   ├── main/petTouch/        # Pet-touch counts (optional closeness bump)
+│   └── main/stt/             # STT sidecar ensure / stop managed process
 ├── src/
-│   ├── components/chat/      # Chat UI, TTS / LLM / character-card settings
+│   ├── components/chat/      # Chat UI, TTS / LLM / STT / character-card settings
 │   ├── components/memory/    # Memory Space panel
 │   ├── components/relationship/  # Affection panel
 │   ├── components/petTouch/  # Today’s pet-touch card
-│   ├── composables/chat/     # Session, entry, bootstrap
+│   ├── composables/chat/     # Session, entry, bootstrap, voice input
 │   └── services/
 │       ├── chat/             # LLM, TTS pipeline, character cards
+│       ├── stt/              # STT client, capture, mic picker
 │       ├── memory/           # Memory IPC client
 │       ├── desire/           # Desire IPC client
 │       ├── relationship/     # Affection IPC client
 │       └── petTouch/         # Pet-touch IPC client
 ├── memory_service/           # Optional sidecar (summarization-related; no user DB)
+├── stt_service/              # Local STT sidecar (speech → text)
 ├── tts_voice/                # FastAPI TTS + engines
 ├── voice_forge/              # Voice Forge samples
 ├── scripts/                  # Install, launch, benchmarks, memory test harness
@@ -223,6 +227,8 @@ Xue_CyberNeko/
 | [`tts_voice/ENGINE_HOOKS.md`](tts_voice/ENGINE_HOOKS.md) | TTS engine hooks, cache, config.yaml |
 | [`tts_voice/CONTRACT.md`](tts_voice/CONTRACT.md) | TTS service contract |
 | [`src/services/chat/CONTRACT.md`](src/services/chat/CONTRACT.md) | Chat module contract |
+| [`stt_service/CONTRACT.md`](stt_service/CONTRACT.md) | Voice input (STT) sidecar contract |
+| [`electron/main/stt/CONTRACT.md`](electron/main/stt/CONTRACT.md) | STT ensure / stop-managed contract |
 | [`electron/main/chat/CHAT_CONFIG.md`](electron/main/chat/CHAT_CONFIG.md) | chat-config fields (no real keys) |
 | [`electron/main/memory/CONTRACT.md`](electron/main/memory/CONTRACT.md) | Memory contract (tables / IPC / retrieval; no user data) |
 | [`electron/main/desire/CONTRACT.md`](electron/main/desire/CONTRACT.md) | Desire module contract |

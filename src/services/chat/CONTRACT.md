@@ -78,7 +78,7 @@
 
 | 项 | 说明 |
 |----|------|
-| 入口 | 聊天窗标题栏 **⚙** → `ChatSettingsView.vue`（TTS / LLM / 角色卡；记忆与情感在桌宠右键设置） |
+| 入口 | 聊天窗标题栏 **⚙** → `ChatSettingsView.vue`（TTS / 语音输入 STT / LLM / 角色卡；记忆与情感在桌宠右键设置） |
 | 返回 | 「← 返回聊天」→ 刷新 `useChatSession.initSession()` |
 | LLM | `ChatLlmSettings.vue` — `provide`/`inject`（`CHAT_LLM_SETTINGS_KEY`）+ 子组件 `ChatLlmModePicker` / `ChatLlmLocalSettings` / `ChatLlmOpenAiSettings`；枚举切换 `local_llama` / `openai_api`，仅展示当前模式对应配置区；逻辑仍在 `useChatLlmSettings` |
 | 角色卡 | `ChatCharacterCardSettings.vue` — CRUD + 名称 / 设定 / 喜好 |
@@ -94,7 +94,8 @@
 | 破圈测试 | `scripts/benchmark_chat_tts_scheduling.py` |
 | 口型 | `ttsPlayer.playBlob` → `runLipSyncWhilePlaying`；聊天 Live2D 已 `registerLive2DModelForLipSync` |
 | 会话 | `useChatSession` — 流式 `pushDelta` + **`flush` 仅此收尾**；非流式 `revealFullText`；**每句独立 assistant 气泡**；发送前 `stopSpeaking()` |
-| 触摸互斥 | `replyPending` — LLM 回复进行中锁定聊天窗 Live2D；**不含** TTS 播放时段 |
+| 触摸互斥 | `replyPending` — LLM 回复进行中锁定聊天窗 Live2D；实现上 `flush`/`revealFullText` 在开 TTS 时会 `await` 到播完，故 `sending`/`replyPending` **实际会覆盖到朗读结束** |
+| 输入/STT 互斥 | **开 `ttsEnabled`**：`sending` 为真期间禁用打字与麦（等合成+播完）；**关 TTS**：无朗读门闩，仅普通发送中禁用。STT **不得** `stopSpeaking` 抢播 |
 
 ### 对话 TTS · `parallel_lanes` 真相表（与 `tts_voice/CONTRACT.md` 双写）
 
@@ -135,13 +136,26 @@
 - 并行档：FE **合成并发**与 BE semaphore **必须同为 lanes**；有序 reveal/播放仍仅由 FE `releaseChain` 保证（不再用「未释放窗」卡住合成补槽）。  
 - 关闭 TTS 或未开并行时，`useChatSession` 传入 `ttsParallelLanes = 0`。
 
+## 语音输入 STT（M5.2）
+
+| 项 | 说明 |
+|----|------|
+| 总闸 | `sttEnabled` 默认 `false`；关 = 无麦、无 HTTP；纯打字与升级前一致 |
+| 结果 | `sttAutoSend=false`：**追加**到输入框；`true`：走现有 `sendUserMessage` |
+| 麦克风 | `sttDeviceId`（空=系统默认）；设置页下拉；启动时后台 `warmMicDevicesInBackground` |
+| 电平 | 仅录音态；操作区左侧横向条；同源 PCM peak 平滑 |
+| 交互 | 点麦 → 录音（输入框禁打字）→ 点结束 → 「识别中」文案 → 出字 |
+| 客户端 | `src/services/stt/` + `useChatStt`；侧车见 `stt_service/CONTRACT.md` |
+| TTS 互斥 | **开对话 TTS**：`sending` 覆盖到播完，期间禁打字/麦；STT 不开录、不 `stopSpeaking` 抢播。**关 TTS**：无朗读门闩 |
+| 代启 | 开总闸 / 点麦前 `ensureSttService`；关总闸 `stopManagedSttService`（仅 app_spawned）；见 `electron/main/stt/CONTRACT.md` |
+
 Python 侧同文：`tts_voice/CONTRACT.md` §Chat TTS parallel。
 
 ## LLM 客户端（模块 3）
 
 | 项 | 说明 |
 |----|------|
-| 配置 | `{userData}/chat-config.json`（见 `electron/main/chat/CHAT_CONFIG.md`）：`local`、`openai`、`ttsEnabled`、`ttsParallelEnabled`、`ttsParallelLanes`；设置页修改即自动写回 |
+| 配置 | `{userData}/chat-config.json`（见 `electron/main/chat/CHAT_CONFIG.md`）：`local`、`openai`、`ttsEnabled`、`ttsParallelEnabled`、`ttsParallelLanes`、`sttEnabled` / `sttAutoSend` / `sttBaseUrl`；设置页修改即自动写回 |
 | 本地 | `localLlamaDiscovery.ts` 扫描常见端口；UI 列表选模型，无需手填 URL |
 | OpenAI | 用户填写 `openai.baseUrl`、`openai.model`、API Key（Key 仅存主进程） |
 | IPC OpenAI | `chat-openai-completion` / `chat-openai-list-models` |

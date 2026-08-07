@@ -2,7 +2,7 @@
 
 一个会动、会聊、会悄悄观察你的 Live2D 桌面 AI 桌宠。
 
-**当前版本：V0.4.6（早期开发版本）**
+**当前版本：V0.5.0（早期开发版本）**
 
 > **文档语言 / Docs:** [中文 README](README.md)（本页）· [English README](README.en.md)
 
@@ -45,7 +45,7 @@
 | **2** | 语料库 + 多引擎 TTS + 音色工坊 + 精选音频 | ✅ |
 | **3** | 文字聊天 + llama.cpp + OpenAI API + 对话 TTS | ✅ |
 | **4** | 记忆基座与检索（无向量）；**4.5** 自研情感模拟 | 🔧 **4 ✅** / **4.5** 首版插件 ✅ |
-| **5** | 语音连续对话（STT + TTS） | ⬜ |
+| **5** | 聊天窗语音输入（STT）；连续 TTS / 通话式体验后置 | ✅ |
 | **6** | 主动行为 & 屏幕感知 | ⬜ |
 | **7** | 设置完善 & 打包发布 | ⬜ |
 
@@ -59,7 +59,7 @@
 
 ## 快速开始
 
-1. 双击 **`首次安装.bat`**（只需一次：npm、Live2D 模型、Python `.venv`、Qwen 模型检查）
+1. 双击 **`首次安装.bat`**（只需一次：npm、Live2D 模型、Python `.venv`、TTS/STT pip 依赖、SenseVoice / Qwen 模型）
 2. 双击 **`启动.bat`**（TTS 窗口 + 桌宠；关闭桌宠后 TTS 一并退出）
 3. **家窗口 → 文字聊天**，或桌宠旁聊天快捷按钮
 
@@ -83,6 +83,7 @@ npm run test:tts       # Python pytest（tts_voice/tests）
 |------|------|
 | **本地 llama** | 进入聊天或设置内切到本地时，检测 llama-server；未运行则引导下载 / 启动；关闭聊天窗会结束本应用启动的 llama 进程 |
 | **第三方 API** | 聊天设置中填写 Base URL、模型名、API Key；请求经主进程 IPC 代理 |
+| **语音输入（STT）** | 聊天设置中开启；点麦说话 → 结束 → 填入输入框或自动发送（默认关；连续通话式体验后置） |
 
 会话气泡默认仍只在本窗内存；在桌宠设置里开启 **记忆** 后，对话会写入 `%APPDATA%/xue-cyber-neko/memory.db`（即 Electron `{userData}/memory.db`，关窗异步整理）。记忆关闭时，聊天行为与早期纯文字聊天阶段一致。
 
@@ -190,20 +191,23 @@ Xue_CyberNeko/
 │   ├── main/memory/          # 记忆引擎、schema、迁移（无用户数据）
 │   ├── main/desire/          # 欲望引擎
 │   ├── main/relationship/    # 三维好感
-│   └── main/petTouch/        # 摸摸计数（可选加亲近）
+│   ├── main/petTouch/        # 摸摸计数（可选加亲近）
+│   └── main/stt/             # 语音输入侧车代启 / 停托管
 ├── src/
-│   ├── components/chat/      # 聊天 UI、TTS/LLM/角色卡设置
+│   ├── components/chat/      # 聊天 UI、TTS/LLM/STT/角色卡设置
 │   ├── components/memory/    # 记忆空间面板
 │   ├── components/relationship/  # 好感度面板
 │   ├── components/petTouch/  # 今日摸摸卡片
-│   ├── composables/chat/     # 会话、入口、bootstrap
+│   ├── composables/chat/     # 会话、入口、bootstrap、语音输入
 │   └── services/
 │       ├── chat/             # LLM、TTS 流水线、角色卡
+│       ├── stt/              # 语音识别客户端、采音、选麦
 │       ├── memory/           # 记忆 IPC 客户端
 │       ├── desire/           # 欲望 IPC 客户端
 │       ├── relationship/     # 好感 IPC 客户端
 │       └── petTouch/         # 摸摸 IPC 客户端
 ├── memory_service/           # 可选独立服务（总结相关，无用户库）
+├── stt_service/              # 本机 STT 侧车（语音 → 文字）
 ├── tts_voice/                # FastAPI TTS + engines
 ├── voice_forge/              # 音色工坊样本
 ├── scripts/                  # 安装、启动、benchmark、记忆测脚手架
@@ -223,6 +227,8 @@ Xue_CyberNeko/
 | [`tts_voice/ENGINE_HOOKS.md`](tts_voice/ENGINE_HOOKS.md) | TTS 引擎对接、缓存、config.yaml |
 | [`tts_voice/CONTRACT.md`](tts_voice/CONTRACT.md) | TTS 服务契约 |
 | [`src/services/chat/CONTRACT.md`](src/services/chat/CONTRACT.md) | 聊天模块契约 |
+| [`stt_service/CONTRACT.md`](stt_service/CONTRACT.md) | 语音输入（STT）侧车契约 |
+| [`electron/main/stt/CONTRACT.md`](electron/main/stt/CONTRACT.md) | STT 代启 / 停托管契约 |
 | [`electron/main/chat/CHAT_CONFIG.md`](electron/main/chat/CHAT_CONFIG.md) | chat-config 字段说明（无真实 Key） |
 | [`electron/main/memory/CONTRACT.md`](electron/main/memory/CONTRACT.md) | 记忆模块契约（库表 / IPC / 召回；无用户数据） |
 | [`electron/main/desire/CONTRACT.md`](electron/main/desire/CONTRACT.md) | 欲望模块契约 |

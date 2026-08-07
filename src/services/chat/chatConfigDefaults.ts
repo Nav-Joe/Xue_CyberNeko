@@ -34,6 +34,10 @@ export function createDefaultChatConfigView(): ChatConfigView {
     memoryEmotionScoreEnabled: true,
     desireEnabled: true,
     relationshipEnabled: true,
+    sttEnabled: false,
+    sttAutoSend: false,
+    sttBaseUrl: '',
+    sttDeviceId: '',
     hasApiKey: false
   }
 }
@@ -53,6 +57,10 @@ export function createDefaultChatConfig(): ChatConfig {
     memoryEmotionScoreEnabled: true,
     desireEnabled: true,
     relationshipEnabled: true,
+    sttEnabled: false,
+    sttAutoSend: false,
+    sttBaseUrl: '',
+    sttDeviceId: '',
     apiKey: ''
   }
 }

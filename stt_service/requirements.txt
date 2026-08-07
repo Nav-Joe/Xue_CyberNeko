@@ -1,0 +1,7 @@
+# STT sidecar (stt_service/) — install into repo-root .venv via 首次安装 / install-stt-deps.cmd
+# Overlaps TTS FastAPI stack on purpose; SenseVoice weights via install-stt-models.cmd (not pip).
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.9
+numpy>=1.24.0,<2
+sherpa-onnx>=1.10.0

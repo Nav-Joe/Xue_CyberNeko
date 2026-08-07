@@ -12,7 +12,7 @@ const isOpenAiMode = () => config.value?.llmMode === 'openai_api'
 <template>
   <section class="llm-settings__mode">
     <h3 class="chat-theme__section-title">对话后端</h3>
-    <p class="chat-theme__hint">选择文字聊天使用的模型来源；修改后会自动保存，下次进入聊天无需重新设置。</p>
+    <p class="chat-theme__hint">选择文字聊天使用的模型来源，修改后会自动保存，下次进入聊天无需重新设置。</p>
     <div class="llm-settings__mode-options">
       <label class="llm-settings__mode-option" :class="{ 'llm-settings__mode-option--active': isLocalMode() }">
         <input

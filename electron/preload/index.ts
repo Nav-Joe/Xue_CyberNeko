@@ -3,6 +3,7 @@ import { memoryApi } from './memoryApi'
 import { desireApi } from './desireApi'
 import { relationshipApi } from './relationshipApi'
 import { petTouchApi } from './petTouchApi'
+import { sttApi } from './sttApi'
 
 export type WindowType = 'pet' | 'home' | 'chat'
 
@@ -460,6 +461,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ...desireApi,
   ...relationshipApi,
   ...petTouchApi,
+  ...sttApi,
 
   reportClientError: (payload: {
     scope?: string

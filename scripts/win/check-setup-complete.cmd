@@ -12,6 +12,13 @@ if not exist "%XUE_VENV_PYTHON%" exit /b 1
 "%XUE_VENV_PYTHON%" -c "import soundfile, fastapi, uvicorn, qwen_tts, torch" >nul 2>&1
 if errorlevel 1 exit /b 1
 
+rem STT sidecar pip deps + SenseVoice weights under .runtime\stt-models\
+"%XUE_VENV_PYTHON%" -c "import sherpa_onnx, numpy, multipart" >nul 2>&1
+if errorlevel 1 exit /b 1
+
+call "%~dp0check-stt-models.cmd"
+if errorlevel 1 exit /b 1
+
 call "%~dp0check-qwen-models.cmd"
 if errorlevel 1 exit /b 1
 

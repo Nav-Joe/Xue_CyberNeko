@@ -9,6 +9,7 @@ import Live2DView from '../components/Live2DView.vue'
 import ChatBootstrapOverlay from '../components/chat/ChatBootstrapOverlay.vue'
 import { useChatLlamaBootstrap } from '../composables/chat/useChatLlamaBootstrap'
 import { useChatSession } from '../composables/chat/useChatSession'
+import { useChatStt } from '../composables/chat/useChatStt'
 
 import ChatComposer from '../components/chat/ChatComposer.vue'
 
@@ -36,6 +37,8 @@ const {
 
   error,
 
+  config,
+
   activeCard,
 
   initializing,
@@ -54,15 +57,45 @@ const {
 
 const llamaBootstrap = useChatLlamaBootstrap()
 
-
+const composerRef = ref<{ appendDraft: (text: string) => void } | null>(null)
 
 const characterName = computed(() => activeCard.value?.name?.trim() || '角色')
 
-
-
 const composerBusy = computed(() => sending.value || initializing.value)
 
+const sttEnabled = computed(() => config.value?.sttEnabled === true)
 
+/** 开对话 TTS 时：sending 会等到播完；关 TTS 则仅覆盖 LLM 回合 */
+const ttsPlaybackGate = computed(
+  () => config.value?.ttsEnabled !== false && sending.value
+)
+
+const composerGateHint = computed(() => {
+  if (ttsPlaybackGate.value) return '朗读中，请稍候再输入或语音'
+  return ''
+})
+
+const chatStt = useChatStt({
+  isEnabled: () => config.value?.sttEnabled === true,
+  isAutoSend: () => config.value?.sttAutoSend === true,
+  getBaseUrl: () => config.value?.sttBaseUrl ?? '',
+  getDeviceId: () => config.value?.sttDeviceId ?? '',
+  isBlocked: () => composerBusy.value,
+  appendDraft: (text) => composerRef.value?.appendDraft(text),
+  sendText: (text) => sendUserMessage(text),
+  setError: (message) => {
+    error.value = message
+  }
+})
+
+const {
+  phase: sttPhase,
+  statusHint: sttStatusHint,
+  preparing: sttPreparing,
+  level: sttLevel,
+  startRecording: startSttRecording,
+  finishRecording: finishSttRecording
+} = chatStt
 
 const messagesEndRef = ref<HTMLElement | null>(null)
 
@@ -288,7 +321,20 @@ async function onSettingsChanged(): Promise<void> {
 
           </div>
 
-          <ChatComposer :disabled="composerBusy" :sending="sending" @submit="onSendMessage" />
+          <ChatComposer
+            ref="composerRef"
+            :disabled="composerBusy"
+            :sending="sending"
+            :gate-hint="composerGateHint"
+            :stt-enabled="sttEnabled"
+            :stt-phase="sttPhase"
+            :stt-status-hint="sttStatusHint"
+            :stt-preparing="sttPreparing"
+            :stt-level="sttLevel"
+            @submit="onSendMessage"
+            @stt-start="startSttRecording"
+            @stt-finish="finishSttRecording"
+          />
 
         </footer>
 

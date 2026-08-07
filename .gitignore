@@ -33,6 +33,7 @@ Thumbs.db
 # Python bytecode
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
 # ── 本地私人文档（维护者笔记 / 里程碑规范 / 排查手册，不上传）──
 docs/
@@ -56,7 +57,7 @@ character-cards.json
 **/chat-config.json
 **/character-cards.json
 
-# ── M4 / 情感模拟隐私（权威路径：Electron userData/memory.db；下列防误拷入库）──
+# ── 情感模拟隐私（权威路径：Electron userData/memory.db；下列防误拷入库）──
 memory.db
 **/memory.db
 *.db-wal
@@ -111,9 +112,16 @@ llama_models/*.gguf
 # ── .runtime 内常见本地状态（.runtime/ 已整目录忽略；下列为显式备忘）──
 # voice-forge.json / touch-mode.env / corpus.custom.json / tts-backend.env
 # realtime-inference.env / llama-server.pid / logs/*.log
+# stt-server.port / stt-models/（SenseVoice int8、可选 silero_vad.onnx、下载 .partial）
 .runtime/llama-server-download.zip
 .runtime/llama-server-extract/
 .runtime/experimental-voice-upload.json
+
+# ── STT：防误解压/误放到仓库根（正规路径仍是 .runtime/stt-models/）──
+/sherpa-onnx-sense-voice*/
+/sherpa-onnx-sense-voice*.tar.bz2
+/sherpa-onnx-sense-voice*.tar.bz2.partial
+/silero_vad.onnx
 
 # ── 外部克隆的大体积依赖 ──
 Bert-VITS2/

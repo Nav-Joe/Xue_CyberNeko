@@ -100,6 +100,22 @@ function normalizeRelationshipEnabled(raw: unknown, fallback = true): boolean {
   return typeof raw === 'boolean' ? raw : fallback
 }
 
+function normalizeSttEnabled(raw: unknown, fallback = false): boolean {
+  return typeof raw === 'boolean' ? raw : fallback
+}
+
+function normalizeSttAutoSend(raw: unknown, fallback = false): boolean {
+  return typeof raw === 'boolean' ? raw : fallback
+}
+
+function normalizeSttBaseUrl(raw: unknown, fallback = ''): string {
+  return typeof raw === 'string' ? raw.trim() : fallback
+}
+
+function normalizeSttDeviceId(raw: unknown, fallback = ''): string {
+  return typeof raw === 'string' ? raw.trim() : fallback
+}
+
 function withTtsFields(
   config: Omit<
     ChatConfigFile,
@@ -113,6 +129,10 @@ function withTtsFields(
     | 'memoryEmotionScoreEnabled'
     | 'desireEnabled'
     | 'relationshipEnabled'
+    | 'sttEnabled'
+    | 'sttAutoSend'
+    | 'sttBaseUrl'
+    | 'sttDeviceId'
   >,
   raw: LegacyChatConfig
 ): ChatConfigFile {
@@ -133,7 +153,11 @@ function withTtsFields(
       true
     ),
     desireEnabled: normalizeDesireEnabled(raw.desireEnabled, true),
-    relationshipEnabled: normalizeRelationshipEnabled(raw.relationshipEnabled, true)
+    relationshipEnabled: normalizeRelationshipEnabled(raw.relationshipEnabled, true),
+    sttEnabled: normalizeSttEnabled(raw.sttEnabled, false),
+    sttAutoSend: normalizeSttAutoSend(raw.sttAutoSend, false),
+    sttBaseUrl: normalizeSttBaseUrl(raw.sttBaseUrl, ''),
+    sttDeviceId: normalizeSttDeviceId(raw.sttDeviceId, '')
   }
 }
 
@@ -250,6 +274,10 @@ export function toChatConfigView(config: ChatConfigFile): ChatConfigView {
     memoryEmotionScoreEnabled: config.memoryEmotionScoreEnabled !== false,
     desireEnabled: config.desireEnabled !== false,
     relationshipEnabled: config.relationshipEnabled !== false,
+    sttEnabled: config.sttEnabled === true,
+    sttAutoSend: config.sttAutoSend === true,
+    sttBaseUrl: typeof config.sttBaseUrl === 'string' ? config.sttBaseUrl.trim() : '',
+    sttDeviceId: typeof config.sttDeviceId === 'string' ? config.sttDeviceId.trim() : '',
     hasApiKey,
     apiKey: !secretSave && hasApiKey ? apiKey : undefined
   }
@@ -304,6 +332,10 @@ export function writeChatConfigFile(view: ChatConfigWritePatch): ChatConfigFile 
     memoryEmotionScoreEnabled: view.memoryEmotionScoreEnabled ?? current.memoryEmotionScoreEnabled,
     desireEnabled: view.desireEnabled ?? current.desireEnabled,
     relationshipEnabled: view.relationshipEnabled ?? current.relationshipEnabled,
+    sttEnabled: view.sttEnabled ?? current.sttEnabled,
+    sttAutoSend: view.sttAutoSend ?? current.sttAutoSend,
+    sttBaseUrl: view.sttBaseUrl ?? current.sttBaseUrl,
+    sttDeviceId: view.sttDeviceId ?? current.sttDeviceId,
     apiKey: view.clearApiKey ? '' : view.apiKey !== undefined ? view.apiKey : current.apiKey
   }
   // 合并结果已是内存明文；落盘由 persist → apiKeyEnc（勿再走磁盘 hydrate）
