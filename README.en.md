@@ -45,7 +45,7 @@ Development and testing are based on the **Hiyori Pro** Live2D model. If you swa
 | **2** | Corpus + multi-engine TTS + Voice Forge + curated clips | ✅ |
 | **3** | Text chat + llama.cpp + OpenAI API + chat TTS | ✅ |
 | **4** | Memory foundation & retrieval (no vectors); **4.5** self-built emotion sim | 🔧 **4 ✅** / **4.5** first plugin ✅ |
-| **5** | Chat-window voice input (STT); continuous / call-style TTS deferred | ✅ |
+| **5** | Chat-window voice input (STT) | ✅ |
 | **6** | Proactive behavior & screen awareness | ⬜ |
 | **7** | Settings polish & packaging / release | ⬜ |
 
