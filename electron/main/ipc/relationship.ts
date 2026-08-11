@@ -14,7 +14,7 @@ function relationshipGate(): { ok: true } | { ok: false; detail: string } {
   const memory = readMemoryFlags()
   if (!memory.memoryEnabled) return { ok: false, detail: 'memory_disabled' }
   try {
-    // 好感随官方情感模拟插件总闸（desireEnabled）
+    // 好感门闩只认官方情感模拟插件总闸（desireEnabled）；勿改读 relationshipEnabled
     const pluginOn = readChatConfigFile().desireEnabled !== false
     if (!pluginOn) return { ok: false, detail: 'relationship_disabled' }
   } catch {

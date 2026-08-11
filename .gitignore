@@ -122,6 +122,12 @@ llama_models/*.gguf
 /sherpa-onnx-sense-voice*.tar.bz2
 /sherpa-onnx-sense-voice*.tar.bz2.partial
 /silero_vad.onnx
+/*.onnx
+/*.gguf
+
+# ── 侧车服务本地缓存（若误生成在包内）──
+stt_service/.cache/
+memory_service/.cache/
 
 # ── 外部克隆的大体积依赖 ──
 Bert-VITS2/

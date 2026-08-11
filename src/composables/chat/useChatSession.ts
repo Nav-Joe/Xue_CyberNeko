@@ -12,23 +12,20 @@ import { splitTextForTts } from '../../services/chat/textSplitter'
 import {
   formatHistoryWindowHint,
   maxHistoryRoundsForMode,
-  softMaxHistoryRoundsForMode,
-  trimHistoryToRounds
+  softMaxHistoryRoundsForMode
 } from '../../services/chat/historyWindow'
 import { buildChatPromptMessages } from '../../services/chat/promptBuilder'
+import { runChatTurnAftermath } from '../../services/chat/chatTurnAftermath'
+import { resolveChatTurnPromptContext } from '../../services/chat/chatTurnPromptContext'
 import { stopSpeaking } from '../../services/ttsPlayer'
-import { appendMemoryRawLog, appendMemoryRawLogInBackground, consumePendingPeeksForUserTurn, getMemoryPromptBlock, getRecentMemoryHistory, maybeMidSessionConsolidateInBackground, maybeRunPeriodRollup, notifyMemoryChatClosed } from '../../services/memory/memoryClient'
-import { getDesirePromptBlock, maybeDesireAfterTurnInBackground } from '../../services/desire/desireClient'
 import {
-  flushRelationshipOnChatClose,
-  getRelationshipPromptBlock,
-  noteRelationshipRoundMaybeEval
-} from '../../services/relationship/relationshipClient'
-import { getPetTouchPromptBlock } from '../../services/petTouch/petTouchClient'
+  appendMemoryRawLogInBackground,
+  notifyMemoryChatClosed
+} from '../../services/memory/memoryClient'
+import { flushRelationshipOnChatClose } from '../../services/relationship/relationshipClient'
 import type {
   CharacterCard,
   ChatConfigView,
-  ChatHistoryMessage,
   ChatUiMessage
 } from '../../services/chat/types'
 
@@ -38,25 +35,6 @@ function createMessageId(): string {
 
 function createSessionId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `session-${Date.now()}`
-}
-
-function toHistoryMessages(messages: ChatUiMessage[]): ChatHistoryMessage[] {
-  const history: ChatHistoryMessage[] = []
-
-  for (const item of messages) {
-    if (item.role !== 'user' && item.role !== 'assistant') continue
-    const content = item.content.trim()
-    if (!content) continue
-
-    const prev = history[history.length - 1]
-    if (item.role === 'assistant' && prev?.role === 'assistant') {
-      prev.content += item.content
-    } else {
-      history.push({ role: item.role, content: item.content })
-    }
-  }
-
-  return history
 }
 
 export function useChatSession() {
@@ -160,37 +138,14 @@ export function useChatSession() {
     const ttsParallelLanes =
       ttsEnabled && config.value.ttsParallelEnabled ? config.value.ttsParallelLanes : 0
 
-    const maxRounds = maxHistoryRoundsForMode(config.value.llmMode)
-    let priorHistory = trimHistoryToRounds(toHistoryMessages(messages.value), maxRounds)
-    let memoryBlock = ''
-    let desireBlock = ''
-    let relationshipBlock = ''
-    let petTouchBlock = ''
-    let llmUserInput = text
-    if (config.value.memoryEnabled) {
-      // ② 开局后台：禁止 await；不堵首 token
-      maybeRunPeriodRollup()
-      // ① Prompt 必等：历史 / 注入块 / 偷看前缀（读路径，禁止夹带总结 LLM）
-      const fromDb = await getRecentMemoryHistory(maxRounds)
-      if (fromDb !== null) {
-        priorHistory = fromDb
-      }
-      memoryBlock = await getMemoryPromptBlock(text)
-      const peekPrefix = await consumePendingPeeksForUserTurn()
-      if (peekPrefix) {
-        llmUserInput = `${peekPrefix}\n${text}`
-      }
-      // 欲望注入依赖记忆总闸；此处只做重逢+注入，不轮扣
-      if (config.value.desireEnabled) {
-        desireBlock = await getDesirePromptBlock()
-      }
-      // 好感只读注入（随官方情感模拟插件总闸）
-      if (config.value.desireEnabled) {
-        relationshipBlock = await getRelationshipPromptBlock()
-      }
-      // 摸摸：只读并入 system（不另开 LLM；不绑情感插件）
-      petTouchBlock = await getPetTouchPromptBlock()
-    }
+    const turnCtx = await resolveChatTurnPromptContext({
+      llmMode: config.value.llmMode,
+      memoryEnabled: config.value.memoryEnabled,
+      desireEnabled: config.value.desireEnabled,
+      uiMessages: messages.value,
+      userText: text
+    })
+
     const userMessage: ChatUiMessage = {
       id: createMessageId(),
       role: 'user',
@@ -199,7 +154,7 @@ export function useChatSession() {
     }
     messages.value.push(userMessage)
     if (config.value.memoryEnabled) {
-      // ② 开局后台：写 user raw
+      // 开局后台：写入用户原文（不要 await）
       appendMemoryRawLogInBackground({ sessionId, role: 'user', content: text })
     }
 
@@ -264,12 +219,12 @@ export function useChatSession() {
     try {
       const promptMessages = await buildChatPromptMessages({
         card: activeCard.value,
-        history: priorHistory,
-        userInput: llmUserInput,
-        memoryBlock: memoryBlock || undefined,
-        desireBlock: desireBlock || undefined,
-        relationshipBlock: relationshipBlock || undefined,
-        petTouchBlock: petTouchBlock || undefined
+        history: turnCtx.priorHistory,
+        userInput: turnCtx.llmUserInput,
+        memoryBlock: turnCtx.memoryBlock || undefined,
+        desireBlock: turnCtx.desireBlock || undefined,
+        relationshipBlock: turnCtx.relationshipBlock || undefined,
+        petTouchBlock: turnCtx.petTouchBlock || undefined
       })
       const useStream = config.value.llmMode === 'local_llama'
 
@@ -301,29 +256,13 @@ export function useChatSession() {
         await segments.revealFullText(result.content)
       }
       removeTypingPlaceholder()
-      if (config.value.memoryEnabled && result.content.trim()) {
-        // ③ 轮后：assistant raw 须先落库；满轮总结后台跑，不拖 sending 复位
-        await appendMemoryRawLog({
-          sessionId,
-          role: 'assistant',
-          content: result.content.trim()
-        })
-        maybeMidSessionConsolidateInBackground(sessionId)
-        // 轮后后台欲望鉴定（空库门控在主进程）
-        if (config.value.desireEnabled) {
-          maybeDesireAfterTurnInBackground({
-            userText: text,
-            assistantText: result.content.trim()
-          })
-        }
-        // 好感每 3 轮鉴定；随情感插件总闸
-        if (config.value.desireEnabled) {
-          noteRelationshipRoundMaybeEval({
-            userText: text,
-            assistantText: result.content.trim()
-          })
-        }
-      }
+      await runChatTurnAftermath({
+        sessionId,
+        memoryEnabled: config.value.memoryEnabled,
+        desireEnabled: config.value.desireEnabled,
+        userText: text,
+        assistantText: result.content
+      })
     } catch (err) {
       retryAttempt.value = 0
       segments.reset()

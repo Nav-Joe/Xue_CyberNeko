@@ -2,6 +2,7 @@
 /**
  * 记忆总闸 + 官方情感模拟插件（欲望 / 好感）。
  * 入口：桌宠右键 → 设置（二者依赖，放一起）。
+ * 保存时顺带写入 relationshipEnabled，仅为落盘镜像；运行时门闩只看 desireEnabled。
  */
 import { computed, onMounted, ref } from 'vue'
 import { loadChatConfigView, saveChatConfigPatch } from '../services/chat/chatConfigStore'
@@ -72,7 +73,7 @@ async function handleEmotionToggle(): Promise<void> {
   const next = !desireEnabled.value
   desireEnabled.value = next
   try {
-    await saveChatConfigPatch({ desireEnabled: next, relationshipEnabled: next })
+    await saveChatConfigPatch({ desireEnabled: next, relationshipEnabled: next }) // 镜像双写；门闩仍只认 desire
     status.value = next ? '已开启官方情感模拟插件' : '已关闭官方情感模拟插件'
   } catch (err) {
     desireEnabled.value = !next

@@ -71,9 +71,12 @@ export interface ChatConfig {
   memoryLlmSummarizeEnabled: boolean
   /** M4.2：总结后情感打分与关键词；默认 true */
   memoryEmotionScoreEnabled: boolean
-  /** 欲望注入；默认 true；仍须 memoryEnabled */
+  /** 官方情感模拟插件总闸（欲望注入等）；默认 true；仍须 memoryEnabled */
   desireEnabled: boolean
-  /** 三维好感鉴定/注入；默认 true；须 memoryEnabled；UI 随 desireEnabled 总闸 */
+  /**
+   * 冷落镜像字段：落盘随 desireEnabled 双写，**禁止**当运行时门闩。
+   * 好感/摸摸加亲近/注入一律只认 desireEnabled（见 relationship CONTRACT）。
+   */
   relationshipEnabled: boolean
   /** 语音输入总闸；默认 false（关 = 纯打字，与升级前一致） */
   sttEnabled: boolean

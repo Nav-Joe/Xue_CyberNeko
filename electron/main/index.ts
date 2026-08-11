@@ -29,7 +29,8 @@ import { registerSttIpc } from './ipc/stt'
 import { initMemorySubsystem, finalizeForAppQuit } from './memory/runtime'
 import { stopManagedLlamaServer } from './llama/session'
 import { stopManagedSttService } from './stt/session'
-import { createHomeWindow, getHomeWindow, notifyHomeVisibility, setQuitting } from './windows/homeWindow'
+import { createVoiceEngineLoadCoordinator } from './voice/engineLoadCoordinator'
+import { createHomeWindow, getHomeWindow, setQuitting } from './windows/homeWindow'
 import {
   createPetWindow,
   getPetWindow,
@@ -68,61 +69,7 @@ function broadcastVoiceSamplesChanged(): void {
   getPetWindow()?.webContents.send('voice-samples-changed')
 }
 
-const ENGINE_LOAD_OVERLAY_WIDTH = 360
-const ENGINE_LOAD_OVERLAY_HEIGHT = 260
-
-let pendingVoiceEngineLoadResolve: ((result: { ok: boolean }) => void) | null = null
-
-function showPetForEngineLoad(): void {
-  const homeWindow = getHomeWindow()
-  if (homeWindow?.isVisible()) {
-    homeWindow.hide()
-  }
-  notifyHomeVisibility(false)
-
-  if (!getPetWindow()) {
-    return
-  }
-
-  setPetWindowOverlay(ENGINE_LOAD_OVERLAY_WIDTH, ENGINE_LOAD_OVERLAY_HEIGHT, true)
-  showPetWindowIfNeeded()
-}
-
-async function completeVoiceSwitchOnPet(payload: {
-  touchMode: 'curated' | 'custom_corpus'
-  loadMode?: 'curated' | 'engine' | 'prewarm' | 'realtime'
-  prewarm?: boolean
-}): Promise<void> {
-  showPetForEngineLoad()
-  const petWindow = getPetWindow()
-  if (!petWindow) {
-    return
-  }
-  petWindow.webContents.send('voice-config-changed', payload)
-}
-
-async function beginVoiceEngineLoadOnPet(payload: {
-  title: string
-  message: string
-  mode: 'curated' | 'engine' | 'prewarm' | 'realtime'
-  sync?: boolean
-  expectedTouchMode?: 'curated' | 'custom_corpus'
-  syncMessage?: string
-}): Promise<{ ok: boolean }> {
-  showPetForEngineLoad()
-  const petWindow = getPetWindow()
-  if (!petWindow) {
-    return { ok: false }
-  }
-
-  pendingVoiceEngineLoadResolve?.({ ok: false })
-  pendingVoiceEngineLoadResolve = null
-
-  return new Promise((resolve) => {
-    pendingVoiceEngineLoadResolve = resolve
-    petWindow.webContents.send('voice-engine-load-begin', payload)
-  })
-}
+const voiceEngineLoad = createVoiceEngineLoadCoordinator()
 
 function registerIpc(): void {
   registerLoggingIpc()
@@ -156,12 +103,9 @@ function registerIpc(): void {
     setPendingVoiceUploadPath: (filePath) => {
       pendingVoiceUploadPath = filePath
     },
-    completeVoiceSwitchOnPet,
-    beginVoiceEngineLoadOnPet,
-    onVoiceEngineLoadFinished: (result) => {
-      pendingVoiceEngineLoadResolve?.(result)
-      pendingVoiceEngineLoadResolve = null
-    }
+    completeVoiceSwitchOnPet: voiceEngineLoad.completeVoiceSwitchOnPet,
+    beginVoiceEngineLoadOnPet: voiceEngineLoad.beginVoiceEngineLoadOnPet,
+    onVoiceEngineLoadFinished: voiceEngineLoad.onVoiceEngineLoadFinished
   })
 
   registerChatWindowIpc()

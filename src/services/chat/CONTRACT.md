@@ -31,7 +31,7 @@
 }
 ```
 
-- 内置默认卡模板：`src/services/chat/characterCardDefaults.ts`（入库）；镜像 JSON：`electron/main/chat/character-cards.default.json`。
+- 内置默认卡模板（唯一真相）：`src/services/chat/characterCardDefaults.ts`（入库）；主进程缺文件/损坏时用它生成默认结构。
 - 用户实际数据仍写 `{userData}/character-cards.json`（**不入库**）；仅当 default 卡字段为空时自动补模板，不覆盖已编辑内容。
 
 - `id: "default"` 为内置**固定槽位**「默认角色卡」，不可删除、始终置顶；用户在此槽位内编辑并保存后，以 userData 中内容为准（仅字段为空时补入库模板）。
@@ -60,7 +60,7 @@
 
 | 项 | 说明 |
 |----|------|
-| Composable | `useChatSession.ts` — messages、send、clear、错误态、流式（local_llama） |
+| Composable | `useChatSession.ts` — messages、send、clear、错误态、流式（local_llama）；发前上下文 / 轮后副作用见 `chatTurnPromptContext` · `chatTurnAftermath` · `chatSessionHistory` |
 | UI | `ChatMessageList.vue` + `ChatComposer.vue` + `ChatWindowView.vue` |
 | Prompt | `buildChatPromptMessages` + 当前 **active** 角色卡 |
 | LLM | `llmChat` / `llmChatWithRetry` — 软错误（网络、5xx、429 等）最多自动重试 3 次；硬错误（Key/余额/配置）立即失败；通用包装 `withLlmChatRetry` 供记忆总结等复用 |
@@ -68,11 +68,11 @@
 | 上下文窗口 | `local_llama` **10** 轮 / `openai_api` **30** 轮（1 轮 = user + 连续 assistant）。记忆开：`memory-get-recent-history` 读 `raw_logs`（timestamp 从新往旧）；记忆关或 IPC 失败：回退内存 `historyWindow`。UI 不回填跨窗气泡。另：全局 raw 达 **20/50** 轮时，本轮 LLM+TTS 结束后日常总结并裁回 **10/30**（见 memory CONTRACT；满轮总结后台跑，不拖下一句发送） |
 | 记忆注入 | 按 `llmMode` 分层：`openai_api` 核心≤5/~300tok、总结&lt;1024tok；`local_llama` 核心≤2/~100tok、总结&lt;254tok。key_facts 类检索（含 `period_summaries`）+ significance 优先；非空用户画像 100% 注入且不占总结预算。发消息时后台发起周/月滚（`scheduleMemoryBackground`，不堵首 token） |
 | 欲望注入 | 发消息前：记忆/欲望均开才注入 Top-N。轮后后台鉴定：有活跃每轮；无活跃则助手回复自我欲关键词强命中才调 LLM；未提及 open 默认 neutral；单次 create≤1 |
-| 好感鉴定 | 随「官方情感模拟插件」总闸（`desireEnabled`）+ 记忆总闸。渲染侧每 3 轮 / 关窗后台 → 主进程 LLM 提议并写库 |
+| 好感鉴定 | 随插件总闸（**只认** `desireEnabled`）+ 记忆总闸。`relationshipEnabled` 为冷落镜像（双写），不作门闩。渲染侧每 3 轮 / 关窗后台 → 主进程 LLM 提议并写库 |
 | 好感注入 | 发消息前只读三维分 + TAG → system（desire 之后） |
 | 好感面板 | 家窗口入口（类记忆空间）；雷达 + 条 + **今日**净变化；只读 |
 | 摸摸 prompt | 记忆开则注入今日部位次数；**不**绑情感插件（关插件仍报告摸摸次数） |
-| 情感插件 UI | 桌宠右键 → 设置 → `EmotionPluginSettings`（记忆总闸 + `desireEnabled`）；聊天设置不再放记忆/情感 |
+| 情感插件 UI | 桌宠右键 → 设置 → `EmotionPluginSettings`（记忆总闸 + `desireEnabled`；保存时镜像写 `relationshipEnabled`）；聊天设置不再放记忆/情感 |
 
 ## 聊天设置（模块 5）
 
@@ -80,8 +80,9 @@
 |----|------|
 | 入口 | 聊天窗标题栏 **⚙** → `ChatSettingsView.vue`（TTS / 语音输入 STT / LLM / 角色卡；记忆与情感在桌宠右键设置） |
 | 返回 | 「← 返回聊天」→ 刷新 `useChatSession.initSession()` |
-| LLM | `ChatLlmSettings.vue` — `provide`/`inject`（`CHAT_LLM_SETTINGS_KEY`）+ 子组件 `ChatLlmModePicker` / `ChatLlmLocalSettings` / `ChatLlmOpenAiSettings`；枚举切换 `local_llama` / `openai_api`，仅展示当前模式对应配置区；逻辑仍在 `useChatLlmSettings` |
+| LLM | `ChatLlmSettings.vue` — `provide`/`inject`（`CHAT_LLM_SETTINGS_KEY`）+ 子组件；逻辑在 `useChatLlmSettings`（本地模型下载抽 `useLocalModelDownload`，与开窗 bootstrap 分属不同 IPC） |
 | 角色卡 | `ChatCharacterCardSettings.vue` — CRUD + 名称 / 设定 / 喜好 |
+| 配置布尔口径 | 默认开 → `!== false`；默认关 → `=== true`。权威表见 `electron/main/chat/CHAT_CONFIG.md`「布尔字段读口径」；勿为整齐统一比较符 |
 
 ## 对话 TTS（模块 6）
 

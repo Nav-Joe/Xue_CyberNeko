@@ -8,8 +8,8 @@ import {
   setActiveLlmMode
 } from '../../services/chat/chatConfigStore'
 import { detectLocalLlamaEndpoints } from '../../services/chat/localLlamaDiscovery'
-import { DEFAULT_LOCAL_MODEL_ID } from '../../services/chat/llmConstants'
 import type { CharacterCard, ChatConfigView, ChatLlmMode, LocalLlamaEndpoint } from '../../services/chat/types'
+import { useLocalModelDownload } from './useLocalModelDownload'
 
 export function useChatLlmSettings(
   getCard: () => CharacterCard | null,
@@ -35,15 +35,7 @@ export function useChatLlmSettings(
   const localSaving = ref(false)
   const openAiSaving = ref(false)
 
-  const hasLocalModelFile = ref(false)
-  const localModelFilename = ref<string | null>(null)
-  const modelDownloading = ref(false)
-  const modelDownloadMessage = ref('')
-  const modelDownloadProgress = ref<{ done: number; total: number } | null>(null)
-
   const onlineEndpoints = computed(() => endpoints.value.filter((item) => item.online))
-
-  let unbindModelDownloadProgress: (() => void) | null = null
 
   let suppressAutoSave = false
   let localSaveTimer: ReturnType<typeof setTimeout> | null = null
@@ -53,27 +45,40 @@ export function useChatLlmSettings(
     options?.onConfigSaved?.()
   }
 
+  async function scanLocalLlama(): Promise<void> {
+    scanning.value = true
+    scanError.value = ''
+    try {
+      const savedUrl = localDraft.value?.selectedBaseUrl ?? config.value?.local.selectedBaseUrl
+      endpoints.value = await detectLocalLlamaEndpoints(savedUrl ? [savedUrl] : [])
+    } catch (err) {
+      scanError.value = err instanceof Error ? err.message : '扫描失败'
+    } finally {
+      scanning.value = false
+    }
+  }
+
+  const localModelDownload = useLocalModelDownload({
+    localStatus,
+    configError,
+    afterDownloadSuccess: () => scanLocalLlama()
+  })
+
+  const {
+    hasLocalModelFile,
+    localModelFilename,
+    modelDownloading,
+    modelDownloadMessage,
+    modelDownloadProgress,
+    refreshLocalModelStatus,
+    downloadLocalModel,
+    cancelLocalModelDownload
+  } = localModelDownload
+
   onUnmounted(() => {
-    unbindModelDownloadProgress?.()
     if (localSaveTimer) clearTimeout(localSaveTimer)
     if (openAiSaveTimer) clearTimeout(openAiSaveTimer)
   })
-
-  async function refreshLocalModelStatus(): Promise<void> {
-    if (!window.electronAPI?.getLocalModelStatus) return
-    const status = await window.electronAPI.getLocalModelStatus()
-    hasLocalModelFile.value = status.hasLocalModelFile
-    localModelFilename.value = status.modelFilename
-  }
-
-  function bindModelDownloadProgress(): void {
-    unbindModelDownloadProgress?.()
-    if (!window.electronAPI?.onChatLlamaBootstrapProgress) return
-    unbindModelDownloadProgress = window.electronAPI.onChatLlamaBootstrapProgress((payload) => {
-      modelDownloadMessage.value = payload.message
-      modelDownloadProgress.value = payload.progress ?? null
-    })
-  }
 
   async function reloadConfig(): Promise<void> {
     configLoading.value = true
@@ -92,68 +97,6 @@ export function useChatLlmSettings(
     } finally {
       configLoading.value = false
       suppressAutoSave = false
-    }
-  }
-
-  async function scanLocalLlama(): Promise<void> {
-    scanning.value = true
-    scanError.value = ''
-    try {
-      const savedUrl = localDraft.value?.selectedBaseUrl ?? config.value?.local.selectedBaseUrl
-      endpoints.value = await detectLocalLlamaEndpoints(savedUrl ? [savedUrl] : [])
-    } catch (err) {
-      scanError.value = err instanceof Error ? err.message : '扫描失败'
-    } finally {
-      scanning.value = false
-    }
-  }
-
-  async function downloadLocalModel(): Promise<void> {
-    if (!window.electronAPI?.downloadLocalModel || modelDownloading.value) return
-
-    modelDownloading.value = true
-    modelDownloadMessage.value = `准备下载 ${DEFAULT_LOCAL_MODEL_ID}…`
-    modelDownloadProgress.value = null
-    localStatus.value = ''
-    configError.value = ''
-    bindModelDownloadProgress()
-
-    try {
-      const result = await window.electronAPI.downloadLocalModel()
-      if (!result.ok) {
-        if (result.cancelled) {
-          localStatus.value = '已取消下载，未完成文件已清理'
-          await refreshLocalModelStatus()
-          return
-        }
-        configError.value = result.detail
-        return
-      }
-
-      await refreshLocalModelStatus()
-      localStatus.value = result.serverStarted
-        ? `已下载 ${DEFAULT_LOCAL_MODEL_ID}，llama-server 已启动`
-        : `已下载 ${DEFAULT_LOCAL_MODEL_ID}`
-      await scanLocalLlama()
-    } catch (err) {
-      configError.value = err instanceof Error ? err.message : '下载失败'
-    } finally {
-      unbindModelDownloadProgress?.()
-      unbindModelDownloadProgress = null
-      modelDownloading.value = false
-      modelDownloadProgress.value = null
-      modelDownloadMessage.value = ''
-    }
-  }
-
-  async function cancelLocalModelDownload(): Promise<void> {
-    if (!modelDownloading.value || !window.electronAPI?.cancelLocalModelDownload) return
-    modelDownloadMessage.value = '正在取消下载并清理…'
-    try {
-      const result = await window.electronAPI.cancelLocalModelDownload()
-      localStatus.value = result.detail
-    } catch (err) {
-      configError.value = err instanceof Error ? err.message : '取消下载失败'
     }
   }
 

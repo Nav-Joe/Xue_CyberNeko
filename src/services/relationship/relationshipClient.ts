@@ -1,6 +1,6 @@
 /**
  * 渲染侧好感 IPC：会话缓冲鉴定、注入、快照。
- * UI 开关与「官方情感模拟插件」总闸同步（desireEnabled ↔ relationshipEnabled）。
+ * 门闩只认插件总闸 desireEnabled；relationshipEnabled 仅为配置镜像，勿当开关读。
  */
 import { scheduleMemoryBackground } from '../memory/scheduleMemoryBackground'
 import { createRelationshipTurnBuffer, type RelChatRound } from './turnBuffer'

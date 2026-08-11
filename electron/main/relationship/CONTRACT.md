@@ -7,7 +7,8 @@
 
 - **允许：** 读写本两表；阶段 TAG / Δ 钳制；轮后/关窗鉴定；system 注入；只读 UI  
 - **禁止：** 读写 Desire 表；把 DB 句柄交给 LLM；前端直接改分；改 TTS / Live2D  
-- **与 Desire：** 引擎解耦；**UI 总闸绑定**：好感随「官方情感模拟插件」（`desireEnabled`）同开同关；配置里 `relationshipEnabled` 随插件开关同步写入  
+- **与 Desire：** 引擎解耦；**UI 总闸绑定**：好感随「官方情感模拟插件」（`desireEnabled`）同开同关  
+- **`relationshipEnabled`：** 配置里的**冷落镜像**（开关时与 `desireEnabled` 双写），**不得**用作门控读字段；IPC/引擎门闩一律 `desireEnabled`  
 - **关插件：** **不**清零、**不**删 `relationship_states` / `relationship_events`；分数与流水保留，仅停止鉴定/注入/摸摸加亲近，直至重新开启
 
 ## 表结构

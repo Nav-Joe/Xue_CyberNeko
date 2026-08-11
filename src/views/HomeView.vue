@@ -91,7 +91,7 @@ const { chatBooting, bootTitle, bootMessage, bootProgress, canCancelDownload, ca
 
     </aside>
 
-    <p class="version-tag">版本：V0.5.0（早期开发版本）</p>
+    <p class="version-tag">版本：V0.5.1（早期开发版本）</p>
 
   </main>
 

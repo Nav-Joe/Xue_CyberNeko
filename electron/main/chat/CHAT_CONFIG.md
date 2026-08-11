@@ -11,9 +11,12 @@ Electron 主进程读写 `{userData}/chat-config.json`；渲染进程经 IPC `ch
 | `ttsParallelEnabled` | `false` |
 | `ttsParallelLanes` | `2` |
 | `openaiApiKeySecretSave` | `false` |
-| `memoryEnabled` | `true`（M4；可在聊天设置关闭） |
+| `memoryEnabled` | `true`（可在设置关闭） |
+| `memoryConsolidateOnChatClose` | `true`（关聊天窗是否触发整理；仍受 `memoryEnabled` 门控） |
 | `memoryLlmSummarizeEnabled` | `true`（关闭或失败则不总结） |
 | `memoryEmotionScoreEnabled` | `true`（落库分数/关键词并晋升核心池；总结与打分为同一次 LLM） |
+| `desireEnabled` | `true`（官方情感模拟插件总闸；关则欲望/好感鉴定与注入停，分数保留） |
+| `relationshipEnabled` | `true`（**冷落镜像**：仅随插件开关双写；门闩只认 `desireEnabled`，勿单独解读） |
 | `local.selectedBaseUrl` | 见 `llmConstants.DEFAULT_LLAMA_BASE_URL` |
 | `local.selectedModelId` | `""` |
 | `local.outputFormat` | `openai` |
@@ -29,7 +32,19 @@ Electron 主进程读写 `{userData}/chat-config.json`；渲染进程经 IPC `ch
 | `sttBaseUrl` | `""`（空 = 客户端按 8767–8772 探 `/health`；非空则直连） |
 | `sttDeviceId` | `""`（空 = 系统默认麦；非空为 `MediaDeviceInfo.deviceId`） |
 
-首次启动时主进程会创建带上述默认值的 JSON 文件。
+首次启动时主进程会创建带上述默认值的 JSON 文件。缺字段 / 非法类型回落见 `createDefaultChatConfig()`。
+
+## 布尔字段读口径
+
+磁盘缺键、类型异常或历史脏值时，用不同比较是为了 **偏向产品默认开/关**，避免功能不受控地整片灭掉或突然打开——**不是**两套随便混用的风格。
+
+| 口径 | 缺省/异常时偏向 | 典型字段 |
+|------|-----------------|----------|
+| **`!== false`** | **开**（默认开的能力） | `ttsEnabled`；`memoryConsolidateOnChatClose` / `memoryLlmSummarizeEnabled` / `memoryEmotionScoreEnabled`；`desireEnabled`；镜像 `relationshipEnabled` |
+| **`=== true`** | **关**（默认关，或须明确打开） | `sttEnabled` / `sttAutoSend`；`ttsParallelEnabled`；`openaiApiKeySecretSave`；View 上的 `memoryEnabled`（落盘 normalize 已按默认补 `true`，View 再严格认一次） |
+
+权威实现：`toChatConfigView`（`chat-config.ts`）。渲染侧门闩应对齐上表（如 STT 用 `=== true`，对话 TTS / 欲望用 `!== false` 或等价）。  
+**禁止**为「写法整齐」全局改成同一种比较符而不改缺省语义。
 
 ## API Key 落盘（safeStorage）
 
@@ -51,7 +66,8 @@ Electron 主进程读写 `{userData}/chat-config.json`；渲染进程经 IPC `ch
 
 | 模块 | 路径 |
 |------|------|
-| 读写 / 迁移 / Key 落盘 | `electron/main/chat/chat-config.ts`、`apiKeyAtRest.ts` |
+| 读写 / Key / View | `electron/main/chat/chat-config.ts`、`apiKeyAtRest.ts` |
+| 脏 JSON 规范化 / 旧扁平迁移 | `electron/main/chat/chatConfigNormalize.ts` |
 | IPC | `electron/main/ipc/chatConfig.ts` |
 | 渲染进程 store | `src/services/chat/chatConfigStore.ts` |
 | 类型 | `src/services/chat/types.ts` |
