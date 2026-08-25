@@ -4,6 +4,7 @@ import { desireApi } from './desireApi'
 import { relationshipApi } from './relationshipApi'
 import { petTouchApi } from './petTouchApi'
 import { sttApi } from './sttApi'
+import { screenCompanionApi } from './screenCompanionApi'
 
 export type WindowType = 'pet' | 'home' | 'chat'
 
@@ -325,6 +326,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('show-confirm-dialog', options)
   },
 
+  showInfoDialog: (options: {
+    title: string
+    message: string
+    okLabel?: string
+  }): Promise<void> => {
+    return ipcRenderer.invoke('show-info-dialog', options)
+  },
+
   relaunchApp: (): Promise<{ ok: boolean; mode?: 'reload' | 'relaunch' }> => {
     return ipcRenderer.invoke('relaunch-app')
   },
@@ -462,6 +471,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ...relationshipApi,
   ...petTouchApi,
   ...sttApi,
+  ...screenCompanionApi,
 
   reportClientError: (payload: {
     scope?: string

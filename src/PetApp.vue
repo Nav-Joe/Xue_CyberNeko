@@ -7,6 +7,7 @@ import { useAppBoot } from './app/composables/useAppBoot'
 import { useOverlayManager } from './app/composables/useOverlayManager'
 import { useVoiceEventBus } from './app/composables/useVoiceEventBus'
 import { useChatEntry } from './composables/chat/useChatEntry'
+import { useScreenCompanionNarrate } from './composables/useScreenCompanionNarrate'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { setRuntimeCorpus } from './services/corpus'
 import { setRealtimeInferenceEnabled } from './services/ttsSettings'
@@ -83,6 +84,8 @@ const voiceBus = useVoiceEventBus({
   enterGeneratingBoot: boot.enterGeneratingBoot,
   enterReview: boot.enterReview
 })
+
+useScreenCompanionNarrate()
 
 const petReady = computed(() => boot.phase.value === 'ready' && !engineLoadActive.value)
 

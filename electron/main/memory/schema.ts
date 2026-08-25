@@ -13,6 +13,10 @@ export const sessionSummaries = sqliteTable('session_summaries', {
   keywords: text('keywords', { mode: 'json' }).$type<string[]>().notNull().default([]),
   /** 衰减类型：emotion_peak | habit | fact（入核心池时映射 halfLife） */
   memoryKind: text('memory_kind').notNull().default('habit'),
+  /** 来源：普通聊天 chat，或屏幕偷窥 companion */
+  source: text('source').notNull().default('chat'),
+  /** 陪玩时记下游戏名，方便记忆空间展示 */
+  sourceLabel: text('source_label'),
   startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
   endedAt: integer('ended_at', { mode: 'timestamp_ms' }),
   messageCount: integer('message_count').notNull().default(0)

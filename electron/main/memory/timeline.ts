@@ -16,6 +16,8 @@ export type TimelineItem =
       emotionTags: string[]
       significance: number
       keywords: string[]
+      source?: 'chat' | 'companion'
+      sourceLabel?: string | null
       startedAt: number
       endedAt: number | null
       messageCount: number
@@ -88,6 +90,8 @@ export function listTimeline(
               emotionTags: row.emotionTags,
               significance: row.significance ?? 0,
               keywords: row.keywords ?? [],
+              source: row.source === 'companion' ? 'companion' : 'chat',
+              sourceLabel: row.sourceLabel ?? null,
               startedAt: row.startedAt.getTime(),
               endedAt: row.endedAt ? row.endedAt.getTime() : null,
               messageCount: row.messageCount

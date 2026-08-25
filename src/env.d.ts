@@ -148,6 +148,11 @@ interface ElectronAPI {
     message: string
     confirmLabel?: string
   }) => Promise<boolean>
+  showInfoDialog: (options: {
+    title: string
+    message: string
+    okLabel?: string
+  }) => Promise<void>
   relaunchApp: () => Promise<{ ok: boolean; mode?: 'reload' | 'relaunch' }>
   readCharacterCards: () => Promise<import('./services/chat/types').CharacterCardsStore>
   writeCharacterCards: (store: import('./services/chat/types').CharacterCardsStore) => Promise<{ ok: true }>

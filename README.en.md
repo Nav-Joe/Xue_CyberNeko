@@ -2,7 +2,7 @@
 
 A Live2D desktop AI companion that moves, chats, and quietly watches over you.
 
-**Current version: V0.5.1 (early development)**
+**Current version: V0.6.0 (early development)**
 
 > **Docs languages:** [中文 README](README.md) · [English README](README.en.md) (this file)
 
@@ -20,21 +20,11 @@ Development and testing are based on the **Hiyori Pro** Live2D model. If you swa
 
 ## Highlights
 
-### Memory (Milestone 4 shipped)
+### Proactive screen awareness
 
-- Xue Lan can now remember the stories you share with her~
-- She can hold ordinary memories — and deeply keep the moments that matter most~
-- **Memory Space:** peek at her memories and little thoughts — just try not to get caught~
-- **User profile:** as your story grows, the picture of you in her mind gets clearer — she learns you, and understands you better~
-- **Time awareness:** she now has a full sense of time.
-- **Where to toggle:** pet right-click → Settings → “Memory & Emotion” (the chat-window settings no longer host the memory switch)
+Xue Lan can peek at your screen now~ She may notice what you’re playing and drop a short comment out of nowhere~ (Steam games only for now.)
 
-### Official emotion-simulation plugin V0.1.0 (Milestone 4.5 first release)
-
-- **Desire simulation:** brings the character’s current little wishes into the chat; updates quietly in the background after each turn so it doesn’t slow you down
-- **3D affection:** closeness / trust / rapport, all defaulting to 0; open the “Affection” panel from the Home window
-- **Pet touch:** tapping body parts counts today’s touches; with both memory and the emotion plugin on, a small closeness bump may apply (daily cap)
-- Turning the plugin **off does not wipe** existing affection data — it only pauses updates; memory must be on before you can enable this plugin
+⚠️ You need your own **vision-capable** LLM API endpoint.
 
 ## 🚧 Milestone progress
 
@@ -46,16 +36,17 @@ Development and testing are based on the **Hiyori Pro** Live2D model. If you swa
 | **3** | Text chat + llama.cpp + OpenAI API + chat TTS | ✅ |
 | **4** | Memory foundation & retrieval (no vectors); **4.5** self-built emotion sim | 🔧 **4 ✅** / **4.5** first plugin ✅ |
 | **5** | Chat-window voice input (STT) | ✅ |
-| **6** | Proactive behavior & screen awareness | ⬜ |
+| **6** | Proactive behavior & screen awareness | ✅ |
 | **7** | Settings polish & packaging / release | ⬜ |
 
 ## Requirements
 
-- **Windows 10/11** (scripts are Windows-first for now)
+- **Windows 10/11** (scripts are Windows-first; Steam library parsing and process gating follow Windows paths)
 - **Node.js 20+**, **Python 3.10+** (`首次安装.bat` can install them; defaults lock **Node 24.16.0** and **Python 3.10.10**, see `scripts/win/runtime-versions.cmd`)
 - TTS deps install into project **`.venv`** (does not pollute system Python)
 - **Git** (optional; e.g. cloning Bert-VITS2)
 - **Text chat (local mode):** first use auto-downloads llama-server and the default GGUF (~2 GB, under `llama_models/`)
+- **Screen peek (optional):** chat TTS must be on; configure a separate vision API (not the chat API); first release only watches the screen when a **Steam game is running**
 
 ## Quick start
 
@@ -73,6 +64,8 @@ npm run tts            # TTS service only
 npm test               # frontend vitest
 npm run test:memory    # memory DB integration tests (temp Node ABI → restore Electron)
 npm run test:tts       # Python pytest (tts_voice/tests)
+npm run typecheck      # Vue/TS typecheck
+npm run rebuild:native # rebuild native modules (e.g. better-sqlite3) for Electron ABI
 ```
 
 Expected result: a transparent desktop window with the Live2D catgirl; right-click → **Home** opens the central Home window.
@@ -89,15 +82,19 @@ Chat bubbles still live in this window’s memory by default. With **Memory** en
 
 ### Privacy & local data (please read)
 
-Raw dialogue, summaries, user profile, desire / affection history, API keys, and similar data **must stay on your machine**. `.gitignore` already blocks common accidental commits — **do not** copy them into the repo or paste them into Issues:
+Raw dialogue, summaries, user profile, desire / affection history, API keys, screen summaries / narrations, and similar data **must stay on your machine**. `.gitignore` already blocks common accidental commits — **do not** copy them into the repo or paste them into Issues.
+
+**Screen peek note:** The master switch defaults **off**. When it is on and a Steam game is detected, the app takes a **thumbnail** on your interval (in memory only — **original frames are not written to disk**), compresses the frame into a short text summary, and may send that summary path’s image to your configured **vision API**. Narration does **not** enter chat bubbles. Switch off = no capture, no process scan, no narration.
 
 | Local path (Windows) | Contents |
 |----------------------|----------|
-| `%APPDATA%/xue-cyber-neko/memory.db` | Raw dialogue, daily/weekly/monthly summaries, core memories, user profile; plus desire, 3D affection, today’s pet-touch counts, etc. (same DB) |
-| `%APPDATA%/xue-cyber-neko/chat-config.json` | LLM / TTS / memory & emotion toggles; **API Key is persisted only in the main process** |
+| `%APPDATA%/xue-cyber-neko/memory.db` | Raw dialogue, daily/weekly/monthly summaries, core memories, user profile; desire, 3D affection, today’s pet-touch; plus companion-session summaries (`source=companion`), etc. (same DB) |
+| `%APPDATA%/xue-cyber-neko/chat-config.json` | LLM / TTS / memory & emotion toggles; **chat API Key is persisted only in the main process** |
 | `%APPDATA%/xue-cyber-neko/character-cards.json` | Your character cards (persona, etc.) |
+| `%APPDATA%/xue-cyber-neko/screen-companion-config.json` | Screen-peek master switch / interval / pause / process blacklist; **vision API Key is persisted only in the main process** (optional encryption) |
+| `%APPDATA%/xue-cyber-neko/screen-companion-memory/` | Temporary companion-session JSONL (narration + screen summary text; written only when memory is on; may consolidate into `memory.db` after the session ends) |
 
-What **is** allowed in the repo: schema / migration SQL, default character-card templates, and module contracts (no real secrets). Dev scratch DBs live under `.runtime/memory*.db` (ignored).
+What **is** allowed in the repo: schema / migration SQL, default character-card templates, and module contracts (no real secrets). Dev scratch DBs and POC logs live under `.runtime/` (the whole directory is ignored).
 
 ### FAQ
 
@@ -110,6 +107,8 @@ What **is** allowed in the repo: schema / migration SQL, default character-card 
 **Blank window:** Run `npm run setup:model` to restore Cubism Core and model files.
 
 **Local chat won’t connect:** Check `.runtime/logs/llama-server.stderr.log`; if port 8080 is taken, close the conflict or let the app pick another port.
+
+**Screen peek stays silent / never looks:** Confirm chat TTS is on, the vision API (Base URL / model / Key) is complete, the master switch is on, and a **Steam-library game** is running (browsers / IDEs are not covered in v1). While a companion session is active, chat send is blocked by a system dialog; closing the game or leaving the session restores chat.
 
 ## Touch voice (Milestone 2)
 
@@ -181,6 +180,7 @@ Integration details: `tts_voice/ENGINE_HOOKS.md`.
 | `npm run test:memory` | Memory SQLite integration tests (Node rebuild → test → restore Electron ABI) |
 | `npm run test:tts` | TTS Python tests |
 | `npm run tts` | Start TTS only |
+| `npm run rebuild:native` | Rebuild native modules for Electron ABI (e.g. better-sqlite3) |
 
 ## Project layout (core)
 
@@ -192,9 +192,10 @@ Xue_CyberNeko/
 │   ├── main/desire/          # Desire engine
 │   ├── main/relationship/    # 3D affection
 │   ├── main/petTouch/        # Pet-touch counts (optional closeness bump)
-│   └── main/stt/             # STT sidecar ensure / stop managed process
+│   ├── main/stt/             # STT sidecar ensure / stop managed process
+│   └── main/screenCompanion/ # Screen peek: Steam gate, capture summary, schedule, narrate
 ├── src/
-│   ├── components/chat/      # Chat UI, TTS / LLM / STT / character-card settings
+│   ├── components/chat/      # Chat UI, TTS / LLM / STT / screen peek / character-card settings
 │   ├── components/memory/    # Memory Space panel
 │   ├── components/relationship/  # Affection panel
 │   ├── components/petTouch/  # Today’s pet-touch card
@@ -205,7 +206,8 @@ Xue_CyberNeko/
 │       ├── memory/           # Memory IPC client
 │       ├── desire/           # Desire IPC client
 │       ├── relationship/     # Affection IPC client
-│       └── petTouch/         # Pet-touch IPC client
+│       ├── petTouch/         # Pet-touch IPC client
+│       └── screenCompanion/  # Screen-peek IPC client, narrate TTS pipeline
 ├── memory_service/           # Optional sidecar (summarization-related; no user DB)
 ├── stt_service/              # Local STT sidecar (speech → text)
 ├── tts_voice/                # FastAPI TTS + engines
@@ -234,6 +236,7 @@ Xue_CyberNeko/
 | [`electron/main/desire/CONTRACT.md`](electron/main/desire/CONTRACT.md) | Desire module contract |
 | [`electron/main/relationship/CONTRACT.md`](electron/main/relationship/CONTRACT.md) | 3D affection contract |
 | [`electron/main/petTouch/CONTRACT.md`](electron/main/petTouch/CONTRACT.md) | Pet-touch contract |
+| [`electron/main/screenCompanion/CONTRACT.md`](electron/main/screenCompanion/CONTRACT.md) | Screen-peek contract (gate / observe / narrate / companion memory; no user data) |
 | [`public/models/README.md`](public/models/README.md) | Replacing the Live2D model |
 | [`voice_forge/README.md`](voice_forge/README.md) | Voice Forge directories |
 | [`public/touch_clips/README.md`](public/touch_clips/README.md) | Curated audio manifest |

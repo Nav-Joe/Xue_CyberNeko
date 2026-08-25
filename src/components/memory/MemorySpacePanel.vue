@@ -185,7 +185,12 @@ onMounted(async () => {
               >
                 <template v-if="item.kind === 'summary'">
                   <p class="memory-space__role">
-                    日常总结 · 分 {{ item.significance?.toFixed?.(1) ?? item.significance }}
+                    {{
+                      item.source === 'companion'
+                        ? `陪玩总结${item.sourceLabel ? ` · ${item.sourceLabel}` : ''}`
+                        : '日常总结'
+                    }}
+                    · 分 {{ item.significance?.toFixed?.(1) ?? item.significance }}
                   </p>
                   <p class="memory-space__content">{{ item.summary }}</p>
                   <p v-if="item.keywords?.length" class="memory-space__meta">

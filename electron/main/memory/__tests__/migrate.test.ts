@@ -82,5 +82,7 @@ describeMemoryDb('memory migrate()', () => {
       sqlite.prepare(`pragma table_info(session_summaries)`).all() as { name: string }[]
     ).map((r) => r.name)
     expect(sessionCols).toContain('memory_kind')
+    expect(sessionCols).toContain('source')
+    expect(sessionCols).toContain('source_label')
   })
 })

@@ -7,6 +7,8 @@ export type MemoryTimelineItem =
       emotionTags: string[]
       significance: number
       keywords: string[]
+      source?: 'chat' | 'companion'
+      sourceLabel?: string | null
       startedAt: number
       endedAt: number | null
       messageCount: number

@@ -3,6 +3,7 @@ import { join } from 'path'
 
 import { attachWindowDiagnostics } from '../logging/registerErrorHandlers'
 import { loadRenderer } from './rendererLoader'
+import { registerPetNarrateTarget, unregisterPetNarrateTarget } from './petNarrateTarget'
 
 /** 模型加载前的占位尺寸；模型就绪后由渲染进程按实际模型重设 */
 export const PET_BOOTSTRAP_WIDTH = 240
@@ -125,12 +126,17 @@ export function setPetWindowAtHome(atHome: boolean): void {
  * 桌宠窗口：透明、无边框、置顶，桌面上只显示 Live2D 模型。
  */
 export function createPetWindow(): void {
+  if (petWindow && !petWindow.isDestroyed()) {
+    registerPetNarrateTarget(petWindow.webContents.id)
+    return
+  }
+
   const initialPos = centerPetWindowBounds(PET_BOOTSTRAP_WIDTH, PET_BOOTSTRAP_HEIGHT)
 
   petWindowWidth = PET_BOOTSTRAP_WIDTH
   petWindowHeight = PET_BOOTSTRAP_HEIGHT
 
-  petWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     width: PET_BOOTSTRAP_WIDTH,
     height: PET_BOOTSTRAP_HEIGHT,
     x: initialPos.x,
@@ -155,25 +161,58 @@ export function createPetWindow(): void {
     }
   })
 
+  petWindow = win
+  registerPetNarrateTarget(win.webContents.id)
   lockPetWindowSize(PET_BOOTSTRAP_WIDTH, PET_BOOTSTRAP_HEIGHT)
 
-  petWindow.on('ready-to-show', () => {
+  win.webContents.on('did-finish-load', () => {
+    registerPetNarrateTarget(win.webContents.id)
+  })
+
+  win.on('ready-to-show', () => {
     showPetWindowIfNeeded()
   })
 
   // 任务栏 / 系统关闭桌宠窗：走正规退出（停 llama、收尾），不要只拆掉前端留主进程。
   // Home 点 X 仍是 hide 回桌宠，见 homeWindow.ts。
-  petWindow.on('close', (event) => {
+  win.on('close', (event) => {
     if (!app.isQuitting()) {
       event.preventDefault()
       app.quit()
     }
   })
 
-  petWindow.on('closed', () => {
-    petWindow = null
+  win.on('closed', () => {
+    unregisterPetNarrateTarget(win.webContents.id)
+    if (petWindow === win) petWindow = null
   })
 
-  loadRenderer(petWindow, 'pet')
-  attachWindowDiagnostics(petWindow, 'pet')
+  loadRenderer(win, 'pet')
+  attachWindowDiagnostics(win, 'pet')
+}
+
+/** 人工验证：等桌宠窗渲染就绪（旁白 IPC 订阅在 PetApp onMounted） */
+export function waitForPetWindowReady(timeoutMs = 120_000): Promise<boolean> {
+  const win = getPetWindow()
+  if (!win || win.isDestroyed()) return Promise.resolve(false)
+
+  const wc = win.webContents
+  if (!wc.isLoading()) return Promise.resolve(true)
+
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = (ok: boolean): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      wc.removeListener('did-finish-load', onLoad)
+      wc.removeListener('did-fail-load', onFail)
+      resolve(ok)
+    }
+    const onLoad = (): void => finish(true)
+    const onFail = (): void => finish(false)
+    const timer = setTimeout(() => finish(false), timeoutMs)
+    wc.once('did-finish-load', onLoad)
+    wc.once('did-fail-load', onFail)
+  })
 }

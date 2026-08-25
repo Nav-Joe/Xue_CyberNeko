@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createChatSegmentCoordinator } from '../chatTtsPipeline'
+import { createChatSegmentCoordinator, playChatAssistantReplyTts, resolveChatTtsParallelLanes } from '../chatTtsPipeline'
 import { createChatTtsSession } from '../../chatTtsSession'
 
 vi.mock('../../chatTtsSession', () => ({
@@ -115,5 +115,57 @@ describe('createChatSegmentCoordinator', () => {
       onRevealSegment: () => {}
     })
     expect(createChatTtsSession).not.toHaveBeenCalled()
+  })
+})
+
+describe('resolveChatTtsParallelLanes', () => {
+  it('returns 0 when parallel disabled', () => {
+    expect(
+      resolveChatTtsParallelLanes({
+        ttsEnabled: true,
+        ttsParallelEnabled: false,
+        ttsParallelLanes: 3
+      })
+    ).toBe(0)
+  })
+
+  it('returns lanes when parallel enabled', () => {
+    expect(
+      resolveChatTtsParallelLanes({
+        ttsEnabled: true,
+        ttsParallelEnabled: true,
+        ttsParallelLanes: 4
+      })
+    ).toBe(4)
+  })
+})
+
+describe('playChatAssistantReplyTts', () => {
+  const mockSession = {
+    enqueue: vi.fn(),
+    enqueueAll: vi.fn(),
+    markStreamComplete: vi.fn(),
+    waitUntilIdle: vi.fn().mockResolvedValue(undefined),
+    abort: vi.fn()
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(createChatTtsSession).mockReturnValue(mockSession)
+  })
+
+  it('uses revealFullText pipeline with parallel lanes', async () => {
+    await playChatAssistantReplyTts('你好呀。再见！', {
+      ttsParallelLanes: resolveChatTtsParallelLanes({
+        ttsEnabled: true,
+        ttsParallelEnabled: true,
+        ttsParallelLanes: 2
+      })
+    })
+    expect(createChatTtsSession).toHaveBeenCalledWith(
+      expect.objectContaining({ parallelLanes: 2 })
+    )
+    expect(mockSession.enqueueAll).toHaveBeenCalled()
+    expect(mockSession.waitUntilIdle).toHaveBeenCalled()
   })
 })

@@ -55,7 +55,7 @@ export type MidSessionConsolidateResult =
     }
   | { ok: false; reason: 'disabled' | 'llm_failed' | 'error'; detail?: string }
 
-/** 关窗 / 日常总结互斥，避免并行打两次 LLM、交叉裁 raw */
+/** 关窗 / 日常 / 陪玩总结互斥，避免并行打两次记忆 LLM */
 let consolidateChain: Promise<unknown> = Promise.resolve()
 
 function enqueueConsolidate<T>(fn: () => Promise<T>): Promise<T> {
@@ -65,6 +65,11 @@ function enqueueConsolidate<T>(fn: () => Promise<T>): Promise<T> {
     () => undefined
   )
   return run
+}
+
+/** 陪玩退会话总结与关窗总结共用同一条串行队列，避免同时打两次记忆 LLM */
+export function runOnConsolidateChain<T>(fn: () => Promise<T>): Promise<T> {
+  return enqueueConsolidate(fn)
 }
 
 type ScoredSummary = {

@@ -5,7 +5,7 @@ import {
   getActiveCharacterCard,
   loadCharacterCardsStore
 } from '../../services/chat/characterCardStore'
-import { createChatSegmentCoordinator } from '../../services/chat/chatTtsPipeline'
+import { createChatSegmentCoordinator, resolveChatTtsParallelLanes } from '../../services/chat/chatTtsPipeline'
 import { logChatSegmentDebug } from '../../services/chat/chatDebugLog'
 import { LLM_CHAT_MAX_RETRIES, llmChatWithRetry } from '../../services/chat/llmChatRetry'
 import { splitTextForTts } from '../../services/chat/textSplitter'
@@ -135,8 +135,7 @@ export function useChatSession() {
     error.value = ''
 
     const ttsEnabled = config.value.ttsEnabled !== false
-    const ttsParallelLanes =
-      ttsEnabled && config.value.ttsParallelEnabled ? config.value.ttsParallelLanes : 0
+    const ttsParallelLanes = resolveChatTtsParallelLanes(config.value)
 
     const turnCtx = await resolveChatTurnPromptContext({
       llmMode: config.value.llmMode,

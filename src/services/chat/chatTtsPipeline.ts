@@ -2,6 +2,7 @@ import { logChatSegmentDebug } from './chatDebugLog'
 import { createChatTtsSession } from '../chatTtsSession'
 
 import { drainCompleteTtsSegments, splitTextForTts, stripEmojiForTts, stripKaomojiForTts, stripTextForTts, containsKaomoji } from './textSplitter'
+import type { ChatConfigView } from './types'
 
 export type ChatSegmentCoordinatorOptions = {
   ttsEnabled: boolean
@@ -16,6 +17,33 @@ export type ChatSegmentCoordinator = {
   flush: () => Promise<void>
   revealFullText: (text: string) => Promise<void>
   reset: () => void
+}
+
+/** 与 useChatSession 一致：关 TTS 或未开并行时返回 0（串行） */
+export function resolveChatTtsParallelLanes(
+  config: Pick<ChatConfigView, 'ttsEnabled' | 'ttsParallelEnabled' | 'ttsParallelLanes'>
+): number {
+  const ttsEnabled = config.ttsEnabled !== false
+  return ttsEnabled && config.ttsParallelEnabled ? config.ttsParallelLanes : 0
+}
+
+/**
+ * 整段助手文案 TTS（聊天回复）：splitTextForTts 切句 + chatTtsSession 串并行推理。
+ * onRevealSegment 为空实现时不写 UI，仍按序播放并对 Live2D 口型。
+ */
+export async function playChatAssistantReplyTts(
+  text: string,
+  options: { ttsParallelLanes: number }
+): Promise<void> {
+  const trimmed = text.trim()
+  if (!trimmed) return
+
+  const coordinator = createChatSegmentCoordinator({
+    ttsEnabled: true,
+    ttsParallelLanes: options.ttsParallelLanes,
+    onRevealSegment: () => {}
+  })
+  await coordinator.revealFullText(trimmed)
 }
 
 /** 流式/整段回复：按句切分；TTS 并发合成、按序播放并与文字同步放出 */

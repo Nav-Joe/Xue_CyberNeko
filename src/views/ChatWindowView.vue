@@ -6,6 +6,7 @@ import ChatBootstrapOverlay from '../components/chat/ChatBootstrapOverlay.vue'
 import { useChatLlamaBootstrap } from '../composables/chat/useChatLlamaBootstrap'
 import { useChatSession } from '../composables/chat/useChatSession'
 import { useChatStt } from '../composables/chat/useChatStt'
+import { useScreenCompanionChatGate } from '../composables/useScreenCompanionChatGate'
 import ChatComposer from '../components/chat/ChatComposer.vue'
 import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatSettingsView from '../components/chat/ChatSettingsView.vue'
@@ -29,11 +30,12 @@ const {
   sendUserMessage
 } = useChatSession()
 
+const screenCompanionGate = useScreenCompanionChatGate()
 const llamaBootstrap = useChatLlamaBootstrap()
 const composerRef = ref<{ appendDraft: (text: string) => void } | null>(null)
 const characterName = computed(() => activeCard.value?.name?.trim() || '角色')
 const composerBusy = computed(() => sending.value || initializing.value)
-const sttEnabled = computed(() => config.value?.sttEnabled === true)
+const sessionChatLocked = computed(() => screenCompanionGate.sessionActive.value)
 
 /** 开对话 TTS 时：sending 会等到播完；关 TTS 则仅覆盖 LLM 回合 */
 const ttsPlaybackGate = computed(
@@ -41,18 +43,21 @@ const ttsPlaybackGate = computed(
 )
 
 const composerGateHint = computed(() => {
+  if (sessionChatLocked.value) return '猫娘正在看你打游戏，暂时不能聊天'
   if (ttsPlaybackGate.value) return '朗读中，请稍候再输入或语音'
   return ''
 })
+
+const sttEnabled = computed(() => config.value?.sttEnabled === true)
 
 const chatStt = useChatStt({
   isEnabled: () => config.value?.sttEnabled === true,
   isAutoSend: () => config.value?.sttAutoSend === true,
   getBaseUrl: () => config.value?.sttBaseUrl ?? '',
   getDeviceId: () => config.value?.sttDeviceId ?? '',
-  isBlocked: () => composerBusy.value,
+  isBlocked: () => composerBusy.value || sessionChatLocked.value,
   appendDraft: (text) => composerRef.value?.appendDraft(text),
-  sendText: (text) => sendUserMessage(text),
+  sendText: (text) => onSendMessage(text),
   setError: (message) => {
     error.value = message
   }
@@ -83,7 +88,7 @@ watch(
 )
 
 async function onSendMessage(text: string): Promise<void> {
-  await sendUserMessage(text)
+  await screenCompanionGate.guardSend(() => sendUserMessage(text))
 }
 
 function closeWindow(): void {
@@ -187,7 +192,7 @@ async function onSettingsChanged(): Promise<void> {
           </div>
           <ChatComposer
             ref="composerRef"
-            :disabled="composerBusy"
+            :disabled="composerBusy || sessionChatLocked"
             :sending="sending"
             :gate-hint="composerGateHint"
             :stt-enabled="sttEnabled"

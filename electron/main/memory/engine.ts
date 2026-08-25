@@ -173,6 +173,8 @@ export function accumulateSessionSummary(
     emotionTags?: string[]
     keyFacts?: string[]
     memoryKind?: MemoryKind | string
+    source?: 'chat' | 'companion'
+    sourceLabel?: string | null
     startedAt: Date
     endedAt?: Date | null
     messageCount: number
@@ -188,6 +190,8 @@ export function accumulateSessionSummary(
         emotionTags: input.emotionTags ?? [],
         keyFacts: input.keyFacts ?? [],
         memoryKind,
+        source: input.source ?? 'chat',
+        sourceLabel: input.sourceLabel ?? null,
         startedAt: input.startedAt,
         endedAt: input.endedAt ?? null,
         messageCount: input.messageCount

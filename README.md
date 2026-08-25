@@ -2,7 +2,7 @@
 
 一个会动、会聊、会悄悄观察你的 Live2D 桌面 AI 桌宠。
 
-**当前版本：V0.5.1（早期开发版本）**
+**当前版本：V0.6.0（早期开发版本）**
 
 > **文档语言 / Docs:** [中文 README](README.md)（本页）· [English README](README.en.md)
 
@@ -20,21 +20,10 @@
 
 ## 重大更新
 
-### 记忆（里程碑 4 已上线）
+### 屏幕主动检测系统
 
-- 现在雪澜已经可以记住你与她的故事~
-- 雪澜不仅可以记住你与她的回忆，还能做到深深记住你与她的重要时刻~
-- **记忆空间：** 可以通过记忆空间来看看雪澜的记忆和小心思，但是注意不要被她发现啦~
-- **用户画像：** 随着你们故事的发展，你的模样在雪澜心中会越来越清晰，让雪澜越来越熟悉你，理解你~
-- **时间感知：** 现在雪澜有完整的时间观念。
-- **开关位置：** 桌宠右键 → 设置 →「记忆与情感」（聊天窗设置里不再放记忆开关）
-
-### 官方情感模拟插件 V0.1.0（里程碑 4.5 首版）
-
-- **欲望模拟系统：** 聊天时会把角色当下的小心思带进对话；聊完后在后台悄悄更新，不拖慢你说话
-- **三维好感度系统：** 亲近 / 信任 / 投契，默认都从 0 开始；家窗口可打开「好感度」面板查看
-- **摸摸：** 点到身体部位会记今日次数；记忆与情感插件都开时，有机会小幅加亲近（每天有上限）
-- 关插件**不会清掉**已有好感数据，只是暂时停更；需要先开记忆，才能开本插件
+现在雪澜可以偷窥你的屏幕啦~可以偷偷看你在玩什么并且冷不丁吐槽几句~（虽然目前只能检测Steam游戏）
+注意⚠️：需要自备具有视觉能力的LLM接口
 
 ## 🚧 里程碑进度
 
@@ -46,16 +35,17 @@
 | **3** | 文字聊天 + llama.cpp + OpenAI API + 对话 TTS | ✅ |
 | **4** | 记忆基座与检索（无向量）；**4.5** 自研情感模拟 | 🔧 **4 ✅** / **4.5** 首版插件 ✅ |
 | **5** | 聊天窗语音输入（STT） | ✅ |
-| **6** | 主动行为 & 屏幕感知 | ⬜ |
+| **6** | 主动行为 & 屏幕感知 | ✅ |
 | **7** | 设置完善 & 打包发布 | ⬜ |
 
 ## 环境要求
 
-- **Windows 10/11**（当前脚本以 Windows 为主）
+- **Windows 10/11**（当前脚本以 Windows 为主；Steam 库解析与进程门闩也按 Windows 路径设计）
 - **Node.js 20+**、**Python 3.10+**（`首次安装.bat` 可自动安装；默认锁定 **Node 24.16.0**、**Python 3.10.10**，见 `scripts/win/runtime-versions.cmd`）
 - TTS 依赖装进项目 **`.venv`**，不污染系统 Python
 - **Git**（可选，克隆 Bert-VITS2 等）
 - **文字聊天（本地模式）**：首次使用会自动下载 llama-server 与默认 GGUF（约 2 GB，见 `llama_models/`）
+- **屏幕偷窥（可选）**：需开启对话 TTS；识图另配视觉 API（与聊天 API 分开）；首版仅在检测到 **Steam 游戏在跑** 时才会看屏
 
 ## 快速开始
 
@@ -73,6 +63,8 @@ npm run tts            # 仅 TTS 服务
 npm test               # 前端 vitest
 npm run test:memory    # 记忆库集成测（临时 Node ABI → 测完恢复 Electron）
 npm run test:tts       # Python pytest（tts_voice/tests）
+npm run typecheck      # Vue/TS 类型检查
+npm run rebuild:native # 按 Electron ABI 重编 better-sqlite3 等原生模块
 ```
 
 成功效果：桌面透明窗显示 Live2D 猫娘；右键 → **回家** 打开中央「家」窗口。
@@ -89,15 +81,19 @@ npm run test:tts       # Python pytest（tts_voice/tests）
 
 ### 隐私与本地数据（务必知晓）
 
-对话原文、总结、用户画像、欲望/好感流水、API Key 等**只应留在本机**。`.gitignore` 已挡住常见误提交路径；请勿把它们复制进仓库或贴到 Issue：
+对话原文、总结、用户画像、欲望/好感流水、API Key、屏幕摘要/旁白等**只应留在本机**。`.gitignore` 已挡住常见误提交路径；请勿把它们复制进仓库或贴到 Issue。
+
+**屏幕偷窥特别说明：** 总闸默认关。开启且检测到 Steam 游戏后，会按间隔截取**缩略图**（内存中处理、不落盘原图），再把画面压成短文字摘要；摘要可能发往你配置的**视觉 API**。旁白不进聊天气泡。关总闸 = 不截屏、不扫描进程、不旁白。
 
 | 本机路径（Windows 示意） | 内容 |
 |--------------------------|------|
-| `%APPDATA%/xue-cyber-neko/memory.db` | 对话原文、日常/周/月总结、核心记忆、用户画像；以及欲望、三维好感、今日摸摸等（同一库） |
-| `%APPDATA%/xue-cyber-neko/chat-config.json` | LLM / TTS / 记忆与情感开关；**API Key 仅主进程落盘** |
+| `%APPDATA%/xue-cyber-neko/memory.db` | 对话原文、日常/周/月总结、核心记忆、用户画像；欲望、三维好感、今日摸摸；以及陪玩会话总结（`source=companion`）等（同一库） |
+| `%APPDATA%/xue-cyber-neko/chat-config.json` | LLM / TTS / 记忆与情感开关；**聊天 API Key 仅主进程落盘** |
 | `%APPDATA%/xue-cyber-neko/character-cards.json` | 你的角色卡（人设等） |
+| `%APPDATA%/xue-cyber-neko/screen-companion-config.json` | 屏幕偷窥总闸 / 间隔 / 暂停 / 进程黑名单；**视觉 API Key 仅主进程落盘**（可加密） |
+| `%APPDATA%/xue-cyber-neko/screen-companion-memory/` | 陪玩会话临时 JSONL（旁白与屏幕摘要文字；记忆总闸开时才会写；退会话后可整理进 `memory.db`） |
 
-仓库里**可以**有的，只是：schema / 迁移 SQL、默认角色卡模板、模块契约（无真实密钥）。开发临时库在 `.runtime/memory*.db`（已忽略）。
+仓库里**可以**有的，只是：schema / 迁移 SQL、默认角色卡模板、模块契约（无真实密钥）。开发临时库与 POC 日志在 `.runtime/`（已整目录忽略）。
 
 ### 常见问题
 
@@ -110,6 +106,8 @@ npm run test:tts       # Python pytest（tts_voice/tests）
 **窗口一片空白：** 执行 `npm run setup:model` 补全 Cubism Core 与模型文件。
 
 **本地聊天连不上：** 查看 `.runtime/logs/llama-server.stderr.log`；8080 被占用时可关闭冲突程序或让应用自动换端口。
+
+**屏幕偷窥不开口 / 不开看屏：** 确认对话 TTS 已开、视觉 API（Base URL / 模型 / Key）配齐、总闸已开，并且本机正在跑 **Steam 库里的游戏**（首版不覆盖浏览器 / IDE）。在玩时聊天发送会被系统弹窗拦住，关掉游戏或退陪玩会话后恢复。
 
 ## 触摸语音（里程碑 2）
 
@@ -181,6 +179,7 @@ UI 以 TTS `/health` 的**运行中 backend** 为准。
 | `npm run test:memory` | 记忆 SQLite 集成测（Node 重编 → 跑测 → 恢复 Electron ABI） |
 | `npm run test:tts` | TTS Python 测试 |
 | `npm run tts` | 仅启动 TTS |
+| `npm run rebuild:native` | 按 Electron ABI 重编原生模块（如 better-sqlite3） |
 
 ## 项目结构（核心）
 
@@ -192,9 +191,10 @@ Xue_CyberNeko/
 │   ├── main/desire/          # 欲望引擎
 │   ├── main/relationship/    # 三维好感
 │   ├── main/petTouch/        # 摸摸计数（可选加亲近）
-│   └── main/stt/             # 语音输入侧车代启 / 停托管
+│   ├── main/stt/             # 语音输入侧车代启 / 停托管
+│   └── main/screenCompanion/ # 屏幕偷窥：Steam 门闩、截屏摘要、调度、旁白
 ├── src/
-│   ├── components/chat/      # 聊天 UI、TTS/LLM/STT/角色卡设置
+│   ├── components/chat/      # 聊天 UI、TTS/LLM/STT/屏幕偷窥/角色卡设置
 │   ├── components/memory/    # 记忆空间面板
 │   ├── components/relationship/  # 好感度面板
 │   ├── components/petTouch/  # 今日摸摸卡片
@@ -205,7 +205,8 @@ Xue_CyberNeko/
 │       ├── memory/           # 记忆 IPC 客户端
 │       ├── desire/           # 欲望 IPC 客户端
 │       ├── relationship/     # 好感 IPC 客户端
-│       └── petTouch/         # 摸摸 IPC 客户端
+│       ├── petTouch/         # 摸摸 IPC 客户端
+│       └── screenCompanion/  # 屏幕偷窥 IPC 客户端、旁白 TTS 流水线
 ├── memory_service/           # 可选独立服务（总结相关，无用户库）
 ├── stt_service/              # 本机 STT 侧车（语音 → 文字）
 ├── tts_voice/                # FastAPI TTS + engines
@@ -234,6 +235,7 @@ Xue_CyberNeko/
 | [`electron/main/desire/CONTRACT.md`](electron/main/desire/CONTRACT.md) | 欲望模块契约 |
 | [`electron/main/relationship/CONTRACT.md`](electron/main/relationship/CONTRACT.md) | 三维好感契约 |
 | [`electron/main/petTouch/CONTRACT.md`](electron/main/petTouch/CONTRACT.md) | 摸摸计数契约 |
+| [`electron/main/screenCompanion/CONTRACT.md`](electron/main/screenCompanion/CONTRACT.md) | 屏幕偷窥契约（门闩 / 看屏 / 旁白 / 陪玩记忆；无用户数据） |
 | [`public/models/README.md`](public/models/README.md) | Live2D 模型替换 |
 | [`voice_forge/README.md`](voice_forge/README.md) | 音色工坊目录 |
 | [`public/touch_clips/README.md`](public/touch_clips/README.md) | 精选音频 manifest |

@@ -75,6 +75,36 @@ memory.db
 **/AppData/**/memory.db
 **/AppData/**/chat-config.json
 **/AppData/**/character-cards.json
+**/AppData/**/screen-companion-config.json
+**/AppData/**/screen-companion-memory/
+
+# ── 屏幕偷窥隐私（权威：userData；下列防误拷/误生成入库）──
+# 视觉 Key（含 apiKeyEnc）与陪玩临时旁白/摘要 JSONL，勿提交
+screen-companion-config.json
+**/screen-companion-config.json
+screen-companion-memory/
+**/screen-companion-memory/
+**/screen-companion-memory/*.jsonl
+# 验证脚本可选覆盖（含明文 Key）；POC 正式文件在 .runtime/ 已整目录忽略
+vision-override.json
+**/vision-override.json
+**/vision-config.json
+
+# ── 屏幕偷窥 POC / 人工 verify（本地试验；产品构建不依赖）──
+electron/main/screenCompanion/localPocAppModes.ts
+electron/main/screenCompanion/pocCapturePerf.ts
+electron/main/screenCompanion/pocObservePerf.ts
+electron/main/screenCompanion/pocSteamGateLog.ts
+electron/main/screenCompanion/poc-vision-config.README.md
+electron/main/screenCompanion/poc-vision-config.example.json
+electron/main/screenCompanion/verifyManual.ts
+electron/main/screenCompanion/verifyScheduler.ts
+electron/main/screenCompanion/visionConfig.ts
+electron/main/screenCompanion/__tests__/steamGate.poc.test.ts
+electron/main/screenCompanion/__tests__/steamGate.debug.test.ts
+scripts/poc-*.cmd
+scripts/verify-screen-companion.cmd
+scripts/verify-screen-companion-scheduler.cmd
 
 # ── 个人测试脚本（不上传）──
 测试Qwen3.0_tts引擎.bat

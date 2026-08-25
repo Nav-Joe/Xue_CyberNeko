@@ -38,7 +38,7 @@
 | `memory-consume-pending-peeks` | 下一轮发消息前消费：返回拼到 LLM **user** 前缀的文本并删除事件；UI 不展示 |
 | `memory-notify-chat-closed` | 触发异步整理 |
 | `memory-maybe-mid-session-consolidate` | 本轮结束后：全局 raw 轮数达软上限则日常总结并裁窗口（OpenAI 50→30 / 本地 20→10）；关窗总结不变 |
-| `memory-maybe-period-rollup` | 异步周/月滚总结（数月短路→周→月）；**月成功后**尝试更新 `user_profile`；失败不删源 |
+| `memory-maybe-period-rollup` | 异步周/月滚总结（数月短路→周→月；**含陪玩 L2**）；**月成功后**尝试更新 `user_profile`；失败不删源 |
 
 启动：`initMemorySubsystem()` → `openMemoryDb()` + `migrate()`。  
 关窗：**延迟整理** — `onChatWindowClosed` → `runConsolidateThenStopLlama`（先总结并**累积**写入 `session_summaries`，再 stop llama）。  

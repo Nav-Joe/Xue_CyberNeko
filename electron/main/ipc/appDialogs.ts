@@ -40,6 +40,22 @@ export function registerAppDialogsIpc(deps: AppDialogsIpcDeps): void {
     }
   )
 
+  ipcMain.handle(
+    'show-info-dialog',
+    async (event, options: { title: string; message: string; okLabel?: string }) => {
+      const parent = BrowserWindow.fromWebContents(event.sender)
+      await dialog.showMessageBox(parent ?? undefined, {
+        type: 'info',
+        buttons: [options.okLabel ?? '知道了'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+        title: options.title,
+        message: options.message
+      })
+    }
+  )
+
   ipcMain.handle('pick-voice-upload-wav', async (event) => {
     const parent = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(parent ?? undefined, {

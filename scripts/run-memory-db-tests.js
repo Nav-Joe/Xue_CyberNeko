@@ -33,6 +33,7 @@ function runVitestMemory() {
     'electron/main/desire/__tests__',
     'electron/main/relationship/__tests__',
     'electron/main/petTouch/__tests__',
+    'electron/main/screenCompanion/__tests__/companionMemoryConsolidate.test.ts',
     'src/services/relationship/__tests__',
     '--reporter=verbose'
   ]

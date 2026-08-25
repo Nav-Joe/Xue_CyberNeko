@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 
 import { loadChatConfigView, saveChatTtsSettings } from '../../services/chat/chatConfigStore'
+import { disableScreenCompanionIfEnabled } from '../../services/screenCompanion/screenCompanionStore'
 import type { ChatTtsParallelLanes } from '../../services/chat/types'
 
 import './chat-panel-theme.css'
@@ -47,10 +48,18 @@ async function persist(partial: Parameters<typeof saveChatTtsSettings>[0], okMes
 }
 
 async function onTtsToggle(): Promise<void> {
+  const turningOff = !ttsEnabled.value
   await persist(
     { ttsEnabled: ttsEnabled.value },
     ttsEnabled.value ? '已开启对话 TTS' : '已关闭对话 TTS'
   )
+  if (turningOff) {
+    const companionOff = await disableScreenCompanionIfEnabled()
+    if (companionOff) {
+      status.value = '已关闭对话 TTS；屏幕偷窥总开关已一并关闭'
+      emit('changed')
+    }
+  }
 }
 
 async function onParallelToggle(): Promise<void> {

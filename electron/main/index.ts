@@ -2,6 +2,8 @@ import { app } from 'electron'
 import { createRequire } from 'node:module'
 import { join } from 'path'
 
+import { localPoc } from 'virtual:xue-local-screen-companion-poc'
+
 import './logging/registerErrorHandlers'
 import { logFatal, logInfo, logWarn } from './logging/logger'
 import { registerLoggingIpc } from './ipc/logging'
@@ -26,6 +28,7 @@ import { registerDesireIpc } from './ipc/desire'
 import { registerRelationshipIpc } from './ipc/relationship'
 import { registerPetTouchIpc } from './ipc/petTouch'
 import { registerSttIpc } from './ipc/stt'
+import { registerScreenCompanionIpc } from './ipc/screenCompanion'
 import { initMemorySubsystem, finalizeForAppQuit } from './memory/runtime'
 import { stopManagedLlamaServer } from './llama/session'
 import { stopManagedSttService } from './stt/session'
@@ -39,6 +42,10 @@ import {
   setPetWindowOverlay,
   showPetWindowIfNeeded
 } from './windows/petWindow'
+import {
+  reconcileScreenCompanionScheduler,
+  stopScreenCompanionScheduler
+} from './screenCompanion/scheduler'
 
 const require = createRequire(import.meta.url)
 const appInstanceLock = require(join(__dirname, '../../scripts/app-instance-lock.js')) as {
@@ -46,10 +53,13 @@ const appInstanceLock = require(join(__dirname, '../../scripts/app-instance-lock
   clearLock: (expectedPid?: number) => void
 }
 
-const gotSingleInstanceLock = app.requestSingleInstanceLock()
+/** 本地 POC/verify 存在且 env 命中时跳过单实例锁（见 localPocAppModes.ts） */
+const isScreenCompanionPoc = localPoc?.active === true
+
+const gotSingleInstanceLock = isScreenCompanionPoc ? true : app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) {
   app.quit()
-} else {
+} else if (!isScreenCompanionPoc) {
   app.on('second-instance', () => {
     const petWindow = getPetWindow()
     if (petWindow) {
@@ -114,13 +124,21 @@ function registerIpc(): void {
   registerRelationshipIpc()
   registerPetTouchIpc()
   registerSttIpc()
+  registerScreenCompanionIpc()
 }
 
 let quittingFinalizeStarted = false
 
 app.on('before-quit', (event) => {
   setQuitting(true)
-  appInstanceLock.clearLock(process.pid)
+  if (!isScreenCompanionPoc) {
+    appInstanceLock.clearLock(process.pid)
+    stopScreenCompanionScheduler()
+  }
+
+  if (isScreenCompanionPoc) {
+    return
+  }
 
   if (quittingFinalizeStarted) {
     return
@@ -155,23 +173,21 @@ app.on('before-quit', (event) => {
 
 app.whenReady().then(() => {
   try {
-    appInstanceLock.writeLock(process.pid, 'app')
-    resetExperimentalFeaturesOnStartup()
-    reconcileVoiceRuntimeConfig()
-    initMemorySubsystem()
-    setChatWindowLifecycle({
-      onOpened: prepareWindowsForChat,
-      onClosed: restoreWindowsAfterChat
-    })
-    registerIpc()
-    createPetWindow()
-    logInfo('main', 'Application ready')
+    if (localPoc) {
+      void (async () => {
+        try {
+          const handled = await localPoc.runWhenReady({ registerIpc })
+          if (handled) return
+          startProductApp()
+        } catch (error) {
+          logFatal('main', 'local screen companion POC failed', error)
+          app.exit(1)
+        }
+      })()
+      return
+    }
 
-    app.on('activate', () => {
-      if (!getPetWindow()) {
-        createPetWindow()
-      }
-    })
+    startProductApp()
   } catch (error) {
     logFatal('main', 'Startup failed in app.whenReady', error)
     throw error
@@ -179,6 +195,29 @@ app.whenReady().then(() => {
 }).catch((error) => {
   logFatal('main', 'app.whenReady rejected', error)
 })
+
+function startProductApp(): void {
+  appInstanceLock.writeLock(process.pid, 'app')
+  resetExperimentalFeaturesOnStartup()
+  reconcileVoiceRuntimeConfig()
+  initMemorySubsystem()
+  setChatWindowLifecycle({
+    onOpened: prepareWindowsForChat,
+    onClosed: restoreWindowsAfterChat
+  })
+  registerIpc()
+  void reconcileScreenCompanionScheduler().catch((error) => {
+    logWarn('main', 'screen companion scheduler reconcile failed', error)
+  })
+  createPetWindow()
+  logInfo('main', 'Application ready')
+
+  app.on('activate', () => {
+    if (!getPetWindow()) {
+      createPetWindow()
+    }
+  })
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
