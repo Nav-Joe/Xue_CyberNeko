@@ -162,7 +162,8 @@ export function createPetWindow(): void {
   })
 
   petWindow = win
-  registerPetNarrateTarget(win.webContents.id)
+  const petNarrateWcId = win.webContents.id
+  registerPetNarrateTarget(petNarrateWcId)
   lockPetWindowSize(PET_BOOTSTRAP_WIDTH, PET_BOOTSTRAP_HEIGHT)
 
   win.webContents.on('did-finish-load', () => {
@@ -183,7 +184,7 @@ export function createPetWindow(): void {
   })
 
   win.on('closed', () => {
-    unregisterPetNarrateTarget(win.webContents.id)
+    unregisterPetNarrateTarget(petNarrateWcId)
     if (petWindow === win) petWindow = null
   })
 

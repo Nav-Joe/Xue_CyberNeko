@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createChatTtsSession } from '../../chatTtsSession'
 import {
+  COMPANION_TTS_SERIAL_PREFETCH_LIMIT,
+  COMPANION_TTS_SYNTH_TIMEOUT_MS,
   playScreenCompanionNarrateTts,
   resolveScreenCompanionTtsParallelLanes
 } from '../companionTtsPipeline'
@@ -33,7 +35,11 @@ describe('playScreenCompanionNarrateTts', () => {
   it('splits on pause punctuation and forces serial lanes', async () => {
     await playScreenCompanionNarrateTts('我是雪澜，一只猫娘')
     expect(createChatTtsSession).toHaveBeenCalledWith(
-      expect.objectContaining({ parallelLanes: 0 })
+      expect.objectContaining({
+        parallelLanes: 0,
+        serialPrefetchLimit: COMPANION_TTS_SERIAL_PREFETCH_LIMIT,
+        synthTimeoutMs: COMPANION_TTS_SYNTH_TIMEOUT_MS
+      })
     )
     const items = vi.mocked(mockSession.enqueueAll).mock.calls[0]?.[0] as Array<{
       displaySegment: string

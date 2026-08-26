@@ -397,6 +397,37 @@ describe('createChatTtsSession', () => {
     expect(timeline.filter((e) => e.startsWith('play:'))).toEqual(['play:a', 'play:b', 'play:c'])
   })
 
+  it('serialPrefetchLimit=1 submits only one synth until release advances', async () => {
+    const gates = new Map<string, () => void>()
+    vi.mocked(fetchChatTtsBlob).mockImplementation(
+      (text) =>
+        new Promise((resolve) => {
+          gates.set(text, () => resolve(new Blob([text])))
+        })
+    )
+
+    const session = createChatTtsSession({
+      onRevealSegment: () => {},
+      serialPrefetchLimit: 1
+    })
+    session.enqueueAll([
+      { displaySegment: 'seg-1', ttsText: 'seg-1' },
+      { displaySegment: 'seg-2', ttsText: 'seg-2' },
+      { displaySegment: 'seg-3', ttsText: 'seg-3' }
+    ])
+    session.markStreamComplete()
+    await delay(10)
+
+    expect(fetchChatTtsBlob).toHaveBeenCalledTimes(1)
+
+    for (const key of ['seg-1', 'seg-2', 'seg-3']) {
+      gates.get(key)?.()
+      await delay(10)
+    }
+    await session.waitUntilIdle()
+    expect(fetchChatTtsBlob).toHaveBeenCalledTimes(3)
+  })
+
   it('exports max batch size constant', () => {
     expect(CHAT_TTS_MAX_BATCH_SIZE).toBe(5)
   })

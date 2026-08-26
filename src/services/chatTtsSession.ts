@@ -54,6 +54,13 @@ export function createChatTtsSession(options: {
   onRevealSegment: (segment: string) => void
   /** 0=串行；2-4=并行并路（传给后端 parallel_lanes） */
   parallelLanes?: number
+  /**
+   * 串行档（parallelLanes&lt;2）同时提交的推理上限；默认 CHAT_TTS_MAX_BATCH_SIZE。
+   * 陪玩旁白应设为 1，避免多路 HTTP 把 TTS 侧车打满后队头永久卡住。
+   */
+  serialPrefetchLimit?: number
+  /** 单句合成超时（毫秒）；超时按失败跳过该句，避免 waitUntilIdle 永久挂起 */
+  synthTimeoutMs?: number
 }): ChatTtsSession {
   abortActiveChatTtsSession()
 
@@ -69,6 +76,8 @@ export function createChatTtsSession(options: {
 
   const parallelLanes = options.parallelLanes ?? 0
   const isParallelMode = parallelLanes >= 2
+  const serialPrefetchLimit = options.serialPrefetchLimit ?? CHAT_TTS_MAX_BATCH_SIZE
+  const synthTimeoutMs = options.synthTimeoutMs
   let headWaitSinceMs: number | null = null
   let headWaitTimer: ReturnType<typeof setInterval> | null = null
   let lastHeadWaitWarnAtMs = 0
@@ -161,7 +170,7 @@ export function createChatTtsSession(options: {
       if (readyButUnreleasedCount() >= maxReadyButUnreleased()) return false
       return true
     }
-    return serialInFlightWindowSize() < CHAT_TTS_MAX_BATCH_SIZE
+    return serialInFlightWindowSize() < serialPrefetchLimit
   }
 
   function startSynth(slot: SegmentSlot): void {
@@ -174,7 +183,20 @@ export function createChatTtsSession(options: {
       `order=${order} ${sessionSnapshot()} preview="${previewTtsText(slot.ttsText)}"`
     )
     syncHeadWaitHeartbeat()
-    void fetchChatTtsBlob(slot.ttsText.trim(), 0, order, parallelLanes)
+    const fetchPromise = fetchChatTtsBlob(slot.ttsText.trim(), 0, order, parallelLanes)
+    const raced =
+      synthTimeoutMs != null && synthTimeoutMs > 0
+        ? Promise.race([
+            fetchPromise,
+            new Promise<never>((_, reject) => {
+              setTimeout(
+                () => reject(new Error(`TTS synth timeout after ${synthTimeoutMs}ms`)),
+                synthTimeoutMs
+              )
+            })
+          ])
+        : fetchPromise
+    void raced
       .then((blob) => {
         if (aborted) return
         slot.blob = blob

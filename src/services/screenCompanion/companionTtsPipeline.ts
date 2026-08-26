@@ -6,7 +6,12 @@ import { stripTextForTts } from '../chat/textSplitter'
 import { createChatTtsSession } from '../chatTtsSession'
 import { splitTextForCompanionTts } from './companionTextSplitter'
 
-/** 陪玩旁白固定串行（parallel_lanes=0）。 */
+/** 陪玩旁白：逐句提交推理，避免 5 路预取把 TTS 侧车打满。 */
+export const COMPANION_TTS_SERIAL_PREFETCH_LIMIT = 1
+
+/** 单句旁白合成超时（毫秒）；卡住则跳过该句，防止整轮旁白永久挂起。 */
+export const COMPANION_TTS_SYNTH_TIMEOUT_MS = 120_000
+
 export function resolveScreenCompanionTtsParallelLanes(): number {
   return 0
 }
@@ -24,7 +29,9 @@ export async function playScreenCompanionNarrateTts(text: string): Promise<void>
 
   const ttsSession = createChatTtsSession({
     onRevealSegment: () => {},
-    parallelLanes: resolveScreenCompanionTtsParallelLanes()
+    parallelLanes: resolveScreenCompanionTtsParallelLanes(),
+    serialPrefetchLimit: COMPANION_TTS_SERIAL_PREFETCH_LIMIT,
+    synthTimeoutMs: COMPANION_TTS_SYNTH_TIMEOUT_MS
   })
 
   const items = split
