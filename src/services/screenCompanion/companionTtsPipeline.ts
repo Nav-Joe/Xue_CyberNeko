@@ -4,6 +4,8 @@
 import { logChatSegmentDebug } from '../chat/chatDebugLog'
 import { stripTextForTts } from '../chat/textSplitter'
 import { createChatTtsSession } from '../chatTtsSession'
+import { loadScreenCompanionConfig } from './screenCompanionStore'
+import type { CompanionTtsDevice } from './types'
 import { splitTextForCompanionTts } from './companionTextSplitter'
 
 /** 陪玩旁白：逐句提交推理，避免 5 路预取把 TTS 侧车打满。 */
@@ -14,6 +16,20 @@ export const COMPANION_TTS_SYNTH_TIMEOUT_MS = 120_000
 
 export function resolveScreenCompanionTtsParallelLanes(): number {
   return 0
+}
+
+/** cpu → 陪玩专用 CPU 引擎；gpu → 复用对话 GPU 主引擎。 */
+export function resolveCompanionTtsMode(device: CompanionTtsDevice): 'companion' | 'chat' {
+  return device === 'gpu' ? 'chat' : 'companion'
+}
+
+export async function resolveCompanionTtsDeviceFromConfig(): Promise<CompanionTtsDevice> {
+  try {
+    const config = await loadScreenCompanionConfig()
+    return config.companionTtsDevice === 'gpu' ? 'gpu' : 'cpu'
+  } catch {
+    return 'cpu'
+  }
 }
 
 export async function playScreenCompanionNarrateTts(text: string): Promise<void> {
@@ -27,11 +43,16 @@ export async function playScreenCompanionNarrateTts(text: string): Promise<void>
     split.map((seg, index) => `[${index + 1}] ${seg}`).join('\n') || '(无句段)'
   )
 
+  const companionTtsDevice = await resolveCompanionTtsDeviceFromConfig()
+  const ttsMode = resolveCompanionTtsMode(companionTtsDevice)
+  logChatSegmentDebug('陪玩旁白 TTS 设备', companionTtsDevice)
+
   const ttsSession = createChatTtsSession({
     onRevealSegment: () => {},
     parallelLanes: resolveScreenCompanionTtsParallelLanes(),
     serialPrefetchLimit: COMPANION_TTS_SERIAL_PREFETCH_LIMIT,
-    synthTimeoutMs: COMPANION_TTS_SYNTH_TIMEOUT_MS
+    synthTimeoutMs: COMPANION_TTS_SYNTH_TIMEOUT_MS,
+    ttsMode
   })
 
   const items = split

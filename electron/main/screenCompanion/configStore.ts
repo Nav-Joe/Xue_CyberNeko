@@ -12,13 +12,19 @@ import {
   type ApiKeyCrypto
 } from '../chat/apiKeyAtRest'
 import { isChatTtsEnabledForCompanion } from './chatTtsGate'
-import type { ScreenCompanionConfig, ScreenCompanionConfigView, VisionLlmConfig } from './types'
+import type {
+  CompanionTtsDevice,
+  ScreenCompanionConfig,
+  ScreenCompanionConfigView,
+  VisionLlmConfig
+} from './types'
 
 export const DEFAULT_SCREEN_COMPANION_CONFIG: ScreenCompanionConfig = {
   enabled: false,
   pausedUntilMs: null,
   processBlacklist: [],
   intervalSec: 90,
+  companionTtsDevice: 'cpu',
   visionApiKeySecretSave: false,
   vision: {
     baseUrl: '',
@@ -39,6 +45,7 @@ type DiskFile = {
   pausedUntilMs?: number | null
   processBlacklist?: string[]
   intervalSec?: number
+  companionTtsDevice?: string
   visionApiKeySecretSave?: boolean
   vision?: DiskVision
 }
@@ -91,6 +98,10 @@ function normalizeIntervalSec(raw: unknown): number {
   return Math.min(600, Math.max(30, Math.floor(n)))
 }
 
+export function normalizeCompanionTtsDevice(raw: unknown): CompanionTtsDevice {
+  return raw === 'gpu' ? 'gpu' : 'cpu'
+}
+
 export function normalizeScreenCompanionConfig(raw: DiskFile | null | undefined): {
   config: ScreenCompanionConfig
   shouldRewrite: boolean
@@ -106,6 +117,7 @@ export function normalizeScreenCompanionConfig(raw: DiskFile | null | undefined)
     pausedUntilMs: normalizePausedUntil(raw?.pausedUntilMs),
     processBlacklist: normalizeBlacklist(raw?.processBlacklist),
     intervalSec: normalizeIntervalSec(raw?.intervalSec),
+    companionTtsDevice: normalizeCompanionTtsDevice(raw?.companionTtsDevice),
     visionApiKeySecretSave: raw?.visionApiKeySecretSave === true,
     vision: {
       baseUrl: typeof visionRaw.baseUrl === 'string' ? visionRaw.baseUrl.trim() : '',
@@ -128,7 +140,8 @@ function toDisk(config: ScreenCompanionConfig): DiskFile {
       model: config.vision.model,
       ...keyFields
     },
-    intervalSec: normalizeIntervalSec(config.intervalSec)
+    intervalSec: normalizeIntervalSec(config.intervalSec),
+    companionTtsDevice: normalizeCompanionTtsDevice(config.companionTtsDevice)
   }
 }
 
@@ -161,6 +174,7 @@ export function writeScreenCompanionConfig(config: ScreenCompanionConfig): Scree
     pausedUntilMs: config.pausedUntilMs,
     processBlacklist: config.processBlacklist,
     intervalSec: config.intervalSec,
+    companionTtsDevice: config.companionTtsDevice,
     visionApiKeySecretSave: config.visionApiKeySecretSave,
     vision: {
       baseUrl: config.vision.baseUrl,
@@ -181,6 +195,7 @@ export function toScreenCompanionConfigView(config: ScreenCompanionConfig): Scre
     pausedUntilMs: config.pausedUntilMs,
     processBlacklist: [...config.processBlacklist],
     intervalSec: normalizeIntervalSec(config.intervalSec),
+    companionTtsDevice: normalizeCompanionTtsDevice(config.companionTtsDevice),
     visionBaseUrl: config.vision.baseUrl,
     visionModel: config.vision.model,
     hasVisionApiKey,
@@ -222,6 +237,11 @@ export function applyScreenCompanionConfigWrite(
       payload.intervalSec !== undefined && payload.intervalSec !== null
         ? payload.intervalSec
         : current.intervalSec
+    ),
+    companionTtsDevice: normalizeCompanionTtsDevice(
+      payload.companionTtsDevice !== undefined
+        ? payload.companionTtsDevice
+        : current.companionTtsDevice
     ),
     visionApiKeySecretSave:
       payload.visionApiKeySecretSave !== undefined

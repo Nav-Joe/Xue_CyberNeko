@@ -21,7 +21,7 @@ echo     - Python 虚拟环境 ^(.venv^)
 echo     - Qwen3-TTS 引擎依赖与 PyTorch
 echo     - STT 侧车依赖 ^(sherpa-onnx 等，stt_service\requirements.txt^)
 echo     - SenseVoice STT 模型 ^(约 230MB，.runtime\stt-models\^)
-echo     - Qwen3 模型：VoiceDesign 1.7B + Base 1.7B
+echo     - Qwen3 模型：VoiceDesign 1.7B + Base 0.6B
 echo.
 echo   Live2D 模型将在安装完成后引导下载（桃濑日和）
 echo ========================================

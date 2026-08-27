@@ -27,6 +27,8 @@ class RuntimeStore:
     corpus_prewarm_must_block: bool = False
     offline_prewarm_manager: AudioCacheManager | None = None
     offline_prewarm_folder_id: str | None = None
+    companion_cpu_engine: Any = None
+    companion_cpu_engine_identity: str | None = None
 
 
 def init_runtime() -> AppRuntime:
@@ -152,6 +154,22 @@ class AppRuntime:
     @offline_prewarm_folder_id.setter
     def offline_prewarm_folder_id(self, value: str | None) -> None:
         self._store.offline_prewarm_folder_id = value
+
+    @property
+    def companion_cpu_engine(self) -> Any:
+        return self._store.companion_cpu_engine
+
+    @companion_cpu_engine.setter
+    def companion_cpu_engine(self, value: Any) -> None:
+        self._store.companion_cpu_engine = value
+
+    @property
+    def companion_cpu_engine_identity(self) -> str | None:
+        return self._store.companion_cpu_engine_identity
+
+    @companion_cpu_engine_identity.setter
+    def companion_cpu_engine_identity(self, value: str | None) -> None:
+        self._store.companion_cpu_engine_identity = value
 
     def refresh_touch_mode_from_disk(self, *, reconcile: bool = False) -> str:
         from services.engine_lifecycle import refresh_touch_mode_from_disk

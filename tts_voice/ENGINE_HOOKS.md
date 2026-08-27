@@ -113,13 +113,13 @@ Qwen 音色工坊与第三方引擎语料（`alt_engine_corpus`）共用 `audio_
 1. 用 **instruct**（默认 `qwen_config.json`，用户覆盖见 `.runtime/voice-forge.json`）+ **clone_reference_text** 生成或加载克隆参考 wav：
    - 官方：`voice_forge/default_sample/`
    - 用户：`voice_forge/custom_sample/`（VoiceDesign 或**实验功能**上传 WAV，见下节）
-2. 加载 **Base 1.7B**，`create_voice_clone_prompt(ref_audio, ref_text)` 锁定声线。
+2. 加载 **Base 0.6B**，`create_voice_clone_prompt(ref_audio, ref_text)` 锁定声线。
 3. 对该参考音克隆合成语料库全部句子 × 3 随机种子，写入当前激活声线目录下的 `touch_cache/`。
 
 所需模型（ModelScope，由 `首次安装.bat` / `scripts/win/check-qwen-models.cmd` 引导下载至 `Qwen3_TTS/models/`）：
 
 - `Qwen3_TTS/models/Qwen3-TTS-12Hz-1.7B-VoiceDesign`
-- `Qwen3_TTS/models/Qwen3-TTS-12Hz-1.7B-Base`
+- `Qwen3_TTS/models/Qwen3-TTS-12Hz-0.6B-Base`
 
 精选模式（curated）仍只加载 VoiceDesign，不占用 Base 显存。
 

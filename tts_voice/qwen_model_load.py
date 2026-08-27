@@ -8,9 +8,11 @@ from pathlib import Path
 import torch
 
 
-def prepare_torch_env() -> tuple[str, torch.dtype]:
+def prepare_torch_env(*, prefer_cpu: bool = False) -> tuple[str, torch.dtype]:
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     os.environ.pop("HF_ENDPOINT", None)
+    if prefer_cpu:
+        return "cpu", torch.float32
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
     return device, dtype

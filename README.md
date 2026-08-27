@@ -2,7 +2,7 @@
 
 一个会动、会聊、会悄悄观察你的 Live2D 桌面 AI 桌宠。
 
-**当前版本：V0.6.1（早期开发版本）**
+**当前版本：V0.6.2（早期开发版本）**
 
 > **文档语言 / Docs:** [中文 README](README.md)（本页）· [English README](README.en.md)
 
@@ -161,7 +161,7 @@ UI 以 TTS `/health` 的**运行中 backend** 为准。
 
 | 引擎 | 说明 |
 |------|------|
-| `qwen` | **默认**。VoiceDesign + Base 1.7B；音色工坊 |
+| `qwen` | **默认**。VoiceDesign 1.7B + Base 0.6B 克隆；音色工坊 |
 | `bert_vits2` | 需 `Bert-VITS2/` + 私有权重 |
 | `style_bert_vits2` | 占位，欢迎 PR / Issue |
 

@@ -31,11 +31,11 @@ if not exist "Qwen3_TTS\models\Qwen3-TTS-12Hz-1.7B-VoiceDesign\config.json" (
 
 )
 
-if not exist "Qwen3_TTS\models\Qwen3-TTS-12Hz-1.7B-Base\config.json" (
+if not exist "Qwen3_TTS\models\Qwen3-TTS-12Hz-0.6B-Base\config.json" (
 
   echo [警告] 未找到 Qwen3 Base 克隆模型（自定义语料预热需要）。
 
-  echo        请运行「首次安装.bat」或 scripts\win\install-qwen-models.cmd 下载 Base 1.7B。
+  echo        请运行「首次安装.bat」或 scripts\win\install-qwen-models.cmd 下载 Base 0.6B。
 
   exit /b 1
 

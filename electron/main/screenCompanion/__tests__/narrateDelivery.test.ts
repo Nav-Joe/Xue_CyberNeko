@@ -35,6 +35,12 @@ describe('waitForCompanionNarrateTtsDone', () => {
     await expect(wait).resolves.toBe(true)
   })
 
+  it('resolves false after max extends without notify', async () => {
+    const wait = waitForCompanionNarrateTtsDone(7, 60_000)
+    await vi.advanceTimersByTimeAsync(60_000 + 120_000 * 5)
+    await expect(wait).resolves.toBe(false)
+  })
+
   it('keeps waiting across extends until notify (no timeout false)', async () => {
     const wait = waitForCompanionNarrateTtsDone(7, 60_000)
     await vi.advanceTimersByTimeAsync(60_000 + 120_000 * 3)

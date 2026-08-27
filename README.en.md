@@ -2,7 +2,7 @@
 
 A Live2D desktop AI companion that moves, chats, and quietly watches over you.
 
-**Current version: V0.6.1 (early development)**
+**Current version: V0.6.2 (early development)**
 
 > **Docs languages:** [中文 README](README.md) · [English README](README.en.md) (this file)
 
@@ -162,7 +162,7 @@ Config: `tts_voice/config.yaml` (**restart TTS** after changing `engine`).
 
 | Engine | Notes |
 |--------|--------|
-| `qwen` | **Default**. VoiceDesign + Base 1.7B; Voice Forge |
+| `qwen` | **Default**. VoiceDesign 1.7B + Base 0.6B clone; Voice Forge |
 | `bert_vits2` | Needs `Bert-VITS2/` + private weights |
 | `style_bert_vits2` | Placeholder — PRs / Issues welcome |
 

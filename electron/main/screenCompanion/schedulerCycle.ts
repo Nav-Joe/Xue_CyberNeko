@@ -31,7 +31,17 @@ export type CycleContext = {
 
 async function isSessionStillPlaying(ctx: CycleContext): Promise<boolean> {
   const paths = await ctx.deps.listProcessExecutablePaths()
-  return paths.some((p) => ctx.pathUnderGameRoot(p, ctx.session.gameRoot))
+  if (paths.some((p) => ctx.pathUnderGameRoot(p, ctx.session.gameRoot))) {
+    return true
+  }
+  try {
+    const status = await ctx.deps.probeSteamPlaying({ enabled: true })
+    if (!status.playing) return false
+    const normalizeRoot = (p: string) => p.replace(/\//g, '\\').replace(/[\\/]+$/, '').toLowerCase()
+    return normalizeRoot(status.gameRoot) === normalizeRoot(ctx.session.gameRoot)
+  } catch {
+    return ctx.session.sticky || ctx.session.trackedPids.size > 0 || ctx.session.pathHints.size > 0
+  }
 }
 
 function scheduleNextCycle(ctx: CycleContext, anchorMs: number): void {
@@ -53,11 +63,17 @@ export async function runSessionCycleTick(ctx: CycleContext): Promise<void> {
   ctx.setCycleBusy(true)
   try {
     const config = readScreenCompanionConfig()
-    if (!config.enabled) return
+    if (!config.enabled) {
+      logInfo('screenCompanion', 'cycle skip: companion disabled')
+      return
+    }
+
+    logInfo('screenCompanion', `cycle start game=${ctx.session.gameName}`)
 
     try {
       const still = await isSessionStillPlaying(ctx)
       if (!still) {
+        logInfo('screenCompanion', `cycle leave: game not playing game=${ctx.session.gameName}`)
         ctx.leaveSession('interval-not-playing')
         return
       }
@@ -94,6 +110,9 @@ export async function runSessionCycleTick(ctx: CycleContext): Promise<void> {
     }
 
     if (!observation?.usableForPrompt) {
+      const skipped = observation?.skipped ?? 'none'
+      const hint = observation?.summary?.trim().slice(0, 120) ?? ''
+      logInfo('screenCompanion', `cycle skip narrate: not usable skipped=${skipped} summary=${hint}`)
       scheduleNextCycle(ctx, ctx.deps.nowMs())
       return
     }
@@ -104,6 +123,7 @@ export async function runSessionCycleTick(ctx: CycleContext): Promise<void> {
       observation
     })
     if (!line) {
+      logInfo('screenCompanion', 'cycle skip tts: narrate empty')
       scheduleNextCycle(ctx, ctx.deps.nowMs())
       return
     }

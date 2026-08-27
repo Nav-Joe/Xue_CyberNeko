@@ -94,6 +94,9 @@ def runtime_matches_active_sample(runtime: AppRuntime) -> bool:
 def invalidate_voice_runtime(runtime: AppRuntime, reason: str = "") -> None:
     if reason:
         print(f"[TTS] {reason}，卸载旧克隆引擎", flush=True)
+    from services.companion_cpu_engine import clear_companion_cpu_engine
+
+    clear_companion_cpu_engine(runtime)
     runtime.engine = None
     runtime.cache_manager = None
     runtime.cached_sample_id = None
@@ -262,7 +265,9 @@ def load_model(runtime: AppRuntime) -> None:
 def shutdown(runtime: AppRuntime) -> None:
     """P4：进程退出时释放引擎（预留扩展点）。"""
     from engines.runtime_isolation import release_engine_runtime
+    from services.companion_cpu_engine import clear_companion_cpu_engine
 
+    clear_companion_cpu_engine(runtime)
     release_engine_runtime()
     runtime.engine = None
     runtime.cache_manager = None

@@ -52,7 +52,7 @@ def voice_design_model_dir(settings: dict) -> Path:
     if not (path / "config.json").is_file():
         raise RuntimeError(
             f"未找到 Qwen3 VoiceDesign 模型: {path}\n"
-            "请先运行「测试Qwen3.0_tts引擎.bat」下载 VoiceDesign 1.7B"
+            "请先运行「首次安装.bat」或 scripts\\win\\install-qwen-models.cmd 下载 VoiceDesign 1.7B"
         )
     return path
 
@@ -65,7 +65,7 @@ def base_model_dir(settings: dict) -> Path:
     if not (path / "config.json").is_file():
         raise RuntimeError(
             f"未找到 Qwen3 Base 克隆模型: {path}\n"
-            "请先运行「测试Qwen3.0_tts引擎.bat」下载 Base 1.7B（选 5d）"
+            "请先运行「首次安装.bat」或 scripts\\win\\install-qwen-models.cmd 下载 Base 0.6B"
         )
     return path
 

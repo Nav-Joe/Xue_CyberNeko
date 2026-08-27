@@ -1,6 +1,6 @@
 import { logChatTtsDebug, logChatTtsWarn } from './chat/chatDebugLog'
 import { abortActiveChatTtsSession, setActiveChatTtsSession } from './chatTtsSessionRegistry'
-import { fetchChatTtsBlob, playChatAudioBlob } from './ttsPlayer'
+import { fetchChatTtsBlob, fetchCompanionTtsBlob, playChatAudioBlob } from './ttsPlayer'
 
 /** 相对释放指针最多同时进行的 TTS 推理数（滑动窗口 · 仅串行档） */
 export const CHAT_TTS_MAX_BATCH_SIZE = 5
@@ -61,6 +61,8 @@ export function createChatTtsSession(options: {
   serialPrefetchLimit?: number
   /** 单句合成超时（毫秒）；超时按失败跳过该句，避免 waitUntilIdle 永久挂起 */
   synthTimeoutMs?: number
+  /** chat=GPU 主引擎；companion=陪玩旁白 CPU 引擎 */
+  ttsMode?: 'chat' | 'companion'
 }): ChatTtsSession {
   abortActiveChatTtsSession()
 
@@ -78,6 +80,7 @@ export function createChatTtsSession(options: {
   const isParallelMode = parallelLanes >= 2
   const serialPrefetchLimit = options.serialPrefetchLimit ?? CHAT_TTS_MAX_BATCH_SIZE
   const synthTimeoutMs = options.synthTimeoutMs
+  const ttsMode = options.ttsMode ?? 'chat'
   let headWaitSinceMs: number | null = null
   let headWaitTimer: ReturnType<typeof setInterval> | null = null
   let lastHeadWaitWarnAtMs = 0
@@ -183,7 +186,10 @@ export function createChatTtsSession(options: {
       `order=${order} ${sessionSnapshot()} preview="${previewTtsText(slot.ttsText)}"`
     )
     syncHeadWaitHeartbeat()
-    const fetchPromise = fetchChatTtsBlob(slot.ttsText.trim(), 0, order, parallelLanes)
+    const fetchPromise =
+      ttsMode === 'companion'
+        ? fetchCompanionTtsBlob(slot.ttsText.trim(), 0, order)
+        : fetchChatTtsBlob(slot.ttsText.trim(), 0, order, parallelLanes)
     const raced =
       synthTimeoutMs != null && synthTimeoutMs > 0
         ? Promise.race([

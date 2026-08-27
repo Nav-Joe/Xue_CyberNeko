@@ -3,6 +3,7 @@
  * 失败重试次数与聊天 LLM 一致。
  */
 import { classifyLlmChatError, LLM_CHAT_MAX_RETRIES } from '../../../src/services/chat/llmChatRetry'
+import { extractOpenAiMessageContent } from '../../../src/services/chat/llmOutputParser'
 import type { VisionLlmConfig } from './types'
 
 const SUMMARY_PROMPT =
@@ -93,7 +94,7 @@ async function summarizeScreenImageOnce(input: {
             role: 'user',
             content: [
               { type: 'text', text: SUMMARY_PROMPT },
-              { type: 'image_url', image_url: { url: dataUrl } }
+              { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } }
             ]
           }
         ]
@@ -111,15 +112,9 @@ async function summarizeScreenImageOnce(input: {
     }
 
     const json = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }>
+      choices?: Array<{ message?: unknown }>
     }
-    const raw = json.choices?.[0]?.message?.content
-    let text = ''
-    if (typeof raw === 'string') {
-      text = raw
-    } else if (Array.isArray(raw)) {
-      text = raw.map((p) => (typeof p?.text === 'string' ? p.text : '')).join('')
-    }
+    const text = extractOpenAiMessageContent(json.choices?.[0]?.message)
     const summary = truncateSummary(text)
     if (!summary) {
       return { ok: false, detail: '视觉模型返回空摘要', visionMs }

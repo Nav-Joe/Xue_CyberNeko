@@ -1,3 +1,4 @@
+import { parseOpenAiCompletionBody } from '../../../src/services/chat/llmOutputParser'
 import type { ChatHistoryMessage, ChatOutputFormat } from '../../../src/services/chat/types'
 
 function buildUrl(base: string, path: string): string {
@@ -51,8 +52,7 @@ function parseCompletionBody(body: unknown, format: ChatOutputFormat): string {
     const record = body as { text?: unknown }
     if (typeof record?.text === 'string') return record.text
   }
-  const openAi = body as { choices?: Array<{ message?: { content?: string } }> }
-  const content = openAi.choices?.[0]?.message?.content ?? ''
+  const content = parseOpenAiCompletionBody(body)
   if (format === 'json_content') {
     return normalizeJsonContentText(content)
   }

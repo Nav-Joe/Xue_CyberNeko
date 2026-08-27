@@ -47,12 +47,17 @@ export type VisionLlmConfig = {
   model: string
 }
 
+/** 陪玩旁白 TTS 推理设备：默认 CPU，避免占满游戏显卡；轻量游戏可切 GPU。 */
+export type CompanionTtsDevice = 'cpu' | 'gpu'
+
 export type ScreenCompanionConfig = {
   enabled: boolean
   pausedUntilMs: number | null
   processBlacklist: string[]
   /** 游戏会话内两次观察的最小间隔（秒）；默认 90 */
   intervalSec: number
+  /** 旁白 TTS 推理设备；默认 cpu */
+  companionTtsDevice: CompanionTtsDevice
   /**
    * 默认关（只有明确为 true 才开）：关着时设置页可回填 Key 方便改；
    * 开着时设置页只显示「已配置」，不把明文 Key 传给渲染进程。口径与聊天 API Key 私密保存一致。
@@ -66,6 +71,7 @@ export type ScreenCompanionConfigView = {
   pausedUntilMs: number | null
   processBlacklist: string[]
   intervalSec: number
+  companionTtsDevice: CompanionTtsDevice
   visionBaseUrl: string
   visionModel: string
   hasVisionApiKey: boolean

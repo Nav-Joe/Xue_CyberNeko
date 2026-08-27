@@ -12,15 +12,30 @@ export function extractJsonContentText(value: unknown): string | null {
   return null
 }
 
+/** 从 OpenAI message.content 提取文本（string 或 multimodal parts 数组） */
+export function extractOpenAiMessageContent(message: unknown): string {
+  const record = asRecord(message)
+  if (!record) return ''
+  const content = record.content
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .map((part) => {
+      const item = asRecord(part)
+      if (!item) return ''
+      if (typeof item.text === 'string') return item.text
+      return ''
+    })
+    .join('')
+}
+
 /** OpenAI chat completion 非流式响应 */
 export function parseOpenAiCompletionBody(body: unknown): string {
   const root = asRecord(body)
   const choices = root?.choices
   if (!Array.isArray(choices) || choices.length === 0) return ''
   const first = asRecord(choices[0])
-  const message = asRecord(first?.message)
-  if (typeof message?.content === 'string') return message.content
-  return ''
+  return extractOpenAiMessageContent(first?.message)
 }
 
 /** OpenAI SSE data 行中的 delta.content */

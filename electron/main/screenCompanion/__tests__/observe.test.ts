@@ -96,6 +96,31 @@ describe('summarizeScreenImage', () => {
       expect(result.summary).toContain('桌面')
     }
   })
+
+  it('parses content parts array from Gemini-shaped response', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: [{ type: 'text', text: '正在玩卡牌对战。' }]
+            }
+          }
+        ]
+      })
+    }))
+    const result = await summarizeScreenImage({
+      imageBytes: Buffer.from([1, 2, 3]),
+      mimeType: 'image/jpeg',
+      config: { baseUrl: 'https://example.test/v1', apiKey: 'sk', model: 'gemini-x' },
+      deps: { fetchImpl: fetchImpl as unknown as typeof fetch }
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.summary).toContain('卡牌')
+    }
+  })
 })
 
 describe('observePrimaryScreen', () => {
@@ -290,9 +315,32 @@ describe('configStore', () => {
     expect(next.visionApiKeySecretSave).toBe(true)
   })
 
-  it('defaults enabled false and visionApiKeySecretSave false', () => {
+  it('defaults enabled false, visionApiKeySecretSave false, companionTtsDevice cpu', () => {
     const { config } = normalizeScreenCompanionConfig({})
     expect(config.enabled).toBe(false)
     expect(config.visionApiKeySecretSave).toBe(false)
+    expect(config.companionTtsDevice).toBe('cpu')
+  })
+
+  it('normalizes companionTtsDevice gpu and rejects unknown values', () => {
+    expect(normalizeScreenCompanionConfig({ companionTtsDevice: 'gpu' }).config.companionTtsDevice).toBe(
+      'gpu'
+    )
+    expect(normalizeScreenCompanionConfig({ companionTtsDevice: 'cuda' }).config.companionTtsDevice).toBe(
+      'cpu'
+    )
+  })
+
+  it('persists companionTtsDevice to disk', () => {
+    writeScreenCompanionConfig({
+      ...DEFAULT_SCREEN_COMPANION_CONFIG,
+      enabled: true,
+      companionTtsDevice: 'gpu'
+    })
+    const disk = JSON.parse(readFileSync(join(dir, 'screen-companion-config.json'), 'utf8')) as {
+      companionTtsDevice?: string
+    }
+    expect(disk.companionTtsDevice).toBe('gpu')
+    expect(readScreenCompanionConfig().companionTtsDevice).toBe('gpu')
   })
 })

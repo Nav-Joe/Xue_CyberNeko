@@ -15,6 +15,8 @@ export type SpeakTextOptions = {
   speakerId?: number
 }
 
+export type TtsFetchMode = 'default' | 'chat' | 'companion'
+
 let currentAudio: HTMLAudioElement | null = null
 let currentObjectUrl: string | null = null
 /** 实时推理：从 /tts 请求到音频播完（或失败）之前忽略重复点击 */
@@ -125,11 +127,11 @@ export type ChatTtsFetchOptions = {
 async function fetchLiveTtsBlob(
   text: string,
   speakerId: number,
-  mode: 'default' | 'chat' = 'default',
+  mode: TtsFetchMode = 'default',
   options?: ChatTtsFetchOptions
 ): Promise<Blob> {
   const payload: Record<string, unknown> = { text, speaker_id: speakerId, mode }
-  if (mode === 'chat') {
+  if (mode === 'chat' || mode === 'companion') {
     if (options?.order !== undefined) payload.order = options.order
     payload.parallel_lanes = options?.parallelLanes ?? 0
   }
@@ -155,6 +157,15 @@ export async function fetchChatTtsBlob(
   parallelLanes = 0
 ): Promise<Blob> {
   return fetchLiveTtsBlob(text, speakerId, 'chat', { order, parallelLanes })
+}
+
+/** 屏幕陪玩旁白：走 TTS 侧车 CPU 引擎，不占 GPU 显存 */
+export async function fetchCompanionTtsBlob(
+  text: string,
+  speakerId = 0,
+  order?: number
+): Promise<Blob> {
+  return fetchLiveTtsBlob(text, speakerId, 'companion', { order, parallelLanes: 0 })
 }
 
 function base64ToBlob(base64: string, mimeType = 'audio/wav'): Blob {

@@ -99,7 +99,7 @@ class TtsRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=200)
     speaker_id: int = 0
     seed: int | None = None
-    mode: str = "default"  # chat：单句独立推理，不参与 micro-batch
+    mode: str = "default"  # chat：聊天 GPU；companion：陪玩旁白 CPU；default：触摸/缓存
     order: int | None = Field(default=None, ge=0, description="聊天句序，从 0 递增；串行 GPU 按序推理")
     parallel_lanes: int = Field(
         default=0,

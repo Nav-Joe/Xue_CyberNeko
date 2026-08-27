@@ -26,6 +26,7 @@ const {
   ttsEnabled,
   reload,
   onEnabledToggle,
+  onCompanionTtsDeviceChange,
   onIntervalSave,
   applyIntervalPreset,
   onVisionSave,
@@ -86,6 +87,17 @@ async function onIntervalSaveAndEmit(): Promise<void> {
 
 async function onIntervalPreset(sec: number): Promise<void> {
   if (await applyIntervalPreset(sec)) emit('changed')
+}
+
+async function onCompanionTtsDevice(device: 'cpu' | 'gpu'): Promise<void> {
+  if (!config.value || config.value.companionTtsDevice === device) return
+  const prev = config.value.companionTtsDevice
+  config.value = cloneScreenCompanionConfig({ ...config.value, companionTtsDevice: device })
+  if (await onCompanionTtsDeviceChange(device)) {
+    emit('changed')
+    return
+  }
+  config.value = cloneScreenCompanionConfig({ ...config.value, companionTtsDevice: prev })
 }
 
 async function onPauseMin(min: number): Promise<void> {
@@ -183,6 +195,46 @@ defineExpose({
           </button>
         </div>
         <p v-if="statusText" class="chat-theme__hint sc-settings__feedback">{{ statusText }}</p>
+      </div>
+
+      <div class="sc-settings__block">
+        <span class="chat-theme__label">旁白 TTS 推理设备</span>
+        <p class="chat-theme__hint">
+          默认 CPU，不占游戏显卡，玩轻量游戏或显卡有余量时可切 GPU。
+        </p>
+        <div
+          class="ios-segment"
+          role="tablist"
+          aria-label="旁白 TTS 推理设备"
+        >
+          <span
+            class="ios-segment__thumb"
+            :class="{ 'ios-segment__thumb--gpu': config.companionTtsDevice === 'gpu' }"
+            aria-hidden="true"
+          />
+          <button
+            type="button"
+            role="tab"
+            class="ios-segment__btn"
+            :class="{ 'ios-segment__btn--active': config.companionTtsDevice === 'cpu' }"
+            :aria-selected="config.companionTtsDevice === 'cpu'"
+            :disabled="saving || loading"
+            @click="onCompanionTtsDevice('cpu')"
+          >
+            CPU
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="ios-segment__btn"
+            :class="{ 'ios-segment__btn--active': config.companionTtsDevice === 'gpu' }"
+            :aria-selected="config.companionTtsDevice === 'gpu'"
+            :disabled="saving || loading"
+            @click="onCompanionTtsDevice('gpu')"
+          >
+            GPU
+          </button>
+        </div>
       </div>
     </template>
 
@@ -389,5 +441,56 @@ defineExpose({
   color: #4338ca;
   font-size: 14px;
   line-height: 1;
+}
+
+.ios-segment {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  max-width: 220px;
+  padding: 3px;
+  border-radius: 10px;
+  background: #e5e7eb;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.ios-segment__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  height: calc(100% - 6px);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: transform 0.22s ease;
+  pointer-events: none;
+}
+
+.ios-segment__thumb--gpu {
+  transform: translateX(100%);
+}
+
+.ios-segment__btn {
+  position: relative;
+  z-index: 1;
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.ios-segment__btn--active {
+  color: #111827;
+}
+
+.ios-segment__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 </style>

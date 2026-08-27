@@ -5,6 +5,7 @@ import {
   LLM_CHAT_MAX_RETRIES,
   withLlmChatRetry
 } from '../../../src/services/chat/llmChatRetry'
+import { parseOpenAiCompletionBody } from '../../../src/services/chat/llmOutputParser'
 import type { ChatHistoryMessage } from '../../../src/services/chat/types'
 
 import { parseMemoryKind, type MemoryKind } from './vitality'
@@ -197,10 +198,8 @@ async function completeChatOnce(messages: ChatHistoryMessage[]): Promise<string>
           `llama-server ${response.status}: ${detail.slice(0, 200) || response.statusText}`
         )
       }
-      const json = (await response.json()) as {
-        choices?: Array<{ message?: { content?: string } }>
-      }
-      return json.choices?.[0]?.message?.content ?? ''
+      const json = (await response.json()) as unknown
+      return parseOpenAiCompletionBody(json)
     } catch (err) {
       throw mapFetchError(err, true)
     }

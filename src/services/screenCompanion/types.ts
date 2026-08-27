@@ -15,11 +15,15 @@ export type ScreenCompanionObservation = {
   usableForPrompt?: boolean
 }
 
+/** 陪玩旁白 TTS 推理设备：默认 CPU；轻量游戏可切 GPU。 */
+export type CompanionTtsDevice = 'cpu' | 'gpu'
+
 export type ScreenCompanionConfigView = {
   enabled: boolean
   pausedUntilMs: number | null
   processBlacklist: string[]
   intervalSec: number
+  companionTtsDevice: CompanionTtsDevice
   visionBaseUrl: string
   visionModel: string
   hasVisionApiKey: boolean

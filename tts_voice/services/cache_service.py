@@ -7,6 +7,7 @@ from typing import Any
 
 from app_config.voice_config import TtsBatchRequest, TtsRequest
 from services.batch_inference import dispatch_synthesize, dispatch_synthesize_batch, dispatch_synthesize_chat
+from services.companion_cpu_engine import synthesize_companion_tts
 from services.runtime_state import AppRuntime
 from touch_mode_config import is_corpus_touch_mode
 from voice_forge_paths import read_touch_cache_pointer, resolve_active_sample_dir
@@ -197,6 +198,14 @@ def synthesize_tts(runtime: AppRuntime, request: TtsRequest) -> bytes:
     tm = runtime.touch_mode
     if is_corpus_touch_mode(tm) and not runtime.uses_private_engine_cache() and not runtime.runtime_matches_active_sample():
         raise RuntimeError("克隆声线正在切换，请稍候")
+    if request.mode == "companion":
+        return synthesize_companion_tts(
+            runtime,
+            request.text,
+            speaker_id=request.speaker_id,
+            seed=request.seed,
+            order=request.order,
+        )
     if request.mode == "chat":
         lanes = int(request.parallel_lanes or 0)
         return dispatch_synthesize_chat(

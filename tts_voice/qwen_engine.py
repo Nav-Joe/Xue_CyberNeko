@@ -29,7 +29,7 @@ DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "qwen_config.json"
 class QwenVoiceDesignEngine:
     """默认后端：按 instruct 现场合成（精选模式 / 无克隆预热）。"""
 
-    def __init__(self, config_path: Path = DEFAULT_CONFIG_PATH) -> None:
+    def __init__(self, config_path: Path = DEFAULT_CONFIG_PATH, *, prefer_cpu: bool = False) -> None:
         self._config_path = config_path
         self._settings = self._load_settings(config_path)
         self._model_dir = voice_design_model_dir(self._settings)
@@ -37,7 +37,7 @@ class QwenVoiceDesignEngine:
         self._instruct = self._settings.get("instruct", "").strip()
         self._target_sr = int(self._settings.get("target_sample_rate", 22050))
         self._generation = dict(self._settings.get("generation") or {})
-        self._device, self._dtype = prepare_torch_env()
+        self._device, self._dtype = prepare_torch_env(prefer_cpu=prefer_cpu)
         attn = resolve_attn_implementation(self._settings)
 
         print(
@@ -148,6 +148,7 @@ class QwenCloneEngine:
         self,
         config_path: Path = DEFAULT_CONFIG_PATH,
         *,
+        prefer_cpu: bool = False,
         force_regenerate_reference: bool = False,
         allow_reference_generate: bool = True,
         reference_sample_dir: Path | None = None,
@@ -157,7 +158,7 @@ class QwenCloneEngine:
         self._language = self._settings.get("language", "Chinese")
         self._target_sr = int(self._settings.get("target_sample_rate", 22050))
         self._generation = dict(self._settings.get("generation") or {})
-        self._device, self._dtype = prepare_torch_env()
+        self._device, self._dtype = prepare_torch_env(prefer_cpu=prefer_cpu)
 
         if reference_sample_dir is not None:
             from qwen_clone_setup import load_reference
@@ -286,14 +287,18 @@ def create_engine(
     config_path: Path | None = None,
     *,
     use_clone: bool = False,
+    prefer_cpu: bool = False,
     force_regenerate_reference: bool = False,
     allow_reference_generate: bool = True,
+    reference_sample_dir: Path | None = None,
 ) -> QwenVoiceDesignEngine | QwenCloneEngine:
     path = config_path or DEFAULT_CONFIG_PATH
     if use_clone:
         return QwenCloneEngine(
             path,
+            prefer_cpu=prefer_cpu,
             force_regenerate_reference=force_regenerate_reference,
             allow_reference_generate=allow_reference_generate,
+            reference_sample_dir=reference_sample_dir,
         )
-    return QwenVoiceDesignEngine(path)
+    return QwenVoiceDesignEngine(path, prefer_cpu=prefer_cpu)

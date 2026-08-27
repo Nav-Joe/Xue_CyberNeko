@@ -28,6 +28,8 @@ const MAX_TTS_WAIT_MS = 600_000
 const TTS_WAIT_BASE_MS = 120_000
 const TTS_WAIT_MS_PER_CHAR = 2000
 const TTS_WAIT_EXTEND_MS = 120_000
+/** 防止桌宠未 notify 时 cycleBusy 永久卡死 */
+const MAX_TTS_WAIT_EXTENDS = 5
 
 export type CompanionNarrateDeliverResult = 'playback_done' | 'emit_failed' | 'playback_failed'
 
@@ -73,6 +75,16 @@ function schedulePendingTimeout(ts: number, timeoutMs: number): void {
   pending.timer = setTimeout(() => {
     if (!pending || pending.ts !== ts) return
     pending.extendCount += 1
+    if (pending.extendCount >= MAX_TTS_WAIT_EXTENDS) {
+      logWarn(
+        'screenCompanion',
+        `narrate tts wait exceeded ${MAX_TTS_WAIT_EXTENDS} extends; releasing scheduler`
+      )
+      pending.resolve(false)
+      clearTimeout(pending.timer)
+      pending = null
+      return
+    }
     logWarn(
       'screenCompanion',
       `narrate tts still waiting for full release; extend #${pending.extendCount} (+${TTS_WAIT_EXTEND_MS}ms)`

@@ -27,7 +27,8 @@ function resolveActiveRolePrompt(): string {
   })
 }
 
-function buildNarrateMessages(input: {
+/** 导出供单测；Gemini 等 OpenAI 兼容网关通常要求至少一条 user 消息 */
+export function buildNarrateMessages(input: {
   gameName: string
   observation: ScreenObservation
 }): ChatHistoryMessage[] {
@@ -36,16 +37,23 @@ function buildNarrateMessages(input: {
   const system = [
     role,
     '【看屏旁白·非聊天会话】',
-    '你在看用户玩 Steam 游戏，根据下方信息说一两句陪伴式口语旁白。',
+    '你在看用户玩 Steam 游戏，根据用户消息中的屏幕摘要说一两句陪伴式口语旁白。',
     '这不是用户发来的聊天消息；不要以对话口吻等待用户回复。',
-    NARRATE_TIMEOUT_HINT,
-    `当前游戏：${input.gameName}`,
-    `屏幕摘要：${summary}`
+    NARRATE_TIMEOUT_HINT
   ]
     .filter(Boolean)
     .join('\n\n')
 
-  return [{ role: 'system', content: system }]
+  const user = [
+    `当前游戏：${input.gameName}`,
+    `屏幕摘要：${summary}`,
+    '请根据以上信息生成旁白。'
+  ].join('\n')
+
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: user }
+  ]
 }
 
 function normalizeNarrateLine(raw: string): string {

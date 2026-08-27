@@ -20,9 +20,24 @@ vi.mock('../../chat/character-cards', () => ({
   })
 }))
 
-import { generateCompanionNarrate } from '../narrate'
+import { generateCompanionNarrate, buildNarrateMessages } from '../narrate'
 
 describe('generateCompanionNarrate', () => {
+  it('builds system+user messages for Gemini-compatible gateways', () => {
+    const messages = buildNarrateMessages({
+      gameName: 'DemoGame',
+      observation: {
+        ts: new Date().toISOString(),
+        summary: '用户在打 Boss',
+        usableForPrompt: true
+      }
+    })
+    expect(messages).toHaveLength(2)
+    expect(messages[0]?.role).toBe('system')
+    expect(messages[1]?.role).toBe('user')
+    expect(messages[1]?.content).toContain('用户在打 Boss')
+  })
+
   it('returns trimmed line when observation usable', async () => {
     const line = await generateCompanionNarrate({
       gameName: 'DemoGame',

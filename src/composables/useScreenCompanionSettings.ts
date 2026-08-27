@@ -116,6 +116,13 @@ export function useScreenCompanionSettings() {
     }
   }
 
+  async function onCompanionTtsDeviceChange(device: 'cpu' | 'gpu'): Promise<boolean> {
+    return persist(
+      { companionTtsDevice: device },
+      device === 'gpu' ? '旁白 TTS 已切换为 GPU' : '旁白 TTS 已切换为 CPU'
+    )
+  }
+
   async function onEnabledToggle(enabled: boolean): Promise<boolean> {
     return persist({ enabled }, enabled ? '已开启屏幕偷窥' : '已关闭屏幕偷窥')
   }
@@ -219,6 +226,7 @@ export function useScreenCompanionSettings() {
     ttsEnabled,
     reload,
     onEnabledToggle,
+    onCompanionTtsDeviceChange,
     onIntervalSave,
     applyIntervalPreset,
     onVisionSave,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  extractOpenAiMessageContent,
   normalizeJsonContentAssistantText,
   parseCompletionBody,
   parseOpenAiCompletionBody,
@@ -14,6 +15,27 @@ describe('llmOutputParser', () => {
       choices: [{ message: { role: 'assistant', content: '你好' } }]
     })
     expect(text).toBe('你好')
+  })
+
+  it('parses OpenAI completion body with content parts array (Gemini compat)', () => {
+    const text = parseOpenAiCompletionBody({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: [
+              { type: 'text', text: '屏幕' },
+              { type: 'text', text: '摘要' }
+            ]
+          }
+        }
+      ]
+    })
+    expect(text).toBe('屏幕摘要')
+  })
+
+  it('extractOpenAiMessageContent returns empty for missing content', () => {
+    expect(extractOpenAiMessageContent({})).toBe('')
   })
 
   it('parses json_content completion body', () => {

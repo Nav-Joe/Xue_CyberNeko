@@ -111,6 +111,10 @@ function findProjectElectronPids() {
         continue
       }
       const lower = line.toLowerCase()
+      // 仅认 Electron 主进程；utility/gpu/renderer 孤儿进程不应阻断再次启动
+      if (lower.includes('--type=')) {
+        continue
+      }
       if (
         !lower.includes('xue_cyberneko') &&
         !lower.includes('xue-cyber-neko') &&
