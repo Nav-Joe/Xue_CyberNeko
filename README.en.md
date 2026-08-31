@@ -253,7 +253,8 @@ The first emotion-simulation release is usable; next I’ll keep polishing it an
 
 ## Sponsorship
 
-Free and open source — not sold as a commercial product. Tip / sponsorship channels will open later for optional personal support of the developer only; never required to use the software. Stars and Issues are welcome.
+Afdian: https://ifdian.net/a/XueLan_Official  
+Casual tips: [Alipay](donate/alipay.jpg) · [WeChat Pay](donate/wechat.png)
 
 ## A quiet aside
 

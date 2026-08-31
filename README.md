@@ -255,12 +255,6 @@ Xue_CyberNeko/
 爱发电：https://ifdian.net/a/XueLan_Official  
 随手の施舍：[支付宝](donate/alipay.jpg) · [微信](donate/wechat.png)
 
-<p>
-  <a href="donate/alipay.jpg"><img src="donate/alipay.jpg" alt="支付宝赞助码" width="180" /></a>
-  &nbsp;
-  <a href="donate/wechat.png"><img src="donate/wechat.png" alt="微信赞助码" width="180" /></a>
-</p>
-
 ## 一些悄悄话
 
 实际开发中可能会根据使用体验更换技术栈或架构，里程碑表格里的技术栈仅作方向参考——开发过程往往是想到什么就做什么......
