@@ -243,7 +243,9 @@ Xue_CyberNeko/
 
 ## License
 
-MIT (to be confirmed formally before Milestone 7 release)
+This project is released under the [MIT License](LICENSE).
+
+Maintainer commitment: this project will **not be commercialized** as a paid product or sold as exclusive rights. Voluntary sponsorship to support the developer personally is welcome. Third-party use of the code remains under the MIT terms in LICENSE.
 
 ## What’s next
 
@@ -251,7 +253,7 @@ The first emotion-simulation release is usable; next I’ll keep polishing it an
 
 ## Sponsorship
 
-The project is free and open source; tip / support channels will open later. Stars and Issues are welcome.
+Free and open source — not sold as a commercial product. Tip / sponsorship channels will open later for optional personal support of the developer only; never required to use the software. Stars and Issues are welcome.
 
 ## A quiet aside
 

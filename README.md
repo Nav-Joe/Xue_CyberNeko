@@ -242,7 +242,9 @@ Xue_CyberNeko/
 
 ## 许可证
 
-MIT（里程碑 7 发布前正式确认）
+本项目以 [MIT License](LICENSE) 开源发布。
+
+维护者承诺：本项目本身**不会商业化**（不会做成付费产品或卖断授权）；欢迎通过赞助渠道自愿支持开发者个人。第三方在 MIT 条款下使用代码时，仍须遵守 LICENSE 全文。
 
 ## 关于下一阶段
 
@@ -250,7 +252,14 @@ MIT（里程碑 7 发布前正式确认）
 
 ## 赞助
 
-项目免费开源，后续将开放投喂渠道，欢迎 Star 与 Issue。
+爱发电：https://ifdian.net/a/XueLan_Official  
+随手の施舍：[支付宝](donate/alipay.jpg) · [微信](donate/wechat.png)
+
+<p>
+  <a href="donate/alipay.jpg"><img src="donate/alipay.jpg" alt="支付宝赞助码" width="180" /></a>
+  &nbsp;
+  <a href="donate/wechat.png"><img src="donate/wechat.png" alt="微信赞助码" width="180" /></a>
+</p>
 
 ## 一些悄悄话
 
