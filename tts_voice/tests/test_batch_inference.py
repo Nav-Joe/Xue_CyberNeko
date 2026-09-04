@@ -11,6 +11,7 @@ from services.batch_inference import (
     MAX_BATCH_SIZE,
     MAX_WAIT_MS,
     BatchInferenceDispatcher,
+    ParallelChatPool,
     dispatch_synthesize,
     dispatch_synthesize_chat,
     dispatch_synthesize_immediate,
@@ -300,6 +301,15 @@ class BatchInferenceDispatcherTest(unittest.TestCase):
 
         self.assertEqual(set(results.keys()), {0, 1, 2})
         self.assertLessEqual(peak, 2)
+
+    def test_parallel_pool_clamps_lanes_to_2_4(self) -> None:
+        # CONTRACT：ParallelChatPool 将 lanes clamp 到 [2, 4]
+        high = ParallelChatPool(lanes=99)
+        self.assertEqual(high._lanes, 4)
+        high.configure(1)
+        self.assertEqual(high._lanes, 2)
+        mid = ParallelChatPool(lanes=3)
+        self.assertEqual(mid._lanes, 3)
 
     def test_max_batch_size_matches_frontend_serial_prefetch_window(self) -> None:
         # 串行窗两侧都写 5，但含义不同：前端=HTTP 预取上限；此处=非 chat micro-batch

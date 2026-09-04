@@ -2,7 +2,7 @@
 
 与 Electron / 前端对照时另见：
 
-- `electron/main/config/CONTRACT.md` — `.runtime/` 磁盘与 reconcile（A1–A7）
+- `electron/main/config/CONTRACT.md` — `.runtime/` 磁盘与 reconcile（A1–A7 + 测试覆盖对照表）
 - `src/services/voice-engine/CONTRACT.md` — 加载轮询 + Resync
 - `src/services/chat/CONTRACT.md` — 文字聊天 + **对话 TTS 并行真相表（双写）**
 - `tts_voice/ENGINE_HOOKS.md` — 引擎 hook / `/tts` 字段一览
@@ -21,6 +21,18 @@
 | **`0`** | 串行有序：`dispatch_synthesize_immediate`，按 order 0→1→2… 推进 | **必须遵守** |
 | **`1`** | **同串行**（仅当 `parallel_lanes >= 2` 才进 `ParallelChatPool`）；API **允许** `1`，只文档化，本轮不禁止 | **必须遵守** |
 | **`2`–`4`** | `ParallelChatPool`：semaphore 限制并发；GPU 完成顺序任意 | 请求可带 `order`，**池内忽略** |
+
+### FE ↔ BE 对照清单（对话 TTS 并行）
+
+完整表以 **`src/services/chat/CONTRACT.md`** §「FE ↔ BE 对照清单」为准（双端同读）。本侧要点：
+
+| # | 本侧必须 | 禁止 |
+|---|----------|------|
+| 串行 0/1 | `synthesize_immediate` 按 order | 把预取 5 当成 5 路 GPU |
+| 并行 ≥2 | semaphore ≤ clamp([2,4], lanes)；**忽略 order** | 并行池内「等 order-1」 |
+| 命名 | 聊天并行 = `ParallelChatPool` | 与触摸 `/tts/batch` 混成一条调度 |
+
+字段入口另见 `ENGINE_HOOKS.md` §HTTP API（已链回本真相表）。
 
 ### 人话说明（与前端同一套约定）
 

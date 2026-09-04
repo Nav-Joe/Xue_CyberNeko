@@ -512,5 +512,108 @@ describe('scheduler session', () => {
 
   })
 
+  /** 关总闸后不得再 observe（零截屏语义） */
+  it('disable while session active: leave + no further observe', async () => {
+    let now = 1_000_000
+    const leaveEvents: { sessionActive: boolean; reason: string }[] = []
+    setSchedulerTestDeps(
+      defaultTestSchedulerDeps({
+        nowMs: () => now,
+        startProcessWatch: (handlers) => {
+          processHandler = handlers.onEvent
+          return { stop: () => undefined }
+        },
+        listProcessExecutablePaths: async () => [
+          'C:\\Steam\\steamapps\\common\\DemoGame\\game.exe'
+        ],
+        observePrimaryScreen: async () => {
+          observeCalls += 1
+          return {
+            observation: {
+              ts: new Date().toISOString(),
+              summary: 'ok',
+              usableForPrompt: true
+            },
+            totalObserveMs: 1
+          }
+        },
+        deliverNarrateTts: async () => {
+          narrateCalls += 1
+          return 'playback_done' as const
+        },
+        emitSession: (e: { sessionActive: boolean; reason: string }) => {
+          leaveEvents.push({ sessionActive: e.sessionActive, reason: e.reason })
+        }
+      })
+    )
+
+    await startScreenCompanionScheduler()
+    processHandler?.({
+      type: 'create',
+      pid: 4242,
+      path: 'C:\\Steam\\steamapps\\common\\DemoGame\\game.exe'
+    })
+    expect(getSchedulerSnapshot().sessionActive).toBe(true)
+
+    now += 90_000
+    await tickSchedulerObserveForTests()
+    expect(observeCalls).toBe(1)
+
+    writeScreenCompanionConfig({ ...DEFAULT_SCREEN_COMPANION_CONFIG, enabled: false })
+    await reconcileScreenCompanionScheduler()
+
+    expect(getSchedulerSnapshot().schedulerRunning).toBe(false)
+    expect(getSchedulerSnapshot().sessionActive).toBe(false)
+    expect(leaveEvents.some((e) => e.sessionActive === false && e.reason === 'stop')).toBe(true)
+
+    now += 90_000
+    await tickSchedulerObserveForTests()
+    expect(observeCalls).toBe(1)
+  })
+
+  /** 写盘关闸后，下一次 tick 也应 stop 且不 observe（不依赖 reconcile） */
+  it('runCycleTick stops on disabled without reconcile', async () => {
+    let now = 1_000_000
+    setSchedulerTestDeps(
+      defaultTestSchedulerDeps({
+        nowMs: () => now,
+        startProcessWatch: (handlers) => {
+          processHandler = handlers.onEvent
+          return { stop: () => undefined }
+        },
+        listProcessExecutablePaths: async () => [
+          'C:\\Steam\\steamapps\\common\\DemoGame\\game.exe'
+        ],
+        observePrimaryScreen: async () => {
+          observeCalls += 1
+          return {
+            observation: {
+              ts: new Date().toISOString(),
+              summary: 'ok',
+              usableForPrompt: true
+            },
+            totalObserveMs: 1
+          }
+        }
+      })
+    )
+
+    await startScreenCompanionScheduler()
+    processHandler?.({
+      type: 'create',
+      pid: 7,
+      path: 'C:\\Steam\\steamapps\\common\\DemoGame\\game.exe'
+    })
+    expect(getSchedulerSnapshot().sessionActive).toBe(true)
+
+    writeScreenCompanionConfig({ ...DEFAULT_SCREEN_COMPANION_CONFIG, enabled: false })
+    now += 90_000
+    await tickSchedulerObserveForTests()
+
+    expect(getSchedulerSnapshot().schedulerRunning).toBe(false)
+    expect(getSchedulerSnapshot().sessionActive).toBe(false)
+    expect(observeCalls).toBe(0)
+  })
+
 })
 

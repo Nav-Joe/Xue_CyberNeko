@@ -5,9 +5,16 @@
 import { classifyLlmChatError, LLM_CHAT_MAX_RETRIES } from '../../../src/services/chat/llmChatRetry'
 import { extractOpenAiMessageContent } from '../../../src/services/chat/llmOutputParser'
 import type { VisionLlmConfig } from './types'
+import {
+  VISION_IMAGE_DETAIL,
+  VISION_SUMMARY_MAX_CHARS,
+  VISION_SUMMARY_MAX_TOKENS,
+  VISION_SUMMARY_TARGET_CHARS,
+  VISION_SUMMARY_TEMPERATURE
+} from './visionLimits'
 
 const SUMMARY_PROMPT =
-  '用一句中文概括这张屏幕截图在做什么（约 100 字以内）。' +
+  `用一句中文概括这张屏幕截图在做什么（约 ${VISION_SUMMARY_TARGET_CHARS} 字以内）。` +
   '先写清主场景（例如在玩什么、界面大致状态），再酌情带上有用细节：比分、倒计时、回合、关键卡、任务进度等；细节服务于主场景，勿堆无关杂讯。' +
   '少写人名、账号、证件号等敏感信息。只输出摘要正文，不要前缀标题。'
 
@@ -27,7 +34,11 @@ function buildUrl(base: string, path: string): string {
   return `${base.replace(/\/+$/, '')}${path}`
 }
 
-function truncateSummary(text: string, maxChars = 160): string {
+/** 导出供单测：只截识图摘要，不截旁白 */
+export function truncateVisionSummary(
+  text: string,
+  maxChars: number = VISION_SUMMARY_MAX_CHARS
+): string {
   const t = text.trim().replace(/\s+/g, ' ')
   if (t.length <= maxChars) return t
   return t.slice(0, maxChars)
@@ -87,14 +98,14 @@ async function summarizeScreenImageOnce(input: {
       },
       body: JSON.stringify({
         model,
-        temperature: 0.2,
-        max_tokens: 200,
+        temperature: VISION_SUMMARY_TEMPERATURE,
+        max_tokens: VISION_SUMMARY_MAX_TOKENS,
         messages: [
           {
             role: 'user',
             content: [
               { type: 'text', text: SUMMARY_PROMPT },
-              { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } }
+              { type: 'image_url', image_url: { url: dataUrl, detail: VISION_IMAGE_DETAIL } }
             ]
           }
         ]
@@ -115,7 +126,7 @@ async function summarizeScreenImageOnce(input: {
       choices?: Array<{ message?: unknown }>
     }
     const text = extractOpenAiMessageContent(json.choices?.[0]?.message)
-    const summary = truncateSummary(text)
+    const summary = truncateVisionSummary(text)
     if (!summary) {
       return { ok: false, detail: '视觉模型返回空摘要', visionMs }
     }

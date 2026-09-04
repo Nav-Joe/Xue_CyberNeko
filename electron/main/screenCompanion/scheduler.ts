@@ -116,6 +116,7 @@ function leaveSession(reason: string): void {
   const prev = state.session
   if (prev) {
     logInfo('screenCompanion', `session leave (${reason}) game=${prev.gameName}`)
+    // 陪玩总结仅 enqueue；此处禁止 await，以免拖住清会话 / 解聊天锁
     scheduleCompanionMemoryConsolidate({
       companionSessionId: prev.companionSessionId,
       gameName: prev.gameName,
@@ -166,6 +167,7 @@ function buildCycleContext(): CycleContext | null {
 async function runCycleTick(): Promise<void> {
   if (!state.running || !state.session || state.cycleBusy) return
   const config = readScreenCompanionConfig()
+  // 总闸/TTS 关 → stop（清会话、解聊天锁）；禁止继续 observe
   if (!config.enabled || !isChatTtsEnabledForCompanion()) {
     stopScreenCompanionScheduler()
     return

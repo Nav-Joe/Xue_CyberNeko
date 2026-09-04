@@ -165,13 +165,13 @@ export function useScreenCompanionSettings() {
     await persist({ clearVisionApiKey: true }, '已清除视觉 API Key')
   }
 
-  async function pauseForMinutes(minutes: number): Promise<void> {
+  async function pauseForMinutes(minutes: number): Promise<boolean> {
     const until = Date.now() + minutes * 60_000
-    await persist({ pausedUntilMs: until }, `已暂停看屏至 ${formatCompanionPauseUntil(until)}`)
+    return persist({ pausedUntilMs: until }, `已暂停看屏至 ${formatCompanionPauseUntil(until)}`)
   }
 
-  async function resumePause(): Promise<void> {
-    await persist({ pausedUntilMs: null }, '已恢复看屏')
+  async function resumePause(): Promise<boolean> {
+    return persist({ pausedUntilMs: null }, '已恢复看屏')
   }
 
   async function addBlacklistEntry(): Promise<void> {

@@ -1,6 +1,7 @@
 /**
  * 渲染侧好感 IPC：会话缓冲鉴定、注入、快照。
  * 门闩只认插件总闸 desireEnabled；relationshipEnabled 仅为配置镜像，勿当开关读。
+ * 鉴定必须 F&F（不进 consolidateChain）；满 3 轮 / 关窗 flush 都禁止 await IPC。
  */
 import { scheduleMemoryBackground } from '../memory/scheduleMemoryBackground'
 import { createRelationshipTurnBuffer, type RelChatRound } from './turnBuffer'
@@ -57,6 +58,7 @@ export async function getRelationshipStatus(): Promise<{
 }
 
 function fireEval(rounds: RelChatRound[], source: 'llm_turn' | 'chat_close'): void {
+  // 故意不 await：与满轮总结并行抢模型可以，卡在 sending 上不行
   scheduleMemoryBackground('relationship-eval', () =>
     window.electronAPI?.relationshipApplyEval?.({ rounds, source })
   )

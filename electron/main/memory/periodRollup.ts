@@ -22,6 +22,12 @@ export type PeriodRollupResult = {
  * 对话开局异步调用：数月短路 → 周（可多次）→ 月。
  * 失败不删源；同会话有 cooldown。
  *
+ * 触发点（禁止改成「发送路径 await」）：
+ * - 渲染开局：`maybeRunPeriodRollup` → scheduleMemoryBackground → IPC（不进 consolidateChain）
+ * - 关窗总结成功后：`void maybeRunPeriodRollups`（F&F，不拖 finalize 返回值）
+ * - 陪玩总结成功后：同源 F&F
+ * 与聊天 LLM 可能并行抢模型（尤其本地）——有意设计；勿为「省冲突」把本函数塞进 Prompt 必等档。
+ *
  * 实现拆在 periodWeekly / periodMonthly / periodPromote / periodRollupMeta；
  * 本文件为唯一对外入口（meta/prune 经本模块 re-export）。
  */

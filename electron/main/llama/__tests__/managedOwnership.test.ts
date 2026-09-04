@@ -176,3 +176,39 @@ describe('createSingleFlight · 并发调用只 spawn 一次', () => {
     expect(spawnCount).toBe(2)
   })
 })
+
+/** 把关窗误杀链用纯函数串成场景，不启真进程 */
+describe('关窗误杀竞态场景链（纯函数）', () => {
+  it('L-delay 期间再 begin：只杀旧快照、保留新 runtime；跳过 begin 时 probe 对齐 external', () => {
+    const pidAtClose = 4242
+    const stopAtClose = decideStopAction({
+      ownership: 'app_spawned',
+      managedPid: pidAtClose
+    })
+    expect(stopAtClose).toEqual({
+      shouldKill: true,
+      pid: 4242,
+      reason: 'app_spawned'
+    })
+
+    // 关窗后立刻再开：新 spawn 拿到 7777，整理结束才 stop(onlyPid=4242)
+    const afterReopen = decideSnapshotStopAction({
+      ownership: 'app_spawned',
+      managedPid: 7777,
+      snapshotPid: pidAtClose
+    })
+    expect(afterReopen).toEqual({ pidToKill: 4242, clearRuntime: false })
+
+    // 前端发现端口已通跳过 begin：none → external，关窗全量 stop 不得 kill
+    expect(
+      decideProbeOwnershipReconcile({ ownership: 'none', serverRunning: true })
+    ).toBe('external')
+    expect(
+      decideStopAction({ ownership: 'external', managedPid: null })
+    ).toEqual({
+      shouldKill: false,
+      pid: null,
+      reason: 'not_app_owned'
+    })
+  })
+})

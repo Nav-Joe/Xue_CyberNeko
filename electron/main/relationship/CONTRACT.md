@@ -40,6 +40,8 @@
 | 写库 | `parse` → `applyRelationshipDeltas` → 写 `relationship_states` + 插 `relationship_events` |
 | IPC | `relationship-get-status` / `relationship-apply-eval` |
 | 热路径 | 渲染侧后台调用；不阻塞 sending / 首 token |
+| 调度 | `noteRelationshipRoundMaybeEval` / `flushRelationshipOnChatClose` → `scheduleMemoryBackground`（**禁止 await**）；**不进** memory `consolidateChain` |
+| 与满轮总结 | 可与满轮/关窗总结 **并行**抢同一聊天 LLM；抢模型 ≠ 死锁；禁止在 aftermath / 关窗 dispose 里 `await` 鉴定 IPC |
 
 ## System 注入
 

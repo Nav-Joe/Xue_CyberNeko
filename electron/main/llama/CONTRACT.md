@@ -94,6 +94,25 @@
 
 ---
 
+## 竞态场景 × 动作（锁语义）
+
+> 纯决策在 `managedOwnership.ts`；编排在 `session.ts` / `downloadLifecycle.ts`。  
+> **钉表与测即可；禁止为压行数拆 `session.ts` 或改 stop 时序。**  
+> `session.ts` 为已知债（约 443/400）：拆文件须另决策且保证 stop/ownership 语义不变。
+
+| # | 场景 | 必须发生 | 禁止 |
+|---|------|----------|------|
+| 1 | 关窗 L-delay 未结束又 begin | `begin` 先 `awaitChatCloseFinalize`；stop 用关窗 **snapshotPid**（`decideSnapshotStopAction`） | 用「当前 managedPid」无脑全量 kill 新进程 |
+| 2 | 关窗后已 spawn 出新 pid | 可杀旧 snapshot；**`clearRuntime=false`**（新进程仍归本应用） | clearRuntime 清掉新 ownership |
+| 3 | 前端跳过 begin（端口已通） | probe：`none`→`external` | 关窗把外部进程当 `app_spawned` 误杀 |
+| 4 | 设置切 OpenAI | 只改配置 | 顺手 stop/kill llama（有意保留进程） |
+| 5 | 全量 stop / 取消下载 / 退出 | `decideStopAction`：仅 `app_spawned`+有 pid 才 kill | 读 `.runtime/llama-server.pid` 决定 kill |
+| 6 | 并发 begin | `beginSessionSingleFlight` 只 spawn 一次 | 无锁并行多次 spawn |
+
+护栏测：`managedOwnership.test.ts`（含关窗误杀场景链）+ `createSingleFlight` 并发测。
+
+---
+
 ## 人话说明
 
 一句话：**主进程只信内存里的「谁拉起的 + 进程号」；磁盘上的 pid 文件只给人看日志，不参与杀进程。**

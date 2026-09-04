@@ -11,7 +11,12 @@ import { join } from 'path'
 
 import { evaluatePrivacyGate, findBlacklistedProcessMatch } from '../privacy'
 import { observePrimaryScreen } from '../observe'
-import { summarizeScreenImage } from '../visionSummary'
+import { summarizeScreenImage, truncateVisionSummary } from '../visionSummary'
+import {
+  VISION_SUMMARY_MAX_CHARS,
+  VISION_SUMMARY_MAX_TOKENS,
+  VISION_SUMMARY_TARGET_CHARS
+} from '../visionLimits'
 import {
   applyScreenCompanionConfigWrite,
   normalizeScreenCompanionConfig,
@@ -76,6 +81,34 @@ describe('summarizeScreenImage', () => {
     })
     expect(result.ok).toBe(false)
     expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('hard-truncates vision summary at VISION_SUMMARY_MAX_CHARS only', () => {
+    expect(VISION_SUMMARY_MAX_CHARS).toBe(300)
+    expect(VISION_SUMMARY_TARGET_CHARS).toBe(100)
+    expect(VISION_SUMMARY_MAX_TOKENS).toBe(400)
+    const long = '字'.repeat(VISION_SUMMARY_MAX_CHARS + 40)
+    expect(truncateVisionSummary(long)).toHaveLength(VISION_SUMMARY_MAX_CHARS)
+  })
+
+  it('sends max_tokens from visionLimits', async () => {
+    const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? '{}')) as { max_tokens?: number }
+      expect(body.max_tokens).toBe(VISION_SUMMARY_MAX_TOKENS)
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: '屏幕上是桌面。' } }]
+        })
+      }
+    })
+    await summarizeScreenImage({
+      imageBytes: Buffer.from([1, 2, 3]),
+      mimeType: 'image/jpeg',
+      config: { baseUrl: 'https://example.test/v1', apiKey: 'sk', model: 'vision-x' },
+      deps: { fetchImpl: fetchImpl as unknown as typeof fetch }
+    })
+    expect(fetchImpl).toHaveBeenCalled()
   })
 
   it('parses text content and does not require disk', async () => {

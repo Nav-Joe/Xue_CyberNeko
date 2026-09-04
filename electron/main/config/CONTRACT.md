@@ -80,6 +80,20 @@ Python：`voice_runtime_repair.py` → `reconcile_runtime_voice_config()`
 | **A6** | `#7` curated→custom 升级门槛 | `isOfficialTouchCacheReady()`（pointer `ready` 或 touch_cache manifest+`0.wav`） | `_active_sample_ready()` **且** `is_touch_cache_ready()` | **已统一（跟 Electron）**：关精选后须预热缓存可用再升 `custom_corpus`，避免一点击就全走实时推理。 |
 | **A7** | stuck session 清理 | 见下方 **卡住 session 清理真相表** | 同左 | **已统一**：两端同一张表；`cancelled` 仍由 A3（Electron #1）做产品取消，#8 不清 cancelled。 |
 
+### A1–A7 测试覆盖对照
+
+> 改规则前对表；**永久分工**项禁止为「对称」改产品语义。发现漂移：**先改本 CONTRACT，再双端改代码**。
+
+| ID | 状态 | Electron 测 | Python 测 | 备注 |
+|----|------|-------------|-----------|------|
+| A1 | 已统一 | `reconcileA1.test.ts` | `test_alt_engine_missing_corpus_…` | 缺 corpus → curated |
+| A2 | **永久分工** | （Electron #5 删盘路径有意不对称；勿强求 Python 对称测） | `test_invalid_custom_does_not_delete_…` | 锁「Python 不删盘」 |
+| A3 | **永久分工** | （#1/#2 取消工坊在 Electron 产品路径） | `test_cancelled_session_is_ignored_by_python` | 锁「Python 不做产品取消」 |
+| A4 | 已统一 | `reconcileA4.test.ts` | `test_alt_engine_keep_still_clears_…` | 保持 alt 仍清 stuck |
+| A5 | 已统一 | `reconcileA5.test.ts` + `sampleReadyForTts.test.ts` | `test_custom_corpus_wav_only_…` | wav+txt |
+| A6 | 已统一 | `reconcileA6.test.ts` | `test_curated_without/with_touch_cache_…` | #7 升级须 cache ready |
+| A7 | 已统一 | `stuckSessionPolicy.test.ts` | `test_a7_unified_stuck_session_matrix` | 同一张 phase 表 |
+
 ### 卡住 session 清理真相表（双端同一张，与 mode 无关）
 
 前提：仅当 `flow === create_voice`。「清」= 删 `voice-forge-session.json` / `clear_session`。  

@@ -29,6 +29,14 @@ import type {
   ChatUiMessage
 } from '../../services/chat/types'
 
+/**
+ * 聊天会话热路径门禁（对齐 memory CONTRACT 分档；改 await 前先看）：
+ * ① Prompt 必等：历史/记忆/欲望等只读注入 — 可 await
+ * ② 开局后台：用户 raw、周月滚 — 禁止 await
+ * ③ 轮后：满轮总结/欲望/好感 — 禁止 await；助手 raw 写入可 await
+ * 预算：本文件非空行若 ≥360，再议拆分；禁止为「顺手加能力」在 send 里 await 总结类 LLM。
+ */
+
 function createMessageId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
@@ -137,6 +145,7 @@ export function useChatSession() {
     const ttsEnabled = config.value.ttsEnabled !== false
     const ttsParallelLanes = resolveChatTtsParallelLanes(config.value)
 
+    // ① 发前只读注入（可 await）；内部不得夹带总结 LLM
     const turnCtx = await resolveChatTurnPromptContext({
       llmMode: config.value.llmMode,
       memoryEnabled: config.value.memoryEnabled,
@@ -153,7 +162,7 @@ export function useChatSession() {
     }
     messages.value.push(userMessage)
     if (config.value.memoryEnabled) {
-      // 开局后台：写入用户原文（不要 await）
+      // ② 开局后台：写入用户原文（禁止 await）
       appendMemoryRawLogInBackground({ sessionId, role: 'user', content: text })
     }
 
@@ -255,6 +264,7 @@ export function useChatSession() {
         await segments.revealFullText(result.content)
       }
       removeTypingPlaceholder()
+      // ③ 轮后收尾：内部只允许 await 助手 raw；总结/欲望/好感必须后台
       await runChatTurnAftermath({
         sessionId,
         memoryEnabled: config.value.memoryEnabled,

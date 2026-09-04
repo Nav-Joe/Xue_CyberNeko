@@ -1,5 +1,9 @@
 /**
  * 退出陪玩会话后：读临时日志 → 用 LLM 写成一条会话总结 → 再参与周/月滚总结。
+ *
+ * 热路径约束：`scheduleCompanionMemoryConsolidate` 必须 fire-and-forget。
+ * `leaveSession` 只负责 enqueue，不得 await LLM；失败保留 JSONL 供下次 leave 重试。
+ * 与关窗总结共享 `runOnConsolidateChain`（见 memory/CONTRACT）。
  */
 import { runOnConsolidateChain } from '../memory/consolidate'
 import { requireMemoryDb, isMemoryReady } from '../memory/runtime'
@@ -29,6 +33,7 @@ export type CompanionMemoryConsolidateResult =
 
 export function scheduleCompanionMemoryConsolidate(input: CompanionMemoryConsolidateInput): void {
   if (!readMemoryFlags().memoryEnabled) return
+  // 故意不 return/await 链上 Promise：退游戏清会话必须马上返回
   void runOnConsolidateChain(() => consolidateCompanionSessionOnLeave(input)).catch((error) => {
     logWarn('screenCompanion', 'companion memory consolidate chain failed', error)
   })
@@ -117,6 +122,7 @@ export async function consolidateCompanionSessionOnLeave(
       `id=${input.companionSessionId} entries=${entries.length} game=${input.gameName}`
     )
 
+    // 陪玩总结后滚周/月：F&F，不 await（与关窗后 rollup 同口径）
     void import('../memory/periodRollup')
       .then(({ maybeRunPeriodRollups }) => maybeRunPeriodRollups(db))
       .catch((error) => {

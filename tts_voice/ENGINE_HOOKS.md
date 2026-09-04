@@ -93,7 +93,9 @@ Qwen 音色工坊与第三方引擎语料（`alt_engine_corpus`）共用 `audio_
 
 开启时会将触摸模式切到 `custom_corpus` 并加载当前激活声线的 Qwen 克隆引擎；关闭后前端以 `engine` 模式等待引擎挂载，不要求全库 cache ready 再退出加载界面（详见 `src/services/voiceEngineLoading.ts`）。
 
-与精选音频、第三方语料等模式冲突时由 `runtimeConfig.ts` / `voice_runtime_repair.py` 协调（例如切回精选会 `writeRealtimeInferenceFlag(false)`）。
+与精选音频、第三方语料等模式冲突时由 Electron `reconcileVoiceRuntimeConfig` / Python `voice_runtime_repair.reconcile_runtime_voice_config` 协调（例如切回精选会 `writeRealtimeInferenceFlag(false)`）。
+
+**双端规则真相（A1–A7、卡住 session 表、测试覆盖）：** 只认 [`electron/main/config/CONTRACT.md`](../electron/main/config/CONTRACT.md) §Reconcile；禁止单端「先修再说」。
 
 ## 共用 Python 环境（.venv）
 
@@ -166,7 +168,7 @@ Qwen 音色工坊与第三方引擎语料（`alt_engine_corpus`）共用 `audio_
 | 路径 | 说明 |
 |------|------|
 | `GET /health` | 服务状态；`backend` 字段为当前引擎名 |
-| `POST /tts` | 合成单句（body: `{ text, speaker_id?, seed?, mode?, order?, parallel_lanes? }`）；`mode=chat` 走聊天调度 |
+| `POST /tts` | 合成单句（body: `{ text, speaker_id?, seed?, mode?, order?, parallel_lanes? }`）；`mode=chat` 走聊天调度。**并行真相表（勿只改一端）：** [`tts_voice/CONTRACT.md` §Chat TTS parallel](./CONTRACT.md) ↔ [`src/services/chat/CONTRACT.md`](../src/services/chat/CONTRACT.md) §对话 TTS · parallel_lanes |
 | `POST /tts/batch` | 一次合成多句（`texts` 最多 5 句）；引擎可实现 `synthesize_batch` 加速 |
 | `GET /voice-forge/status` | 音色工坊会话状态 |
 | `POST /voice-forge/upload-ready` | 上传参考音后进入试听 |

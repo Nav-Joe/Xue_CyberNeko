@@ -10,6 +10,8 @@ import type { MemoryTimelineItem } from './types'
  * | ① Prompt 必等 | 发消息前 await，结果进本轮 prompt；允许拖首 token，但禁止塞总结 LLM | history / promptBlock / peeks |
  * | ② 开局后台 | `scheduleMemoryBackground`，不阻塞首 token | period rollup；user raw append |
  * | ③ 轮后后台 | 本轮 LLM+TTS 结束后；assistant raw **await 落库**后，mid consolidate **不 await** | assistant raw + mid consolidate |
+ *
+ * 主进程触发点全表见 `electron/main/memory/CONTRACT.md`「总结 / 滚周触发点 × 热路径」。
  */
 
 export async function getMemoryStatus(): Promise<{

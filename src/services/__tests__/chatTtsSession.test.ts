@@ -435,4 +435,26 @@ describe('createChatTtsSession', () => {
   it('exports ready-buffer multiplier matching contract soft cap lanes×3', () => {
     expect(CHAT_TTS_READY_BUFFER_LANES_MULTIPLIER).toBe(3)
   })
+
+  it('parallel mode threshold stays aligned with Python (>=2)', async () => {
+    // 与 tts_voice dispatch_synthesize_chat / chat CONTRACT 对照清单同阈值
+    const sessionSerial = createChatTtsSession({
+      onRevealSegment: () => {},
+      parallelLanes: 1
+    })
+    sessionSerial.enqueue('a', 'a')
+    sessionSerial.markStreamComplete()
+    await delay(5)
+    expect(fetchChatTtsBlob).toHaveBeenCalledWith('a', 0, 0, 1)
+
+    vi.mocked(fetchChatTtsBlob).mockClear()
+    const sessionParallel = createChatTtsSession({
+      onRevealSegment: () => {},
+      parallelLanes: 2
+    })
+    sessionParallel.enqueue('b', 'b')
+    sessionParallel.markStreamComplete()
+    await delay(5)
+    expect(fetchChatTtsBlob).toHaveBeenCalledWith('b', 0, 0, 2)
+  })
 })

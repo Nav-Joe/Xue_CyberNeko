@@ -1,8 +1,14 @@
 import { logChatSegmentDebug } from './chatDebugLog'
 import { createChatTtsSession } from '../chatTtsSession'
 
-import { drainCompleteTtsSegments, splitTextForTts, stripEmojiForTts, stripKaomojiForTts, stripTextForTts, containsKaomoji } from './textSplitter'
+import { drainCompleteTtsSegments, splitTextForTts, stripTextForTts } from './textSplitter'
 import type { ChatConfigView } from './types'
+
+/**
+ * 进入 TTS 推理的句段硬上限（保险）。
+ * ≤ 此数：行为与升级前一致；超出部分等前序朗读结束后按原文顺序一次性贴字、不合成。
+ */
+export const CHAT_TTS_MAX_INFERENCE_SEGMENTS = 50
 
 export type ChatSegmentCoordinatorOptions = {
   ttsEnabled: boolean
@@ -52,6 +58,9 @@ export function createChatSegmentCoordinator(
 ): ChatSegmentCoordinator {
   let segmentBuffer = ''
   let segmentSeq = 0
+  let ttsInferenceCount = 0
+  /** 超过推理上限的展示句，保持切分顺序，朗读结束后一次性拼接贴出 */
+  let overflowParts: string[] = []
   let aborted = false
   let fullText = ''
   const ttsParallelLanes = options.ttsParallelLanes ?? 0
@@ -67,6 +76,18 @@ export function createChatSegmentCoordinator(
     options.onRevealSegment(displaySegment)
   }
 
+  function revealOverflowAfterTts(): void {
+    if (aborted || overflowParts.length === 0) return
+    const rest = overflowParts.join('')
+    overflowParts = []
+    if (!rest) return
+    logChatSegmentDebug(
+      `TTS 推理上限外剩余正文（一次性贴出，上限=${CHAT_TTS_MAX_INFERENCE_SEGMENTS}）`,
+      rest
+    )
+    options.onRevealSegment(rest)
+  }
+
   function enqueue(displaySegment: string): void {
     if (aborted) return
     const piece = displaySegment.trim()
@@ -80,6 +101,11 @@ export function createChatSegmentCoordinator(
     )
 
     if (options.ttsEnabled && ttsSession) {
+      if (ttsInferenceCount >= CHAT_TTS_MAX_INFERENCE_SEGMENTS) {
+        overflowParts.push(piece)
+        return
+      }
+      ttsInferenceCount += 1
       ttsSession.enqueue(piece, ttsText)
       return
     }
@@ -90,6 +116,7 @@ export function createChatSegmentCoordinator(
     if (!ttsSession) return
     ttsSession.markStreamComplete()
     await ttsSession.waitUntilIdle()
+    revealOverflowAfterTts()
   }
 
   return {
@@ -140,9 +167,16 @@ export function createChatSegmentCoordinator(
             )
             return { displaySegment: piece, ttsText }
           })
-        ttsSession.enqueueAll(items)
+        const forTts = items.slice(0, CHAT_TTS_MAX_INFERENCE_SEGMENTS)
+        const overflow = items.slice(CHAT_TTS_MAX_INFERENCE_SEGMENTS)
+        ttsInferenceCount = forTts.length
+        if (overflow.length > 0) {
+          overflowParts = overflow.map((item) => item.displaySegment)
+        }
+        ttsSession.enqueueAll(forTts)
         ttsSession.markStreamComplete()
         await ttsSession.waitUntilIdle()
+        revealOverflowAfterTts()
         return
       }
 
@@ -155,6 +189,8 @@ export function createChatSegmentCoordinator(
       aborted = true
       segmentBuffer = ''
       fullText = ''
+      ttsInferenceCount = 0
+      overflowParts = []
       ttsSession?.abort()
     }
   }

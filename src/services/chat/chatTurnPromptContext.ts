@@ -1,6 +1,9 @@
 /**
  * 发送前 Prompt 上下文：历史窗口 + 记忆/欲望/好感/摸摸注入。
- * 调用方须保持「后台任务不要 await、注入块要等读完」的时序；勿在此夹带总结类 LLM。
+ *
+ * 分档（①）：此处只做「读完再注入」的 await；禁止夹带总结 / 滚周 / 轮后鉴定 LLM。
+ * 开局后台（②）如 maybeRunPeriodRollup：只点火，不要 await。
+ * 详见 memory CONTRACT「与聊天发送路径的调度分档」。
  */
 import {
   maxHistoryRoundsForMode,
@@ -47,9 +50,9 @@ export async function resolveChatTurnPromptContext(input: {
   let llmUserInput = input.userText
 
   if (input.memoryEnabled) {
-    // 开局后台任务：不要 await，免得卡住第一句回复
+    // ② 开局后台：不要 await，免得卡住第一句回复
     maybeRunPeriodRollup()
-    // 下面这些要等：历史、记忆注入、偷看前缀（只读，不要在这里跑总结 LLM）
+    // ① 下面这些要等：历史、记忆注入、偷看前缀（只读，不要在这里跑总结 LLM）
     const fromDb = await getRecentMemoryHistory(maxRounds)
     if (fromDb !== null) {
       priorHistory = fromDb

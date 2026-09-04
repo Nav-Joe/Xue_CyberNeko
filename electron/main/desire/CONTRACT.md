@@ -26,6 +26,8 @@
 | 项 | 约定 |
 |----|------|
 | 时机 | 一轮结束后后台独立小调用（`desire-apply-after-turn`），不阻塞发送 |
+| 调度 | 渲染 `maybeDesireAfterTurnInBackground` → `scheduleMemoryBackground`（**禁止 await**）；**不进** memory `consolidateChain` |
+| 与满轮总结 | 可与 `maybeConsolidateOnRoundCap` **并行**抢同一聊天 LLM（尤其本地）——抢模型 ≠ 互 await 死锁；禁止在 `chatTurnAftermath` 里 `await` 本 IPC |
 | 有 open | **每轮**跑鉴定（outcome / fulfill / keep…） |
 | 无 open | 助手回复命中自我欲关键词（连续串+滑窗）才跑；只扫 assistant |
 | 未提及的 open | 默认 **neutral** 轻扣 |

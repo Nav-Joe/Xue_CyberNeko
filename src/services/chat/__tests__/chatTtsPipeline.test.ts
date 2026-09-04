@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createChatSegmentCoordinator, playChatAssistantReplyTts, resolveChatTtsParallelLanes } from '../chatTtsPipeline'
+import {
+  CHAT_TTS_MAX_INFERENCE_SEGMENTS,
+  createChatSegmentCoordinator,
+  playChatAssistantReplyTts,
+  resolveChatTtsParallelLanes
+} from '../chatTtsPipeline'
 import { createChatTtsSession } from '../../chatTtsSession'
 
 vi.mock('../../chatTtsSession', () => ({
@@ -115,6 +120,60 @@ describe('createChatSegmentCoordinator', () => {
       onRevealSegment: () => {}
     })
     expect(createChatTtsSession).not.toHaveBeenCalled()
+  })
+
+  it('caps TTS enqueueAll at MAX; overflow revealed once after idle in order', async () => {
+    const revealed: string[] = []
+    let idleResolved = false
+    mockSession.waitUntilIdle.mockImplementation(async () => {
+      idleResolved = true
+    })
+
+    const pieces = Array.from({ length: CHAT_TTS_MAX_INFERENCE_SEGMENTS + 3 }, (_, i) => `S${i + 1}。`)
+    const coordinator = createChatSegmentCoordinator({
+      ttsEnabled: true,
+      onRevealSegment: (seg) => {
+        expect(idleResolved).toBe(true)
+        revealed.push(seg)
+      }
+    })
+    await coordinator.revealFullText(pieces.join(''))
+
+    expect(mockSession.enqueueAll).toHaveBeenCalledTimes(1)
+    const enqueued = mockSession.enqueueAll.mock.calls[0][0] as Array<{ displaySegment: string }>
+    expect(enqueued).toHaveLength(CHAT_TTS_MAX_INFERENCE_SEGMENTS)
+    expect(enqueued[0].displaySegment).toBe('S1。')
+    expect(enqueued[CHAT_TTS_MAX_INFERENCE_SEGMENTS - 1].displaySegment).toBe(
+      `S${CHAT_TTS_MAX_INFERENCE_SEGMENTS}。`
+    )
+    expect(revealed).toEqual([
+      `S${CHAT_TTS_MAX_INFERENCE_SEGMENTS + 1}。S${CHAT_TTS_MAX_INFERENCE_SEGMENTS + 2}。S${CHAT_TTS_MAX_INFERENCE_SEGMENTS + 3}。`
+    ])
+  })
+
+  it('streaming flush caps enqueue and pastes overflow after idle', async () => {
+    const revealed: string[] = []
+    let idleResolved = false
+    mockSession.waitUntilIdle.mockImplementation(async () => {
+      idleResolved = true
+    })
+
+    const coordinator = createChatSegmentCoordinator({
+      ttsEnabled: true,
+      onRevealSegment: (seg) => {
+        expect(idleResolved).toBe(true)
+        revealed.push(seg)
+      }
+    })
+    for (let i = 1; i <= CHAT_TTS_MAX_INFERENCE_SEGMENTS + 2; i += 1) {
+      coordinator.pushDelta(`L${i}。`)
+    }
+    await coordinator.flush()
+
+    expect(mockSession.enqueue).toHaveBeenCalledTimes(CHAT_TTS_MAX_INFERENCE_SEGMENTS)
+    expect(revealed).toEqual([
+      `L${CHAT_TTS_MAX_INFERENCE_SEGMENTS + 1}。L${CHAT_TTS_MAX_INFERENCE_SEGMENTS + 2}。`
+    ])
   })
 })
 

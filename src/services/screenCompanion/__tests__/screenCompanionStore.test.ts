@@ -23,6 +23,7 @@ describe('cloneScreenCompanionConfig', () => {
         pausedUntilMs: null,
         processBlacklist: ['obs64'],
         intervalSec: 30,
+        companionTtsDevice: 'cpu',
         visionBaseUrl: 'https://example/v1',
         visionModel: 'gpt-4o',
         hasVisionApiKey: true,
@@ -44,13 +45,14 @@ describe('saveScreenCompanionConfig', () => {
         pausedUntilMs: null,
         processBlacklist: [],
         intervalSec: 45,
+        companionTtsDevice: 'cpu',
         visionBaseUrl: '',
         visionModel: '',
         hasVisionApiKey: false,
         visionApiKeySecretSave: false
       }
     }))
-    window.electronAPI = { screenCompanionWriteConfig: write } as typeof window.electronAPI
+    window.electronAPI = { screenCompanionWriteConfig: write } as unknown as typeof window.electronAPI
 
     await saveScreenCompanionConfig(
       reactive({
@@ -58,6 +60,7 @@ describe('saveScreenCompanionConfig', () => {
         pausedUntilMs: null,
         processBlacklist: [],
         intervalSec: 45,
+        companionTtsDevice: 'cpu',
         visionBaseUrl: '',
         visionModel: '',
         hasVisionApiKey: false,
@@ -66,7 +69,8 @@ describe('saveScreenCompanionConfig', () => {
     )
 
     expect(write).toHaveBeenCalledOnce()
-    const payload = write.mock.calls[0][0]
+    const firstCall = write.mock.calls[0] as unknown as [{ intervalSec: number }]
+    const payload = firstCall[0]
     expect(payload.intervalSec).toBe(45)
     expect(Object.getPrototypeOf(payload)).toBe(Object.prototype)
   })

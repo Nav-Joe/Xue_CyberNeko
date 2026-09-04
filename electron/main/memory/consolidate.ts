@@ -55,7 +55,10 @@ export type MidSessionConsolidateResult =
     }
   | { ok: false; reason: 'disabled' | 'llm_failed' | 'error'; detail?: string }
 
-/** 关窗 / 日常 / 陪玩总结互斥，避免并行打两次记忆 LLM */
+/** 关窗 / 日常 / 陪玩总结互斥，避免并行打两次记忆 LLM。
+ * 排队方：`consolidateOnChatClose`、`maybeConsolidateOnRoundCap`、陪玩 `scheduleCompanionMemoryConsolidate`。
+ * 注意：关窗 finalize 若碰上正在跑的陪玩总结，会在本链上等待（再开聊有 awaitChatCloseFinalize 超时兜底）。
+ */
 let consolidateChain: Promise<unknown> = Promise.resolve()
 
 function enqueueConsolidate<T>(fn: () => Promise<T>): Promise<T> {
@@ -67,7 +70,10 @@ function enqueueConsolidate<T>(fn: () => Promise<T>): Promise<T> {
   return run
 }
 
-/** 陪玩退会话总结与关窗总结共用同一条串行队列，避免同时打两次记忆 LLM */
+/**
+ * 陪玩退会话总结与关窗总结共用同一条串行队列，避免同时打两次记忆 LLM。
+ * 调用方（leaveSession）必须 fire-and-forget：只 enqueue，禁止 await 后再清会话状态。
+ */
 export function runOnConsolidateChain<T>(fn: () => Promise<T>): Promise<T> {
   return enqueueConsolidate(fn)
 }
@@ -212,6 +218,7 @@ async function consolidateOnChatCloseInner(
       `sessionId=${target} engine=llm messageCount=${logs.length} pruned=${prunedSessions.length}`
     )
 
+    // 关窗后滚周/月：F&F，不 await；不进本函数返回路径，也不该改成同步
     void import('./periodRollup')
       .then(({ maybeRunPeriodRollups }) => maybeRunPeriodRollups(db))
       .catch((error) => {

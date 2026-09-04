@@ -348,6 +348,7 @@ async function runBeginLlamaChatSession(
 ): Promise<LlamaBootstrapResult> {
   try {
     // 关窗延迟整理未结束时先等：避免总结结束 stop 误杀本次新 spawn（见 app-2026-07-28）
+    // 场景表见 CONTRACT「竞态场景 × 动作」#1–#2；决策纯函数在 managedOwnership
     await awaitChatCloseFinalize()
     await reconcileInterruptedLlamaDownloads()
 

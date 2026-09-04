@@ -49,6 +49,7 @@
 
 - `splitTextForTts` / `drainCompleteTtsSegments` — 按句末标点切分；流式缓冲与整段回复共用。
 - `stripTextForTts` / `containsKaomoji` — TTS 推理前去掉 emoji、颜文字、「（）」/「()」旁白与省略号（`...` / `…`）；UI 展示仍保留原文。
+- **推理句段上限：** `CHAT_TTS_MAX_INFERENCE_SEGMENTS = 50`（`chatTtsPipeline`）。进入 TTS 推理最多 50 句；≤50 时与升级前一致。超出部分**不合成**，等前 50 句朗读结束后按原文顺序**一次性** `onRevealSegment` 贴出。
 
 ## 开发入口（人工验证）
 
@@ -61,6 +62,7 @@
 | 项 | 说明 |
 |----|------|
 | Composable | `useChatSession.ts` — messages、send、clear、错误态、流式（local_llama）；发前上下文 / 轮后副作用见 `chatTurnPromptContext` · `chatTurnAftermath` · `chatSessionHistory` |
+| 热路径分档（防堵首 token） | ① Prompt 必等：只读注入可 `await`；② 开局后台：用户 raw / 周月滚 **禁止 await**；③ 轮后：满轮总结/欲望/好感 **禁止 await**，助手 raw 可 `await`。细则对齐 `electron/main/memory/CONTRACT.md`。`useChatSession` 非空行若 ≥360 再议拆分 |
 | UI | `ChatMessageList.vue` + `ChatComposer.vue` + `ChatWindowView.vue` |
 | Prompt | `buildChatPromptMessages` + 当前 **active** 角色卡 |
 | LLM | `llmChat` / `llmChatWithRetry` — 软错误（网络、5xx、429 等）最多自动重试 3 次；硬错误（Key/余额/配置）立即失败；通用包装 `withLlmChatRetry` 供记忆总结等复用 |
@@ -108,6 +110,19 @@
 | **`0`（默认串行）** | 相对释放指针最多 **5** 预取（`CHAT_TTS_MAX_BATCH_SIZE`，≠ 五路 GPU） | `synthesize_immediate`：**严格按 order 0→1→2…** 占 GPU | **必须遵守** |
 | **`1`** | 同串行（窗=5） | 同串行有序路径（`>=2` 才进并行池） | **必须遵守** |
 | **`2`–`4`** | **`synthInFlight < lanes`**；就绪 blob 留 slot；释放仍按队头；另有硬编码软保险 `readyButUnreleased < lanes×3` | `ParallelChatPool`：最多 N 路 GPU，完成顺序任意 | 请求里**仍携带**；**后端忽略**。**有意设计，禁止修改** |
+
+### FE ↔ BE 对照清单（锁语义，禁止未决策改调度）
+
+> 改任一侧前先对表；发现漂移先改 CONTRACT 再改代码。护栏：`chatTtsSession.test.ts` + `tts_voice/tests/test_batch_inference.py`。
+
+| # | 约定 | 前端（`chatTtsSession` / pipeline） | 后端（`batch_inference`） |
+|---|------|--------------------------------------|---------------------------|
+| 1 | lanes 阈值 | UI/配置仅 `2\|3\|4`；关并行或关 TTS → 传 `0` | API 允许 `1`（文档化）；`>=2` 才进并行池 |
+| 2 | 串行合成 | `parallelLanes < 2`：预取窗 ≤ `CHAT_TTS_MAX_BATCH_SIZE`（**5**） | `dispatch_synthesize_immediate`：**按 order 0→1→…** |
+| 3 | 并行合成 | `parallelLanes >= 2`：`synthInFlight < lanes`；软保险 `readyButUnreleased < lanes×3` | `ParallelChatPool` semaphore；**lanes clamp 到 [2,4]** |
+| 4 | `order` | 单调递增，始终带上（日志/串行） | 串行：**必须守**；并行：**池内忽略**（禁止改回按 order 等） |
+| 5 | 播放/reveal 序 | **仅**前端 `releaseChain` / 队头 | 不负责展示序 |
+| 6 | 与触摸 batch | 聊天走 `/tts` + chat session | 聊天并行 ≠ `/tts/batch` micro-batch；`MAX_BATCH_SIZE=5` 含义不同 |
 
 ### 人话说明：前后端怎么配合
 

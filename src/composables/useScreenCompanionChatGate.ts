@@ -1,4 +1,5 @@
 import { onMounted, onUnmounted, ref } from 'vue'
+import { isCompanionChatSendBlocked } from '../services/screenCompanion/companionChatLock'
 
 const CHAT_LOCK_MESSAGE = '猫娘正在看着你打游戏呢~有什么事打完再说吧~'
 const CHAT_LOCK_TITLE = '屏幕偷窥'
@@ -22,11 +23,11 @@ export function useScreenCompanionChatGate() {
   }
 
   function isSendBlocked(): boolean {
-    return sessionActive.value
+    return isCompanionChatSendBlocked(sessionActive.value)
   }
 
   async function guardSend(action: () => void | Promise<void>): Promise<void> {
-    if (!sessionActive.value) {
+    if (!isCompanionChatSendBlocked(sessionActive.value)) {
       await action()
       return
     }

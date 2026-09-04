@@ -66,6 +66,21 @@
 
 关窗 consolidate / 主进程 `consolidateChain` 仍串行互斥；与 ② 开局 rollup 可能时间重叠，属有意设计。
 
+**陪玩退会话（M6.6）：** `leaveSession` → `scheduleCompanionMemoryConsolidate`（**禁止 await**）→ 同一条 `consolidateChain`。leave 清会话/解聊天锁必须同步返回；LLM 失败保留 JSONL。副作用：关窗 `runConsolidateThenStopLlama` 若碰上正在跑的陪玩总结，会在链上排队（`awaitChatCloseFinalize` / 退出等待有超时）。
+
+### 总结 / 滚周触发点 × 热路径
+
+| 触发 | 入口 | 进 `consolidateChain`？ | 堵 send / 首 token？ | 备注 |
+|------|------|-------------------------|----------------------|------|
+| 开局周/月滚 | 渲染 `maybeRunPeriodRollup` → IPC `memory-maybe-period-rollup` | **否** | **否**（② 后台） | 可与本轮聊天 LLM 抢模型 |
+| 满轮日常总结 | 渲染 `maybeMidSessionConsolidateInBackground` → `maybeConsolidateOnRoundCap` | **是** | **否**（③ 后台） | 与关窗/陪玩串行 |
+| 关窗会话总结 | `runConsolidateThenStopLlama` → `consolidateOnChatClose` | **是** | 不堵发送；可能拖停 llama | 无 preferred / 无 raw → 跳过 |
+| 关窗后滚周/月 | consolidate 成功后 `void maybeRunPeriodRollups` | **否** | **否** | 禁止改成 await 后再 return |
+| 陪玩退会话总结 | `scheduleCompanionMemoryConsolidate` | **是** | leave **禁止 await** | 见上「陪玩退会话」 |
+| 陪玩后滚周/月 | 陪玩 consolidate 成功后 F&F rollup | **否** | **否** | 同关窗后 rollup |
+
+**禁止：** 把 period rollup / mid consolidate 改成发送路径上的同步 `await`；把滚总结塞进 ① Prompt 必等。
+
 ### 总结（日常会话）
 
 - 主进程调当前聊天 LLM（本地 llama / OpenAI 代理）；`memoryLlmSummarizeEnabled`（默认 true）

@@ -25,6 +25,19 @@ TTS 播完 → 计 `intervalSec` → 仍在玩 → observe → narrate → pet T
 | `processBlacklist` | 进程名 contains |
 | `vision.*` | 独立视觉 API（URL / model / Key） |
 | `visionApiKeySecretSave` | 默认关；开则 View 不回传明文 Key（与聊天 `openaiApiKeySecretSave` 同口径） |
+| `companionTtsDevice` | 旁白 TTS：`cpu`（默认）/ `gpu` |
+
+## 视觉摘要长度约定
+
+单一真相源：`visionLimits.ts`（改数字先改文件，再对表）。
+
+| 常量 | 当前值 | 作用 |
+|------|--------|------|
+| `VISION_SUMMARY_TARGET_CHARS` | 100 | 提示词软目标（「约 N 字以内」） |
+| `VISION_SUMMARY_MAX_CHARS` | 300 | **识图摘要**硬截断（不截旁白 LLM 输出） |
+| `VISION_SUMMARY_MAX_TOKENS` | 400 | API `max_tokens`，需能覆盖硬截断量级 |
+| `VISION_SUMMARY_TEMPERATURE` | 0.2 | 识图温度 |
+| `VISION_IMAGE_DETAIL` | `low` | 缩略图低细节 |
 
 ## IPC
 
@@ -39,6 +52,24 @@ TTS 播完 → 计 `intervalSec` → 仍在玩 → observe → narrate → pet T
 - 状态条：`sessionActive` / `playingGameName` / `nextObserveAtMs` / 视觉是否配全
 - 聊天锁：`sessionActive` 时拦截发送 + `show-info-dialog`
 
+## 总闸 × 会话 × 聊天锁 × 截屏
+
+> 语义锁：关总闸 = **零截屏**；在玩会话 = **锁聊天发送**。总闸开着但未进会话时，仍可正常聊天（不锁）。
+
+| `enabled` | `sessionActive` | 调度 | 截屏 / observe | 聊天发送 |
+|-----------|-----------------|------|----------------|----------|
+| `false` | （应为空） | `stop` / 不 start | **禁止**（`privacy`/`capture`/`runCycleTick` 均门闩） | 允许 |
+| `true` | `false` | 可 running（hunt / 等进程） | 无会话则不 observe | 允许 |
+| `true` | `true` | 周期 tick → observe → narrate → TTS | 允许（仍过 pause/黑名单） | **拦截** + `show-info-dialog` |
+
+**关总闸路径（须同时成立）：**
+
+1. `reconcileScreenCompanionScheduler` 或 `runCycleTick` 读到 `enabled=false`（或聊天 TTS 关）→ `stopScreenCompanionScheduler`  
+2. stop → `leaveSession` → 发 `sessionActive=false`（解聊天锁）  
+3. 之后任意 tick / observe **不得**再调 `observePrimaryScreen` / capturer  
+
+**不在本表：** STT 是否绕过发送锁（若有入口，应与发送同拦；本轮不改 STT）；TTS 并行 lanes 语义另见 chat / tts_voice CONTRACT。
+
 ## 人工验收（主路径）
 
 `启动.bat` 本体：配视觉 → 开 TTS → 开屏幕感知 → **开记忆** → 玩游戏听旁白 → 关游戏 → 记忆空间 L2 出现「陪玩总结」→ 聊天锁恢复。
@@ -50,7 +81,8 @@ TTS 播完 → 计 `intervalSec` → 仍在玩 → observe → narrate → pet T
 | 容器 | `{userData}/screen-companion-memory/{companionSessionId}.jsonl` |
 | 记录 | `kind=narrate`（旁白 LLM 输出）、`kind=observe`（屏幕摘要文字） |
 | 总闸 | 仅 `memoryEnabled=true` 时 append；关则零写入 |
-| 触发 | `leaveSession`（关游戏/退会话）；后台 `runOnConsolidateChain` |
+| 触发 | `leaveSession`（关游戏/退会话）→ **`scheduleCompanionMemoryConsolidate`（fire-and-forget）** → 后台 `runOnConsolidateChain` |
 | 落库 | `session_summaries`，`source=companion`，`source_label=游戏名` |
-| 滚总结 | 成功后 `maybeRunPeriodRollups`（与聊天 L2 同源） |
+| 滚总结 | 成功后 `maybeRunPeriodRollups`（与聊天 L2 同源；亦不阻塞 leave） |
 | 失败 | LLM 失败保留 JSONL，下次 leave 可重试 |
+| 与关窗 | 与聊天关窗总结**共用** `consolidateChain`：leave 本身不 await；若关窗时陪玩总结仍在跑，关窗 finalize 会在链上排队等待（再开聊有超时兜底） |
