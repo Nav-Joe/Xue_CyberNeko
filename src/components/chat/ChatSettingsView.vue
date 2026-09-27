@@ -7,6 +7,7 @@ import { CHARACTER_CARD_WORKBENCH_KEY } from '../../composables/chat/characterCa
 import ChatCharacterCardSettings from './ChatCharacterCardSettings.vue'
 import ChatLlmSettings from './ChatLlmSettings.vue'
 import ChatTtsSettings from './ChatTtsSettings.vue'
+import ChatTtsCloudSettings from './ChatTtsCloudSettings.vue'
 import ChatSttSettings from './ChatSttSettings.vue'
 
 import './chat-panel-theme.css'
@@ -50,6 +51,7 @@ function onCardChanged(): void {
 
     <div class="chat-settings__body">
       <ChatTtsSettings @changed="onSettingsChanged" />
+      <ChatTtsCloudSettings @changed="onSettingsChanged" />
       <ChatSttSettings @changed="onSettingsChanged" />
       <ChatLlmSettings
         :card="activeCard"

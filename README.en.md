@@ -2,7 +2,7 @@
 
 A Live2D desktop AI companion that moves, chats, and quietly watches over you.
 
-**Current version: V0.6.3 (early development)**
+**Current version: V0.7.0 (early development)**
 
 > **Docs languages:** [中文 README](README.md) · [English README](README.en.md) (this file)
 
@@ -50,7 +50,7 @@ Xue Lan can peek at your screen now~ She may notice what you’re playing and dr
 
 ## Quick start
 
-1. Double-click **`首次安装.bat`** (once: npm, Live2D model, Python `.venv`, TTS/STT pip deps, SenseVoice / Qwen models)
+1. Double-click **`首次安装.bat`** (once: npm, Live2D model, Python `.venv`, TTS/STT pip deps, SenseVoice; **local Qwen3 voice models are optional** — skip to use cloud Voice Forge only)
 2. Double-click **`启动.bat`** (TTS window + pet; closing the pet also stops TTS)
 3. **Home → Text chat**, or use the chat shortcut beside the pet
 

@@ -44,6 +44,7 @@ interface ElectronAPI {
   readTtsCapabilities: () => Promise<{
     configuredEngine: string
     voiceForgeSupported: boolean
+    localQwenModelsReady: boolean
     hint: string | null
   }>
   getLive2DModelUrl: () => Promise<string>
@@ -230,6 +231,364 @@ interface ElectronAPI {
     message: string
     detail?: string
   }) => Promise<{ ok: boolean }>
+  getTtsCloudConfig: () => Promise<
+    | {
+        ok: true
+        config: {
+          ttsBackend: 'local' | 'qwen'
+          qwen: {
+            baseUrl: string
+            vcModel: string
+            vdModel: string
+            voices: Array<{
+              id: string
+              kind: 'vc' | 'vd'
+              name: string
+              voiceId: string
+              createdAt: number
+            }>
+            activeVoiceLocalId: string
+            activeKind: 'vc' | 'vd' | null
+            model: string
+            voiceId: string
+            secretSave: boolean
+            hasApiKey: boolean
+            apiKey?: string
+          }
+        }
+      }
+    | { ok: false; detail: string }
+  >
+  setTtsCloudConfig: (patch: {
+    ttsBackend?: 'local' | 'qwen'
+    qwen?: {
+      baseUrl?: string
+      vcModel?: string
+      vdModel?: string
+      voices?: Array<{
+        id: string
+        kind: 'vc' | 'vd'
+        name: string
+        voiceId: string
+        createdAt: number
+      }>
+      activeVoiceLocalId?: string
+      model?: string
+      voiceId?: string
+      apiKey?: string
+      secretSave?: boolean
+    }
+  }) => Promise<
+    | {
+        ok: true
+        config: {
+          ttsBackend: 'local' | 'qwen'
+          qwen: {
+            baseUrl: string
+            vcModel: string
+            vdModel: string
+            voices: Array<{
+              id: string
+              kind: 'vc' | 'vd'
+              name: string
+              voiceId: string
+              createdAt: number
+            }>
+            activeVoiceLocalId: string
+            activeKind: 'vc' | 'vd' | null
+            model: string
+            voiceId: string
+            secretSave: boolean
+            hasApiKey: boolean
+            apiKey?: string
+          }
+        }
+      }
+    | { ok: false; detail: string }
+  >
+  previewTtsCloud: (payload: {
+    text: string
+  }) => Promise<{ ok: true; audio: ArrayBuffer; mime: string } | { ok: false; detail: string }>
+  synthesizeTtsCloud: (payload: {
+    text: string
+  }) => Promise<{ ok: true; audio: ArrayBuffer; mime: string } | { ok: false; detail: string }>
+  enrollOfficialTtsCloud: () => Promise<
+    | {
+        ok: true
+        voiceId: string
+        localId: string
+        config: {
+          ttsBackend: 'local' | 'qwen'
+          qwen: {
+            baseUrl: string
+            vcModel: string
+            vdModel: string
+            voices: Array<{
+              id: string
+              kind: 'vc' | 'vd'
+              name: string
+              voiceId: string
+              createdAt: number
+            }>
+            activeVoiceLocalId: string
+            activeKind: 'vc' | 'vd' | null
+            model: string
+            voiceId: string
+            secretSave: boolean
+            hasApiKey: boolean
+            apiKey?: string
+          }
+        }
+        previewAudio?: ArrayBuffer
+        previewMime?: string
+      }
+    | { ok: false; detail: string }
+  >
+  enrollCustomTtsCloud: (payload: {
+    displayName: string
+    referenceText?: string
+  }) => Promise<
+    | {
+        ok: true
+        voiceId: string
+        localId: string
+        config: {
+          ttsBackend: 'local' | 'qwen'
+          qwen: {
+            baseUrl: string
+            vcModel: string
+            vdModel: string
+            voices: Array<{
+              id: string
+              kind: 'vc' | 'vd'
+              name: string
+              voiceId: string
+              createdAt: number
+            }>
+            activeVoiceLocalId: string
+            activeKind: 'vc' | 'vd' | null
+            model: string
+            voiceId: string
+            secretSave: boolean
+            hasApiKey: boolean
+            apiKey?: string
+          }
+        }
+        previewAudio?: ArrayBuffer
+        previewMime?: string
+      }
+    | { ok: false; detail: string }
+  >
+  designTtsCloudVoice: (payload: {
+    displayName: string
+    voicePrompt: string
+    previewText?: string
+    /** true：只暂存待审阅，不写入 voices[] */
+    stageOnly?: boolean
+    corpus?: import('./types/corpus').CorpusData
+  }) => Promise<
+    | {
+        ok: true
+        voiceId: string
+        localId: string
+        config: {
+          ttsBackend: 'local' | 'qwen'
+          qwen: {
+            baseUrl: string
+            vcModel: string
+            vdModel: string
+            voices: Array<{
+              id: string
+              kind: 'vc' | 'vd'
+              name: string
+              voiceId: string
+              createdAt: number
+            }>
+            activeVoiceLocalId: string
+            activeKind: 'vc' | 'vd' | null
+            model: string
+            voiceId: string
+            secretSave: boolean
+            hasApiKey: boolean
+            apiKey?: string
+          }
+        }
+        previewAudio?: ArrayBuffer
+        previewMime?: string
+      }
+    | { ok: false; detail: string }
+  >
+  getTtsCloudPendingPreview: () => Promise<
+    { ok: true; audio: ArrayBuffer; mime: string } | { ok: false; detail: string }
+  >
+  getTtsCloudPendingStatus: () => Promise<
+    | {
+        ok: true
+        status: {
+          review_pending: boolean
+          phase: string | null
+          flow: string | null
+          source: string | null
+          displayName: string | null
+          folderId: string | null
+          reference_ready: boolean
+          ready: boolean
+          backend: 'cloud'
+        } | null
+      }
+    | { ok: false; detail: string }
+  >
+  approveTtsCloudPending: () => Promise<
+    | {
+        ok: true
+        localId: string
+        voiceId: string
+        corpus: import('./types/corpus').CorpusData
+        config: {
+          ttsBackend: 'local' | 'qwen'
+          qwen: {
+            baseUrl: string
+            vcModel: string
+            vdModel: string
+            voices: Array<{
+              id: string
+              kind: 'vc' | 'vd'
+              name: string
+              voiceId: string
+              createdAt: number
+            }>
+            activeVoiceLocalId: string
+            activeKind: 'vc' | 'vd' | null
+            model: string
+            voiceId: string
+            secretSave: boolean
+            hasApiKey: boolean
+            apiKey?: string
+          }
+        }
+      }
+    | { ok: false; detail: string }
+  >
+  rejectTtsCloudPending: (payload: {
+    action: 'regenerate' | 'skip'
+  }) => Promise<
+    | {
+        ok: true
+        action: 'regenerate' | 'skip'
+        pending: {
+          kind: 'vc' | 'vd'
+          displayName: string
+          voiceId: string
+          voicePrompt: string
+          previewText: string
+          corpus: import('./types/corpus').CorpusData
+          createdAt: number
+        } | null
+        config: {
+          ttsBackend: 'local' | 'qwen'
+          qwen: {
+            baseUrl: string
+            vcModel: string
+            vdModel: string
+            voices: Array<{
+              id: string
+              kind: 'vc' | 'vd'
+              name: string
+              voiceId: string
+              createdAt: number
+            }>
+            activeVoiceLocalId: string
+            activeKind: 'vc' | 'vd' | null
+            model: string
+            voiceId: string
+            secretSave: boolean
+            hasApiKey: boolean
+            apiKey?: string
+          }
+        }
+      }
+    | { ok: false; detail: string }
+  >
+  removeTtsCloudVoice: (payload: {
+    localId: string
+    deleteRemote?: boolean
+  }) => Promise<
+    | {
+        ok: true
+        config: {
+          ttsBackend: 'local' | 'qwen'
+          qwen: {
+            baseUrl: string
+            vcModel: string
+            vdModel: string
+            voices: Array<{
+              id: string
+              kind: 'vc' | 'vd'
+              name: string
+              voiceId: string
+              createdAt: number
+            }>
+            activeVoiceLocalId: string
+            activeKind: 'vc' | 'vd' | null
+            model: string
+            voiceId: string
+            secretSave: boolean
+            hasApiKey: boolean
+            apiKey?: string
+          }
+        }
+        remoteDeleted: boolean
+      }
+    | { ok: false; detail: string }
+  >
+  getTtsCloudCacheAudio: (payload: {
+    text: string
+  }) => Promise<{ ok: true; audio: ArrayBuffer; mime: string } | { ok: false; detail: string }>
+  getTtsCloudCorpus: (payload?: {
+    localId?: string
+  }) => Promise<
+    | { ok: true; localId: string; corpus: import('./types/corpus').CorpusData }
+    | { ok: false; detail: string }
+  >
+  prewarmTtsCloudCorpus: (payload: {
+    corpus: import('./types/corpus').CorpusData
+    localId?: string
+  }) => Promise<
+    | {
+        ok: true
+        localId: string
+        synthesized: number
+        skipped: number
+        failed: number
+        total: number
+        touchMode: 'custom_corpus'
+        corpus: import('./types/corpus').CorpusData
+        config: {
+          ttsBackend: 'local' | 'qwen'
+          qwen: {
+            baseUrl: string
+            vcModel: string
+            vdModel: string
+            voices: Array<{
+              id: string
+              kind: 'vc' | 'vd'
+              name: string
+              voiceId: string
+              createdAt: number
+            }>
+            activeVoiceLocalId: string
+            activeKind: 'vc' | 'vd' | null
+            model: string
+            voiceId: string
+            secretSave: boolean
+            hasApiKey: boolean
+            apiKey?: string
+          }
+        }
+        failures: Array<{ line: string; detail: string }>
+      }
+    | { ok: false; detail: string }
+  >
 }
 
 interface Window {

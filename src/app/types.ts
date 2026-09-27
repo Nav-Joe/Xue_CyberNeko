@@ -5,7 +5,7 @@ import type { VoiceForgeStatus } from '../services/voiceForgeApi'
 export type BootPhase = 'checking' | 'generating' | 'review' | 'prewarming' | 'ready'
 
 /** 启动流程类型 */
-export type BootFlow = 'create' | 'corpus' | null
+export type BootFlow = 'create' | 'corpus' | 'cloud_create' | null
 
 /** 对外简化状态机 */
 export type AppBootStatus = 'idle' | 'loading' | 'ready' | 'error'

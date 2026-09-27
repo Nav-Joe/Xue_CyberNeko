@@ -57,10 +57,14 @@ export function useAppBoot(options: UseAppBootOptions = {}) {
     return bootSteps.value[0]?.id ?? 'ready'
   })
 
-  function enterGeneratingBoot(): void {
-    flow.value = 'create'
+  function enterGeneratingBoot(bootFlow: BootFlow = 'create', msg?: string): void {
+    flow.value = bootFlow
     phase.value = 'generating'
-    message.value = '正在生成克隆参考音（VoiceDesign 可能需要数分钟）…'
+    message.value =
+      msg ??
+      (bootFlow === 'cloud_create'
+        ? '正在云端声音设计（可能需要数十秒）…'
+        : '正在生成克隆参考音（VoiceDesign 可能需要数分钟）…')
     progress.value = null
     reviewStatus.value = null
     options.onEnterLoading?.()
@@ -75,9 +79,14 @@ export function useAppBoot(options: UseAppBootOptions = {}) {
   }
 
   function enterReview(vfStatus: VoiceForgeStatus): void {
-    flow.value = 'create'
+    flow.value =
+      vfStatus.backend === 'cloud' || vfStatus.flow === 'cloud_create' ? 'cloud_create' : 'create'
     phase.value = 'review'
-    reviewStatus.value = vfStatus
+    reviewStatus.value = {
+      ...vfStatus,
+      backend: flow.value === 'cloud_create' ? 'cloud' : vfStatus.backend,
+      flow: flow.value === 'cloud_create' ? 'cloud_create' : vfStatus.flow
+    }
     options.onEnterReview?.()
   }
 
@@ -114,6 +123,21 @@ export function useAppBoot(options: UseAppBootOptions = {}) {
 
       const vfStatus = await fetchVoiceForgeStatus()
       if (!vfStatus) {
+        const pending = await window.electronAPI?.getTtsCloudPendingStatus?.()
+        if (pending?.ok && pending.status?.review_pending) {
+          enterReview({
+            review_pending: true,
+            phase: pending.status.phase,
+            flow: pending.status.flow,
+            source: pending.status.source,
+            displayName: pending.status.displayName,
+            folderId: pending.status.folderId,
+            reference_ready: pending.status.reference_ready,
+            ready: pending.status.ready,
+            backend: 'cloud'
+          })
+          return
+        }
         await finishReady()
         return
       }
@@ -130,6 +154,23 @@ export function useAppBoot(options: UseAppBootOptions = {}) {
       }
       if (createAction.kind === 'review') {
         enterReview(createAction.status)
+        return
+      }
+
+      // 本地无审阅时，仍可能有云端暂存待确认
+      const pending = await window.electronAPI?.getTtsCloudPendingStatus?.()
+      if (pending?.ok && pending.status?.review_pending) {
+        enterReview({
+          review_pending: true,
+          phase: pending.status.phase,
+          flow: pending.status.flow,
+          source: pending.status.source,
+          displayName: pending.status.displayName,
+          folderId: pending.status.folderId,
+          reference_ready: pending.status.reference_ready,
+          ready: pending.status.ready,
+          backend: 'cloud'
+        })
         return
       }
 
@@ -155,6 +196,11 @@ export function useAppBoot(options: UseAppBootOptions = {}) {
     const p = phase.value
     if (p === 'ready' || p === 'checking' || p === 'review') return
 
+    // 云端创造：generating 由事件推进到 review；prewarming 由 PetApp await 预热完成
+    if (flow.value === 'cloud_create') {
+      return
+    }
+
     const vfStatus = await fetchVoiceForgeStatus()
     if (p === 'generating') {
       if (vfStatus?.review_pending && vfStatus.reference_ready) enterReview(vfStatus)
@@ -174,7 +220,12 @@ export function useAppBoot(options: UseAppBootOptions = {}) {
   }
 
   function onReviewApproved(): void {
-    enterPrewarmingBoot('已确认声线，正在预热触摸台词…', 'create')
+    enterPrewarmingBoot(
+      flow.value === 'cloud_create'
+        ? '已确认云端声线，正在预热触摸台词…'
+        : '已确认声线，正在预热触摸台词…',
+      flow.value === 'cloud_create' ? 'cloud_create' : 'create'
+    )
   }
 
   function onReviewDone(): void {
@@ -184,7 +235,12 @@ export function useAppBoot(options: UseAppBootOptions = {}) {
 
   function onReviewRegenerating(): void {
     reviewStatus.value = null
-    enterGeneratingBoot()
+    enterGeneratingBoot(
+      flow.value === 'cloud_create' ? 'cloud_create' : 'create',
+      flow.value === 'cloud_create'
+        ? '正在按原提示词重新云端声音设计（可能需要数十秒）…'
+        : undefined
+    )
   }
 
   return {

@@ -17,7 +17,8 @@ call "%~dp0prepare-tts-env.cmd"
 if errorlevel 1 (
   echo.
   if /I "%TTS_BACKEND%"=="qwen" (
-    echo 请确认已运行「首次安装.bat」，并按提示下载 Qwen3 VoiceDesign 与 Base 模型。
+    echo 请确认已运行「首次安装.bat」。本地音色工坊需可选下载 Qwen3 VoiceDesign 与 Base 模型。
+    echo 未下载时请使用云端音色工坊，或稍后运行 scripts\win\install-qwen-models.cmd。
   ) else (
     echo 请安装 Python、放置 G_900.pth，并配置 Bert-VITS2 后重试。
     echo 或使用开发者切换脚本改回 qwen 公开引擎。

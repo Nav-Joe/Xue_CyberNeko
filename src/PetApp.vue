@@ -3,9 +3,11 @@ import BootScreen from './app/components/BootScreen.vue'
 import ErrorBoundary from './app/components/ErrorBoundary.vue'
 import PetOverlay from './app/components/PetOverlay.vue'
 import ChatBootstrapOverlay from './components/chat/ChatBootstrapOverlay.vue'
+import { runCloudApproveAndPrewarm } from './app/composables/cloudApproveFlow'
 import { useAppBoot } from './app/composables/useAppBoot'
 import { useOverlayManager } from './app/composables/useOverlayManager'
 import { useVoiceEventBus } from './app/composables/useVoiceEventBus'
+import { registerCloudApproveHandler, registerCloudRegenerateHandler } from './app/voiceForgeReviewBridge'
 import { useChatEntry } from './composables/chat/useChatEntry'
 import { useScreenCompanionNarrate } from './composables/useScreenCompanionNarrate'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
@@ -80,14 +82,98 @@ const overlay = useOverlayManager({
   chatBooting
 })
 
+const cloudReviewError = ref<string | null>(null)
+const cloudCreateBootError = ref<string | null>(null)
+
 const voiceBus = useVoiceEventBus({
-  enterGeneratingBoot: boot.enterGeneratingBoot,
-  enterReview: boot.enterReview
+  enterGeneratingBoot: (flow, msg) => {
+    cloudCreateBootError.value = null
+    boot.enterGeneratingBoot(flow, msg)
+  },
+  enterReview: boot.enterReview,
+  finishReady: () => boot.finishReady(),
+  onCloudCreateFailed: (detail) => {
+    console.error('[PetApp] cloud voice create failed', detail)
+    // 留在 generating 遮罩，点「知道了」再 finishReady
+    cloudCreateBootError.value = detail
+  }
 })
+
+async function dismissCloudCreateBootError(): Promise<void> {
+  cloudCreateBootError.value = null
+  await boot.finishReady()
+}
+
+function onCloudApproveRequest(): void {
+  // 同步卸试听窗 + 显示预热遮罩，再异步入库与预热
+  cloudReviewError.value = null
+  boot.onReviewApproved()
+  void syncPetWindowForBoot()
+  void runCloudApproveAndPrewarm({
+    approve: () => window.electronAPI?.approveTtsCloudPending?.(),
+    getPendingStatus: () => window.electronAPI?.getTtsCloudPendingStatus?.(),
+    prewarm: (opts) => window.electronAPI?.prewarmTtsCloudCorpus?.(opts),
+    enterReview: boot.enterReview,
+    finishReady: () => boot.finishReady(),
+    setReviewError: (detail) => {
+      cloudReviewError.value = detail
+    },
+    setPrewarmMessage: (msg) => {
+      boot.message.value = msg
+    },
+    syncPetWindow: () => {
+      void syncPetWindowForBoot()
+    },
+    logError: (msg, extra) => console.error(msg, extra),
+    logWarn: (msg, extra) => console.warn(msg, extra)
+  })
+}
+
+async function onCloudReviewApproved(): Promise<void> {
+  // 云端改走 bridge；此处仅保留本地工坊 emit 路径
+  if (boot.flow.value === 'cloud_create' || boot.reviewStatus.value?.backend === 'cloud') {
+    return
+  }
+  boot.onReviewApproved()
+}
+
+function onCloudRegenerateRequest(): void {
+  // 同步：立刻卸试听窗 + 显示加载遮罩，再异步 reject/design
+  boot.onReviewRegenerating()
+  void syncPetWindowForBoot()
+  voiceBus.rerunLastCloudDesign()
+}
+
+registerCloudRegenerateHandler(onCloudRegenerateRequest)
+registerCloudApproveHandler(onCloudApproveRequest)
+
+function onReviewRegenerating(
+  detail?: import('./app/composables/useVoiceEventBus').CloudVoiceForgeStartDetail | null
+): void {
+  // 本地工坊仍走 emit；云端改走 bridge，避免重复触发
+  if (boot.flow.value === 'cloud_create' || boot.reviewStatus.value?.backend === 'cloud') {
+    return
+  }
+  if (detail) {
+    voiceBus.rememberCloudCreateDetail(detail)
+  }
+  boot.onReviewRegenerating()
+  void syncPetWindowForBoot()
+}
 
 useScreenCompanionNarrate()
 
 const petReady = computed(() => boot.phase.value === 'ready' && !engineLoadActive.value)
+
+/** 顶层 computed，避免模板里 `boot.xxx.value` 偶发丢订阅导致遮罩不切换 */
+const voiceBootPhase = computed(() => boot.phase.value)
+const voiceBootReviewStatus = computed(() => boot.reviewStatus.value)
+const voiceShowBootOverlay = computed(() => boot.showBootOverlay.value)
+const voiceBootSteps = computed(() => boot.bootSteps.value)
+const voiceBootCurrentStepId = computed(() => boot.currentStepId.value)
+const voiceBootMessage = computed(() => boot.message.value)
+const voiceBootProgress = computed(() => boot.progress.value)
+const voiceShowEngineLoadOverlay = computed(() => overlay.showEngineLoadOverlay.value)
 
 async function syncPetWindowForBoot(): Promise<void> {
   if (!window.electronAPI?.setPetWindowOverlay) {
@@ -257,6 +343,7 @@ onMounted(() => {
   window.addEventListener('blur', handleWindowBlur)
   window.addEventListener('voice-forge-boot', voiceBus.onVoiceForgeBoot)
   window.addEventListener('voice-upload-review', voiceBus.onVoiceUploadReview)
+  window.addEventListener('cloud-voice-forge-start', voiceBus.onCloudVoiceForgeStart)
   window.addEventListener('voice-prewarm-boot', onVoicePrewarmBootEvent)
   unbindVoiceConfigChanged = window.electronAPI?.onVoiceConfigChanged?.((payload) => {
     void onVoiceConfigChanged(payload)
@@ -272,9 +359,12 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  registerCloudRegenerateHandler(null)
+  registerCloudApproveHandler(null)
   window.removeEventListener('blur', handleWindowBlur)
   window.removeEventListener('voice-forge-boot', voiceBus.onVoiceForgeBoot)
   window.removeEventListener('voice-upload-review', voiceBus.onVoiceUploadReview)
+  window.removeEventListener('cloud-voice-forge-start', voiceBus.onCloudVoiceForgeStart)
   window.removeEventListener('voice-prewarm-boot', onVoicePrewarmBootEvent)
   unbindVoiceConfigChanged?.()
   unbindVoiceEngineLoadBegin?.()
@@ -289,20 +379,23 @@ onUnmounted(() => {
     <ErrorBoundary :message="boot.errorMessage.value" />
 
     <BootScreen
-      :show-engine-load-overlay="overlay.showEngineLoadOverlay.value"
+      :show-engine-load-overlay="voiceShowEngineLoadOverlay"
       :engine-load-title="engineLoadTitle"
       :engine-load-message="engineLoadMessage"
       :engine-load-progress="engineLoadProgress"
-      :show-boot-overlay="boot.showBootOverlay.value"
-      :boot-steps="boot.bootSteps.value"
-      :boot-current-step-id="boot.currentStepId.value"
-      :boot-message="boot.message.value"
-      :boot-progress="boot.progress.value"
-      :boot-phase="boot.phase.value"
-      :review-status="boot.reviewStatus.value"
-      @approved="boot.onReviewApproved"
+      :show-boot-overlay="voiceShowBootOverlay"
+      :boot-steps="voiceBootSteps"
+      :boot-current-step-id="voiceBootCurrentStepId"
+      :boot-message="voiceBootMessage"
+      :boot-progress="voiceBootProgress"
+      :boot-phase="voiceBootPhase"
+      :review-status="voiceBootReviewStatus"
+      :review-error="cloudReviewError"
+      :boot-error="cloudCreateBootError"
+      @approved="onCloudReviewApproved"
       @done="boot.onReviewDone"
-      @regenerating="boot.onReviewRegenerating"
+      @regenerating="onReviewRegenerating"
+      @dismiss-boot-error="dismissCloudCreateBootError"
     />
 
     <ChatBootstrapOverlay

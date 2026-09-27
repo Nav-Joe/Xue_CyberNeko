@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   approveVoiceForgeSample,
   fetchVoiceForgePreviewBlob,
@@ -7,17 +7,26 @@ import {
   type VoiceForgeStatus
 } from '../services/voiceForgeApi'
 import { setTouchFeedbackMode } from '../services/touchModeSettings'
+import {
+  requestCloudVoiceApprove,
+  requestCloudVoiceRegenerate
+} from '../app/voiceForgeReviewBridge'
 
 const props = defineProps<{
   status: VoiceForgeStatus
+  /** 云端 approve 失败后恢复审阅时展示 */
+  initialError?: string
 }>()
 
 const isUploadSource = computed(() => props.status.source === 'upload')
+const isCloud = computed(
+  () => props.status.backend === 'cloud' || props.status.flow === 'cloud_create'
+)
 
 const emit = defineEmits<{
   approved: []
   done: []
-  regenerating: []
+  regenerating: [detail: import('../app/composables/useVoiceEventBus').CloudVoiceForgeStartDetail | null]
 }>()
 
 const step = ref<'preview' | 'reject'>('preview')
@@ -29,9 +38,19 @@ let previewObjectUrl: string | null = null
 
 async function loadPreviewAudio(): Promise<void> {
   error.value = ''
-  const blob = await fetchVoiceForgePreviewBlob()
+  let blob: Blob | null = null
+  if (isCloud.value) {
+    const result = await window.electronAPI?.getTtsCloudPendingPreview?.()
+    if (result?.ok) {
+      blob = new Blob([result.audio], { type: result.mime || 'audio/wav' })
+    }
+  } else {
+    blob = await fetchVoiceForgePreviewBlob()
+  }
   if (!blob) {
-    error.value = '试听音频加载失败，请确认 TTS 服务正在运行'
+    error.value = isCloud.value
+      ? '试听音频加载失败'
+      : '试听音频加载失败，请确认 TTS 服务正在运行'
     return
   }
   if (previewObjectUrl) {
@@ -43,8 +62,42 @@ async function loadPreviewAudio(): Promise<void> {
 }
 
 async function handleApprove(): Promise<void> {
-  busy.value = true
   error.value = ''
+  if (isCloud.value) {
+    // 与重新生成相同：先把控制权交给 PetApp 切预热遮罩，再由主进程 approve+prewarm
+    const accepted = requestCloudVoiceApprove()
+    if (!accepted) {
+      error.value = '无法确认：桌宠侧未就绪，请关闭后重试'
+    }
+    return
+  }
+
+  // 兜底：若 status 未标 cloud 但仍有云端暂存，同样走 bridge
+  if (window.electronAPI?.getTtsCloudPendingStatus) {
+    try {
+      const pending = await Promise.race([
+        window.electronAPI.getTtsCloudPendingStatus(),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 400))
+      ])
+      if (
+        pending &&
+        typeof pending === 'object' &&
+        'ok' in pending &&
+        pending.ok &&
+        pending.status?.review_pending
+      ) {
+        const accepted = requestCloudVoiceApprove()
+        if (!accepted) {
+          error.value = '无法确认：桌宠侧未就绪，请关闭后重试'
+        }
+        return
+      }
+    } catch {
+      /* fall through to local */
+    }
+  }
+
+  busy.value = true
   const ok = await approveVoiceForgeSample()
   if (!ok) {
     error.value = '预热启动失败，请稍后重试'
@@ -60,8 +113,37 @@ function handleDissatisfied(): void {
 }
 
 async function handleRegenerate(): Promise<void> {
-  busy.value = true
   error.value = ''
+
+  let cloud = isCloud.value
+  if (!cloud && window.electronAPI?.getTtsCloudPendingStatus) {
+    try {
+      const pending = await Promise.race([
+        window.electronAPI.getTtsCloudPendingStatus(),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 400))
+      ])
+      cloud = Boolean(
+        pending &&
+          typeof pending === 'object' &&
+          'ok' in pending &&
+          pending.ok &&
+          pending.status?.review_pending
+      )
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (cloud) {
+    // 不要先 busy：同步把控制权交给 PetApp 卸载本窗并显示加载遮罩
+    const accepted = requestCloudVoiceRegenerate()
+    if (!accepted) {
+      error.value = '无法重新生成：桌宠侧未就绪，请关闭后重试创造'
+    }
+    return
+  }
+
+  busy.value = true
   const ok = await rejectVoiceForgeSample('regenerate')
   if (!ok) {
     error.value = '重新生成失败'
@@ -70,12 +152,23 @@ async function handleRegenerate(): Promise<void> {
   }
   step.value = 'preview'
   busy.value = false
-  emit('regenerating')
+  emit('regenerating', null)
 }
 
 async function handleSkip(): Promise<void> {
   busy.value = true
   error.value = ''
+  if (isCloud.value) {
+    const result = await window.electronAPI?.rejectTtsCloudPending?.({ action: 'skip' })
+    if (!result?.ok) {
+      error.value = result?.detail || '操作失败'
+      busy.value = false
+      return
+    }
+    setTouchFeedbackMode('curated')
+    emit('done')
+    return
+  }
   const ok = await rejectVoiceForgeSample('skip')
   if (!ok) {
     error.value = '操作失败，请稍后重试'
@@ -97,10 +190,21 @@ async function handleSkip(): Promise<void> {
   emit('done')
 }
 
+function applyInitialError(): void {
+  const msg = props.initialError?.trim()
+  if (msg) error.value = msg
+}
+
 onMounted(() => {
   window.electronAPI?.setIgnoreMouseEvents(false)
-  void loadPreviewAudio()
+  // loadPreviewAudio 会先清空 error，结束后再贴回 approve 失败文案
+  void loadPreviewAudio().finally(() => applyInitialError())
 })
+
+watch(
+  () => props.initialError,
+  () => applyInitialError()
+)
 
 onBeforeUnmount(() => {
   if (previewObjectUrl) {
@@ -140,9 +244,13 @@ onBeforeUnmount(() => {
         <p v-else class="question">是否根据当前语料与提示词重新生成？</p>
         <p class="hint">
           {{
-            isUploadSource
-              ? '上传声线不支持在此重新生成，请返回音色工坊重新上传。跳过将使用精选音频库。'
-              : '选择「跳过」将使用精选音频库进入桌宠，可稍后再打开音色工坊修改。'
+            isCloud
+              ? isUploadSource
+                ? '云端克隆不满意时请返回工坊重新上传。跳过将不启用该暂存音色。'
+                : '选择「跳过」将丢弃本次云端设计（尽量从百炼删除），可稍后再打开音色工坊重试。'
+              : isUploadSource
+                ? '上传声线不支持在此重新生成，请返回音色工坊重新上传。跳过将使用精选音频库。'
+                : '选择「跳过」将使用精选音频库进入桌宠，可稍后再打开音色工坊修改。'
           }}
         </p>
         <div class="actions">
@@ -156,7 +264,7 @@ onBeforeUnmount(() => {
             重新生成并试听
           </button>
           <button type="button" class="btn btn-secondary" :disabled="busy" @click="handleSkip">
-            跳过，用精选音频
+            {{ isCloud ? '跳过，不启用该音色' : '跳过，用精选音频' }}
           </button>
         </div>
       </template>

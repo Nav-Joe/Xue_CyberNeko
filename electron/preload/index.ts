@@ -4,6 +4,7 @@ import { desireApi } from './desireApi'
 import { relationshipApi } from './relationshipApi'
 import { petTouchApi } from './petTouchApi'
 import { sttApi } from './sttApi'
+import { ttsCloudApi } from './ttsCloudApi'
 import { screenCompanionApi } from './screenCompanionApi'
 
 export type WindowType = 'pet' | 'home' | 'chat'
@@ -173,6 +174,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readTtsCapabilities: (): Promise<{
     configuredEngine: string
     voiceForgeSupported: boolean
+    localQwenModelsReady: boolean
     hint: string | null
   }> => {
     return ipcRenderer.invoke('read-tts-capabilities')
@@ -471,6 +473,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ...relationshipApi,
   ...petTouchApi,
   ...sttApi,
+  ...ttsCloudApi,
   ...screenCompanionApi,
 
   reportClientError: (payload: {

@@ -118,7 +118,7 @@ Qwen 音色工坊与第三方引擎语料（`alt_engine_corpus`）共用 `audio_
 2. 加载 **Base 0.6B**，`create_voice_clone_prompt(ref_audio, ref_text)` 锁定声线。
 3. 对该参考音克隆合成语料库全部句子 × 3 随机种子，写入当前激活声线目录下的 `touch_cache/`。
 
-所需模型（ModelScope，由 `首次安装.bat` / `scripts/win/check-qwen-models.cmd` 引导下载至 `Qwen3_TTS/models/`）：
+所需模型（ModelScope，**可选**；由 `首次安装.bat` 引导或 `scripts/win/install-qwen-models.cmd` 下载至 `Qwen3_TTS/models/`。未下载时本地音色工坊页隐藏，仍可用云端工坊）：
 
 - `Qwen3_TTS/models/Qwen3-TTS-12Hz-1.7B-VoiceDesign`
 - `Qwen3_TTS/models/Qwen3-TTS-12Hz-0.6B-Base`

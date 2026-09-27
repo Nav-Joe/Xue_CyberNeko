@@ -5,6 +5,7 @@ import { isCustomCorpusTouchEnabled } from './touchModeSettings'
 import { isRealtimeInferenceEnabled } from './ttsSettings'
 import { stopTouchClip } from './touchClipPlayer'
 import { getTtsVolume } from './ttsVolume'
+import { fetchCloudTtsBlob, fetchCloudTouchCacheBlob, isCachedQwenTtsBackend } from './ttsCloudSpeech'
 
 const TTS_URL = 'http://127.0.0.1:8000/tts'
 const TTS_BATCH_URL = 'http://127.0.0.1:8000/tts/batch'
@@ -118,6 +119,17 @@ async function playCachedText(text: string): Promise<boolean> {
   }
 }
 
+async function playCloudTouchCachedText(text: string): Promise<boolean> {
+  try {
+    const blob = await fetchCloudTouchCacheBlob(text)
+    if (!blob) return false
+    await playBlob(blob)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export type ChatTtsFetchOptions = {
   order?: number
   /** 0=串行；2-4=并行并路 */
@@ -156,15 +168,21 @@ export async function fetchChatTtsBlob(
   order?: number,
   parallelLanes = 0
 ): Promise<Blob> {
+  if (isCachedQwenTtsBackend()) {
+    return fetchCloudTtsBlob(text)
+  }
   return fetchLiveTtsBlob(text, speakerId, 'chat', { order, parallelLanes })
 }
 
-/** 屏幕陪玩旁白：走 TTS 侧车 CPU 引擎，不占 GPU 显存 */
+/** 屏幕陪玩旁白：本地走侧车 CPU；云端模式走百炼 Qwen（忽略 companion 设备档） */
 export async function fetchCompanionTtsBlob(
   text: string,
   speakerId = 0,
   order?: number
 ): Promise<Blob> {
+  if (isCachedQwenTtsBackend()) {
+    return fetchCloudTtsBlob(text)
+  }
   return fetchLiveTtsBlob(text, speakerId, 'companion', { order, parallelLanes: 0 })
 }
 
@@ -262,6 +280,16 @@ export async function speakText(text: string, speakerIdOrOptions?: number | Spea
 
   if (!isCustomCorpusTouchEnabled()) {
     console.warn('[TTS] 当前为精选音频模式，speakText 已被跳过')
+    return
+  }
+
+  // 云端模式：触摸只播本地云缓存；未命中不打百炼、不回落侧车
+  if (isCachedQwenTtsBackend()) {
+    cleanupAudio()
+    const hit = await playCloudTouchCachedText(text)
+    if (!hit) {
+      console.warn('[TTS] 云端触摸缓存未命中，已跳过（不会实时请求百炼）:', text)
+    }
     return
   }
 

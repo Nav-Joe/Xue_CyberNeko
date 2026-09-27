@@ -7,6 +7,10 @@ import { createChatTtsSession } from '../chatTtsSession'
 import { loadScreenCompanionConfig } from './screenCompanionStore'
 import type { CompanionTtsDevice } from './types'
 import { splitTextForCompanionTts } from './companionTextSplitter'
+import {
+  isCachedQwenTtsBackend,
+  refreshTtsCloudBackendCache
+} from '../ttsCloudSpeech'
 
 /** 陪玩旁白：逐句提交推理，避免 5 路预取把 TTS 侧车打满。 */
 export const COMPANION_TTS_SERIAL_PREFETCH_LIMIT = 1
@@ -44,8 +48,12 @@ export async function playScreenCompanionNarrateTts(text: string): Promise<void>
   )
 
   const companionTtsDevice = await resolveCompanionTtsDeviceFromConfig()
+  await refreshTtsCloudBackendCache()
   const ttsMode = resolveCompanionTtsMode(companionTtsDevice)
-  logChatSegmentDebug('陪玩旁白 TTS 设备', companionTtsDevice)
+  logChatSegmentDebug(
+    '陪玩旁白 TTS',
+    isCachedQwenTtsBackend() ? 'qwen-cloud' : `local:${companionTtsDevice}`
+  )
 
   const ttsSession = createChatTtsSession({
     onRevealSegment: () => {},

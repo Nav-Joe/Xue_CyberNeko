@@ -57,6 +57,15 @@ character-cards.json
 **/chat-config.json
 **/character-cards.json
 
+# ── 云端 TTS 隐私（权威：Electron userData；防误拷入库）──
+# 含 apiKeyEnc / voices；暂存有提示词+语料+preview.wav；缓存有 wav
+tts-cloud-config.json
+**/tts-cloud-config.json
+tts-cloud-pending/
+**/tts-cloud-pending/
+tts-cloud-cache/
+**/tts-cloud-cache/
+
 # ── 情感模拟隐私（权威路径：Electron userData/memory.db；下列防误拷入库）──
 memory.db
 **/memory.db
@@ -75,6 +84,9 @@ memory.db
 **/AppData/**/memory.db
 **/AppData/**/chat-config.json
 **/AppData/**/character-cards.json
+**/AppData/**/tts-cloud-config.json
+**/AppData/**/tts-cloud-pending/
+**/AppData/**/tts-cloud-cache/
 **/AppData/**/screen-companion-config.json
 **/AppData/**/screen-companion-memory/
 
@@ -146,6 +158,12 @@ llama_models/*.gguf
 .runtime/llama-server-download.zip
 .runtime/llama-server-extract/
 .runtime/experimental-voice-upload.json
+# 若误拷到仓库根（正规路径仍是 .runtime/）
+/voice-forge.json
+/corpus.custom.json
+/touch-mode.env
+/tts-backend.env
+/realtime-inference.env
 
 # ── STT：防误解压/误放到仓库根（正规路径仍是 .runtime/stt-models/）──
 /sherpa-onnx-sense-voice*/

@@ -25,6 +25,7 @@ const emit = defineEmits<{
 const page = ref<SettingsPage>('main')
 const voiceForgeUploadFlowActive = ref(false)
 const voiceForgeSupported = ref(true)
+const localQwenModelsReady = ref(true)
 const voiceForgeDisabledHint = ref('')
 const altEngineCorpusSupported = ref(false)
 const effectiveEngineName = ref('qwen')
@@ -131,6 +132,7 @@ onMounted(() => {
   window.addEventListener('pet-settings-close', onPetSettingsClose)
   void loadTtsCapabilities().then((caps) => {
     voiceForgeSupported.value = caps.voiceForgeSupported
+    localQwenModelsReady.value = caps.localQwenModelsReady
     voiceForgeDisabledHint.value = caps.hint ?? ''
     altEngineCorpusSupported.value = caps.altEngineCorpusSupported
     effectiveEngineName.value = caps.effectiveEngine
@@ -186,8 +188,10 @@ onBeforeUnmount(() => {
         <p class="intro">
           {{
             voiceForgeSupported
-              ? '扩展功能：触摸实时推理、语料编辑与创造新声线。切换桌宠声线请回家窗口。'
-              : '当前运行第三方 TTS 引擎，可使用下方语料预热；Qwen 音色工坊仅在运行 qwen 后端时可用。'
+              ? localQwenModelsReady
+                ? '扩展功能：触摸实时推理、语料编辑与创造新声线。切换桌宠声线请回家窗口。'
+                : '扩展功能：触摸实时推理与云端音色工坊。未安装本地 Qwen3 模型时不显示本地工坊页。'
+              : '当前运行第三方 TTS 引擎，可使用下方语料预热；Qwen 音色工坊仅在配置为 qwen 时可用。'
           }}
         </p>
         <p v-if="voiceForgeDisabledHint && !voiceForgeSupported" class="engine-hint">{{ voiceForgeDisabledHint }}</p>
@@ -201,7 +205,11 @@ onBeforeUnmount(() => {
         <button v-if="voiceForgeSupported" type="button" class="nav-row" @click="openVoiceForge">
           <span class="nav-row__body">
             <span class="nav-row__title">{{ VOICE_FORGE_TITLE }}</span>
-            <span class="nav-row__desc">更新各声线语料库，或创造新克隆声线</span>
+            <span class="nav-row__desc">{{
+              localQwenModelsReady
+                ? '更新各声线语料库，或创造新克隆声线'
+                : '云端创造 / 克隆 / 语料预热（本地页已隐藏）'
+            }}</span>
           </span>
           <span class="nav-row__chevron" aria-hidden="true">›</span>
         </button>

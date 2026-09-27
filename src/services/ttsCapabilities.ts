@@ -4,6 +4,8 @@ export interface TtsCapabilities {
   configuredEngine: string
   effectiveEngine: string
   voiceForgeSupported: boolean
+  /** 本地 Qwen3 权重就绪；为 false 时隐藏音色工坊「本地」页 */
+  localQwenModelsReady: boolean
   altEngineCorpusSupported: boolean
   configMismatch: boolean
   hint: string | null
@@ -23,7 +25,8 @@ export async function loadTtsCapabilities(force = false): Promise<TtsCapabilitie
     : {
         configuredEngine: 'qwen',
         voiceForgeSupported: true,
-        hint: null,
+        localQwenModelsReady: true,
+        hint: null
       }
 
   const health = await fetchTtsHealth()
@@ -35,11 +38,12 @@ export async function loadTtsCapabilities(force = false): Promise<TtsCapabilitie
       health.backend !== health.configured_engine
   )
 
-  // 以 TTS 进程实际后端为准：Qwen 运行时显示音色工坊；非 Qwen 时显示第三方语料
-  const voiceForgeSupported = effectiveEngine === 'qwen'
-  const altEngineCorpusSupported = effectiveEngine !== 'qwen'
+  // 配置或运行中为 qwen 即可进工坊（无本地权重时仍可进云端页）；第三方引擎走语料预热
+  const voiceForgeSupported = configuredEngine === 'qwen' || effectiveEngine === 'qwen'
+  const altEngineCorpusSupported = effectiveEngine !== 'qwen' && Boolean(health?.backend)
+  const localQwenModelsReady = base.localQwenModelsReady !== false
 
-  let hint: string | null = null
+  let hint: string | null = base.hint ?? null
   let altEngineHint: string | null = null
   let engineStatusLine: string | null = null
 
@@ -53,6 +57,9 @@ export async function loadTtsCapabilities(force = false): Promise<TtsCapabilitie
 
   if (configMismatch) {
     hint = `config.yaml 已设为 ${configuredEngine}，但 TTS 进程仍在使用 ${health?.backend}。请关闭 TTS 窗口后重新运行「启动.bat」，新引擎才会生效。`
+  } else if (!localQwenModelsReady && !hint) {
+    hint =
+      '未检测到本地 Qwen3 模型权重，音色工坊仅显示云端页。需要本地工坊时请运行 scripts\\win\\install-qwen-models.cmd'
   }
 
   if (altEngineCorpusSupported) {
@@ -63,11 +70,12 @@ export async function loadTtsCapabilities(force = false): Promise<TtsCapabilitie
     configuredEngine,
     effectiveEngine,
     voiceForgeSupported,
+    localQwenModelsReady,
     altEngineCorpusSupported,
     configMismatch,
     hint,
     altEngineHint,
-    engineStatusLine,
+    engineStatusLine
   }
   return cached
 }
@@ -84,4 +92,9 @@ export async function isVoiceForgeSupported(force = false): Promise<boolean> {
 export async function isAltEngineCorpusSupported(force = false): Promise<boolean> {
   const caps = await loadTtsCapabilities(force)
   return caps.altEngineCorpusSupported
+}
+
+export async function isLocalQwenModelsReady(force = false): Promise<boolean> {
+  const caps = await loadTtsCapabilities(force)
+  return caps.localQwenModelsReady
 }

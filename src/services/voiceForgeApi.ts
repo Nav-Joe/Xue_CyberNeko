@@ -35,6 +35,8 @@ export interface VoiceForgeStatus {
   folderId: string | null
   reference_ready: boolean
   ready: boolean
+  /** 云端创造审阅（复用同一弹窗） */
+  backend?: 'local' | 'cloud'
 }
 
 export async function fetchVoiceForgeStatus(): Promise<VoiceForgeStatus | null> {

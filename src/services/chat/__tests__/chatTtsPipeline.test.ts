@@ -197,6 +197,19 @@ describe('resolveChatTtsParallelLanes', () => {
       })
     ).toBe(4)
   })
+
+  it('forces 0 when cloud qwen backend', () => {
+    expect(
+      resolveChatTtsParallelLanes(
+        {
+          ttsEnabled: true,
+          ttsParallelEnabled: true,
+          ttsParallelLanes: 4
+        },
+        { ttsBackend: 'qwen' }
+      )
+    ).toBe(0)
+  })
 })
 
 describe('playChatAssistantReplyTts', () => {

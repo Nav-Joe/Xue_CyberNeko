@@ -91,9 +91,10 @@
 | 项 | 说明 |
 |----|------|
 | 开关 | `chat-config.json` → `ttsEnabled`（默认 `true`）；UI：`ChatTtsSettings.vue` |
-| 并行 | `ttsParallelEnabled`（默认 `false`）、`ttsParallelLanes`（2/3/4，默认 `2`）；关闭 TTS 时 UI 隐藏；请求体 `parallel_lanes` |
-| 流水线 | `chatTtsPipeline.ts` — 非流式先切分再 `enqueueAll`；**无首句优先**；须把 `ttsParallelLanes` **原样转发**给 `createChatTtsSession({ parallelLanes })`（vitest 锁定） |
-| 播放 | **`chatTtsSession.ts`** — 每句 `fetchChatTtsBlob(..., order, parallelLanes)`；reveal/播放 **始终按句序队头** |
+| 语音后端 | 独立 `tts-cloud-config.json`（VC/VD + 音色列表）；云工坊创造对齐本地：设计→审阅→预热；快速克隆可直入库；触摸云模式只读 `tts-cloud-cache`；契约见 `electron/main/ttsCloud/CONTRACT.md` |
+| 并行 | `ttsParallelEnabled`（默认 `false`）、`ttsParallelLanes`（2/3/4，默认 `2`）；关闭 TTS 时 UI 隐藏；**云端模式强制 `parallelLanes=0`**，不改下方 local 双端真相表 |
+| 流水线 | `chatTtsPipeline.ts` — 非流式先切分再 `enqueueAll`；**无首句优先**；须把 `ttsParallelLanes` **原样转发**给 `createChatTtsSession({ parallelLanes })`（vitest 锁定）；云端由 `resolveChatTtsParallelLanes(..., { ttsBackend:'qwen' })` 得到 0 |
+| 播放 | **`chatTtsSession.ts`** — 每句 `fetchChatTtsBlob` / 陪伴 `fetchCompanionTtsBlob`；云端时二者经 IPC 百炼 Qwen B1，reveal/播放 **始终按句序队头** |
 | 破圈测试 | `scripts/benchmark_chat_tts_scheduling.py` |
 | 口型 | `ttsPlayer.playBlob` → `runLipSyncWhilePlaying`；聊天 Live2D 已 `registerLive2DModelForLipSync` |
 | 会话 | `useChatSession` — 流式 `pushDelta` + **`flush` 仅此收尾**；非流式 `revealFullText`；**每句独立 assistant 气泡**；发送前 `stopSpeaking()` |

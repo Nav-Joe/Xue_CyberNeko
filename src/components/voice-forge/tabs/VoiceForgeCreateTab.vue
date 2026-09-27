@@ -12,15 +12,20 @@ import {
 import type { BodyPart, CorpusData } from '../../../types/corpus'
 import VoiceForgeCorpusEditor from '../VoiceForgeCorpusEditor.vue'
 
-defineProps<{
-  instruct: string
-  createCorpus: CorpusData
-  experimentalUploadEnabled: boolean
-  experimentalUploadSaving: boolean
-  applying: boolean
-  uploadingVoice: boolean
-  creationStatus: string
-}>()
+withDefaults(
+  defineProps<{
+    instruct: string
+    createCorpus: CorpusData
+    experimentalUploadEnabled: boolean
+    experimentalUploadSaving: boolean
+    applying: boolean
+    uploadingVoice: boolean
+    creationStatus: string
+    /** 云端创造复用本表单时隐藏本地上传实验区 */
+    showExperimentalUpload?: boolean
+  }>(),
+  { showExperimentalUpload: true }
+)
 
 const emit = defineEmits<{
   'update:instruct': [value: string]
@@ -34,7 +39,7 @@ const emit = defineEmits<{
 
 <template>
   <div class="tab-panel">
-    <div class="experimental-bar">
+    <div v-if="showExperimentalUpload" class="experimental-bar">
       <label class="experimental-toggle">
         <input
           type="checkbox"

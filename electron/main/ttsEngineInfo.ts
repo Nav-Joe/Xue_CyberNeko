@@ -62,18 +62,42 @@ export function engineSupportsVoiceForge(engineName: string): boolean {
   return engineName === 'qwen'
 }
 
+const QWEN_VD_CONFIG = join(
+  'Qwen3_TTS',
+  'models',
+  'Qwen3-TTS-12Hz-1.7B-VoiceDesign',
+  'config.json'
+)
+const QWEN_BASE_CONFIG = join(
+  'Qwen3_TTS',
+  'models',
+  'Qwen3-TTS-12Hz-0.6B-Base',
+  'config.json'
+)
+
+/** 本地音色工坊所需权重是否已落盘（与 scripts/win/check-qwen-models.cmd 对齐） */
+export function localQwenModelsReady(root: string = projectRoot()): boolean {
+  return existsSync(join(root, QWEN_VD_CONFIG)) && existsSync(join(root, QWEN_BASE_CONFIG))
+}
+
 export interface TtsEngineCapabilities {
   configuredEngine: string
   voiceForgeSupported: boolean
+  /** 本地 Qwen3 VoiceDesign+Base 权重就绪时才展示本地工坊页 */
+  localQwenModelsReady: boolean
   hint: string | null
 }
 
 export function readTtsEngineCapabilities(): TtsEngineCapabilities {
   const configuredEngine = readConfiguredTtsEngine()
+  const modelsReady = localQwenModelsReady()
   return {
     configuredEngine,
-    // 音色工坊是否可用以 TTS /health 的 backend 为准，此处不做禁用判断
+    // 工坊入口由渲染层按 configured/effective engine 再判；此处带上本地权重探测结果
     voiceForgeSupported: true,
-    hint: null,
+    localQwenModelsReady: modelsReady,
+    hint: modelsReady
+      ? null
+      : '未检测到本地 Qwen3 模型权重，音色工坊仅显示云端页。需要本地工坊时请运行 scripts\\win\\install-qwen-models.cmd'
   }
 }

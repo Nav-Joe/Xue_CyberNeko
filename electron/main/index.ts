@@ -28,6 +28,7 @@ import { registerDesireIpc } from './ipc/desire'
 import { registerRelationshipIpc } from './ipc/relationship'
 import { registerPetTouchIpc } from './ipc/petTouch'
 import { registerSttIpc } from './ipc/stt'
+import { registerTtsCloudIpc } from './ipc/ttsCloud'
 import { registerScreenCompanionIpc } from './ipc/screenCompanion'
 import { initMemorySubsystem, finalizeForAppQuit } from './memory/runtime'
 import { stopManagedLlamaServer } from './llama/session'
@@ -124,6 +125,7 @@ function registerIpc(): void {
   registerRelationshipIpc()
   registerPetTouchIpc()
   registerSttIpc()
+  registerTtsCloudIpc()
   registerScreenCompanionIpc()
 }
 

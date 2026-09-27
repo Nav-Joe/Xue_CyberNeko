@@ -19,8 +19,7 @@ if errorlevel 1 exit /b 1
 call "%~dp0check-stt-models.cmd"
 if errorlevel 1 exit /b 1
 
-call "%~dp0check-qwen-models.cmd"
-if errorlevel 1 exit /b 1
+rem 本地 Qwen3 权重为可选：缺失时音色工坊隐藏「本地」页，不阻断首次安装完成
 
 where nvidia-smi >nul 2>&1
 if errorlevel 1 exit /b 0

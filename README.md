@@ -2,7 +2,7 @@
 
 一个会动、会聊、会悄悄观察你的 Live2D 桌面 AI 桌宠。
 
-**当前版本：V0.6.3（早期开发版本）**
+**当前版本：V0.7.0（早期开发版本）**
 
 > **文档语言 / Docs:** [中文 README](README.md)（本页）· [English README](README.en.md)
 
@@ -49,7 +49,7 @@
 
 ## 快速开始
 
-1. 双击 **`首次安装.bat`**（只需一次：npm、Live2D 模型、Python `.venv`、TTS/STT pip 依赖、SenseVoice / Qwen 模型）
+1. 双击 **`首次安装.bat`**（只需一次：npm、Live2D 模型、Python `.venv`、TTS/STT pip 依赖、SenseVoice；**本地 Qwen3 语音模型为可选**，跳过则音色工坊只显示云端页）
 2. 双击 **`启动.bat`**（TTS 窗口 + 桌宠；关闭桌宠后 TTS 一并退出）
 3. **家窗口 → 文字聊天**，或桌宠旁聊天快捷按钮
 

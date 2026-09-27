@@ -21,8 +21,8 @@ echo     - Python 虚拟环境 ^(.venv^)
 echo     - Qwen3-TTS 引擎依赖与 PyTorch
 echo     - STT 侧车依赖 ^(sherpa-onnx 等，stt_service\requirements.txt^)
 echo     - SenseVoice STT 模型 ^(约 230MB，.runtime\stt-models\^)
-echo     - Qwen3 模型：VoiceDesign 1.7B + Base 0.6B
 echo.
+echo   可选：本地 Qwen3 语音模型（音色工坊本地创造/克隆）
 echo   Live2D 模型将在安装完成后引导下载（桃濑日和）
 echo ========================================
 echo.
@@ -88,14 +88,11 @@ call "%~dp0win\install-stt-models.cmd"
 if errorlevel 1 exit /b 1
 
 echo.
-echo [附加] 下载 Qwen3 语音模型权重（ModelScope，体积较大）...
+echo [附加] 可选下载本地 Qwen3 语音模型权重…
 echo.
 
-call "%~dp0win\check-disk-space.cmd" 10
-if errorlevel 1 exit /b 1
-
-call "%~dp0win\install-qwen-models.cmd"
-if errorlevel 1 exit /b 1
+call "%~dp0win\prompt-qwen-models.cmd"
+rem 跳过下载不视为失败；下载失败也仅警告，不阻断首次安装
 
 call "%~dp0win\check-setup-complete.cmd"
 if errorlevel 1 (
@@ -115,6 +112,12 @@ echo   [OK] First-time setup is complete.
 echo   Close this window, then run the launcher bat in the repo root.
 echo ========================================
 echo.
+call "%~dp0win\check-qwen-models.cmd"
+if errorlevel 1 (
+  echo   提示：未安装本地 Qwen3 模型时，音色工坊仅显示云端页。
+  echo   需要本地工坊时运行：scripts\win\install-qwen-models.cmd
+  echo.
+)
 pause
 exit /b 0
 
@@ -127,7 +130,7 @@ echo   No need to install again. You can close this window.
 echo   Next: run the launcher bat in the repo root.
 echo ========================================
 echo.
-echo   Re-download Qwen: scripts/win/install-qwen-models.cmd
+echo   Optional local Qwen models: scripts/win/install-qwen-models.cmd
 echo   Re-download STT model: scripts/win/install-stt-models.cmd
 echo.
 pause

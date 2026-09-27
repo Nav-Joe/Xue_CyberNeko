@@ -25,10 +25,14 @@ export type ChatSegmentCoordinator = {
   reset: () => void
 }
 
-/** 与 useChatSession 一致：关 TTS 或未开并行时返回 0（串行） */
+/** 与 useChatSession 一致：关 TTS、未开并行、或云端 TTS 时返回 0（串行） */
 export function resolveChatTtsParallelLanes(
-  config: Pick<ChatConfigView, 'ttsEnabled' | 'ttsParallelEnabled' | 'ttsParallelLanes'>
+  config: Pick<ChatConfigView, 'ttsEnabled' | 'ttsParallelEnabled' | 'ttsParallelLanes'>,
+  options?: { ttsBackend?: 'local' | 'qwen' }
 ): number {
+  if (options?.ttsBackend === 'qwen') {
+    return 0
+  }
   const ttsEnabled = config.ttsEnabled !== false
   return ttsEnabled && config.ttsParallelEnabled ? config.ttsParallelLanes : 0
 }

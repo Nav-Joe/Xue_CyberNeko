@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
 import { loadChatConfigView, saveChatTtsSettings } from '../../services/chat/chatConfigStore'
 import { disableScreenCompanionIfEnabled } from '../../services/screenCompanion/screenCompanionStore'
 import type { ChatTtsParallelLanes } from '../../services/chat/types'
+import {
+  TTS_CLOUD_CONFIG_CHANGED_EVENT,
+  getCachedTtsBackend,
+  refreshTtsCloudBackendCache
+} from '../../services/ttsCloudSpeech'
 
 import './chat-panel-theme.css'
 
@@ -16,19 +21,38 @@ const emit = defineEmits<{
 const ttsEnabled = ref(true)
 const ttsParallelEnabled = ref(false)
 const ttsParallelLanes = ref<ChatTtsParallelLanes>(2)
+const cloudBackend = ref(false)
 const saving = ref(false)
 const status = ref('')
 const error = ref('')
 
-onMounted(async () => {
-  try {
-    const config = await loadChatConfigView()
-    ttsEnabled.value = config.ttsEnabled !== false
-    ttsParallelEnabled.value = config.ttsParallelEnabled === true
-    ttsParallelLanes.value = config.ttsParallelLanes ?? 2
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : '加载 TTS 设置失败'
-  }
+async function syncCloudBackendFlag(): Promise<void> {
+  await refreshTtsCloudBackendCache()
+  cloudBackend.value = getCachedTtsBackend() === 'qwen'
+}
+
+function onCloudConfigChanged(event: Event): void {
+  const detail = (event as CustomEvent<{ ttsBackend?: string }>).detail
+  cloudBackend.value = detail?.ttsBackend === 'qwen'
+}
+
+onMounted(() => {
+  window.addEventListener(TTS_CLOUD_CONFIG_CHANGED_EVENT, onCloudConfigChanged)
+  void (async () => {
+    try {
+      const config = await loadChatConfigView()
+      ttsEnabled.value = config.ttsEnabled !== false
+      ttsParallelEnabled.value = config.ttsParallelEnabled === true
+      ttsParallelLanes.value = config.ttsParallelLanes ?? 2
+      await syncCloudBackendFlag()
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : '加载 TTS 设置失败'
+    }
+  })()
+})
+
+onUnmounted(() => {
+  window.removeEventListener(TTS_CLOUD_CONFIG_CHANGED_EVENT, onCloudConfigChanged)
 })
 
 async function persist(partial: Parameters<typeof saveChatTtsSettings>[0], okMessage: string): Promise<void> {
@@ -83,7 +107,7 @@ async function onLanesChange(): Promise<void> {
       <span>开启对话 TTS</span>
     </label>
 
-    <div v-if="ttsEnabled" class="chat-tts-settings__parallel">
+    <div v-if="ttsEnabled && !cloudBackend" class="chat-tts-settings__parallel">
       <div class="chat-tts-settings__parallel-head">
         <span class="chat-tts-settings__parallel-title">并行 TTS 推理模式</span>
         <span class="chat-tts-settings__help" tabindex="0" aria-label="显存与并路推荐">
@@ -159,6 +183,10 @@ async function onLanesChange(): Promise<void> {
         </div>
       </template>
     </div>
+
+    <p v-if="ttsEnabled && cloudBackend" class="chat-theme__hint">
+      当前为云端 TTS：强制串行合成，本地并行推理选项不可用。
+    </p>
 
     <p v-if="status" class="chat-theme__hint">{{ status }}</p>
     <p v-if="error" class="chat-theme__error">{{ error }}</p>

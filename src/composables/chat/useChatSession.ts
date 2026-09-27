@@ -6,6 +6,7 @@ import {
   loadCharacterCardsStore
 } from '../../services/chat/characterCardStore'
 import { createChatSegmentCoordinator, resolveChatTtsParallelLanes } from '../../services/chat/chatTtsPipeline'
+import { refreshTtsCloudBackendCache, getCachedTtsBackend } from '../../services/ttsCloudSpeech'
 import { logChatSegmentDebug } from '../../services/chat/chatDebugLog'
 import { LLM_CHAT_MAX_RETRIES, llmChatWithRetry } from '../../services/chat/llmChatRetry'
 import { splitTextForTts } from '../../services/chat/textSplitter'
@@ -143,7 +144,10 @@ export function useChatSession() {
     error.value = ''
 
     const ttsEnabled = config.value.ttsEnabled !== false
-    const ttsParallelLanes = resolveChatTtsParallelLanes(config.value)
+    await refreshTtsCloudBackendCache()
+    const ttsParallelLanes = resolveChatTtsParallelLanes(config.value, {
+      ttsBackend: getCachedTtsBackend()
+    })
 
     // ① 发前只读注入（可 await）；内部不得夹带总结 LLM
     const turnCtx = await resolveChatTurnPromptContext({

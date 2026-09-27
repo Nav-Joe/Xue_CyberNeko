@@ -6,6 +6,12 @@ const props = defineProps<{
   steps: BootStep[]
   currentStepId: string
   progress?: { done: number; total: number } | null
+  /** 云端 design 等失败时展示；有值则显示「知道了」 */
+  error?: string | null
+}>()
+
+const emit = defineEmits<{
+  dismiss: []
 }>()
 
 function stepIndex(stepId: string): number {
@@ -38,8 +44,8 @@ function progressPercent(): number {
 <template>
   <div class="boot-shell">
     <div class="boot-card">
-      <h3 class="boot-title">准备中</h3>
-      <ol class="step-list">
+      <h3 class="boot-title">{{ error ? '出错了' : '准备中' }}</h3>
+      <ol v-if="!error" class="step-list">
         <li
           v-for="step in steps"
           :key="step.id"
@@ -55,16 +61,26 @@ function progressPercent(): number {
         </li>
       </ol>
 
-      <p class="boot-message">{{ message }}</p>
+      <p class="boot-message" :class="{ 'boot-message--error': Boolean(error) }">
+        {{ error || message }}
+      </p>
 
-      <div v-if="progress && progress.total > 0" class="progress-wrap">
+      <div v-if="!error && progress && progress.total > 0" class="progress-wrap">
         <div class="progress-bar">
           <div class="progress-fill" :style="{ width: `${progressPercent()}%` }" />
         </div>
         <p class="boot-progress">{{ progress.done }} / {{ progress.total }}</p>
       </div>
 
-      <p class="boot-hint">桌宠已隐藏，完成前不会响应触摸。请勿关闭 TTS 窗口。</p>
+      <button
+        v-if="error"
+        type="button"
+        class="boot-dismiss"
+        @click="emit('dismiss')"
+      >
+        知道了
+      </button>
+      <p v-else class="boot-hint">桌宠已隐藏，完成前不会响应触摸。请勿关闭 TTS 窗口。</p>
     </div>
   </div>
 </template>
@@ -148,6 +164,29 @@ function progressPercent(): number {
   line-height: 1.55;
   color: #6b7280;
   text-align: center;
+}
+
+.boot-message--error {
+  color: #b91c1c;
+  font-weight: 500;
+}
+
+.boot-dismiss {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.boot-dismiss:hover {
+  background: #1f2937;
 }
 
 .progress-wrap {

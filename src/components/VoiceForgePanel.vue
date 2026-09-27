@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { CORPUS_UNSAVED_SWITCH_CONFIRM, CREATE_VOICE_STARTED_HINT, UPLOAD_VOICE_STARTED_HINT, VOICE_FORGE_HOME_HINT } from '../constants/voiceForge'
 import { useVoiceCorpusEditor } from '../composables/voice-forge/useVoiceCorpusEditor'
 import { useVoiceCreationForm } from '../composables/voice-forge/useVoiceCreationForm'
@@ -16,8 +16,12 @@ import { cloneCorpusPayload, getDefaultCorpusSnapshot, setRuntimeCorpus } from '
 import { notifyVoiceUploadReady, resumeVoiceForgeCreation } from '../services/voiceForgeApi'
 import { setTouchFeedbackMode } from '../services/touchModeSettings'
 import { setVoiceUploadFlowGuard } from '../services/voiceUploadFlowGuard'
+import type { TtsBackendKind } from '../services/ttsCloudSpeech'
+import { loadTtsCapabilities } from '../services/ttsCapabilities'
 import VoiceForgeDialogs from './voice-forge/VoiceForgeDialogs.vue'
 import VoiceForgeTabBar from './voice-forge/VoiceForgeTabBar.vue'
+import VoiceForgeBackendTabs from './voice-forge/VoiceForgeBackendTabs.vue'
+import VoiceForgeCloudPanel from './voice-forge/VoiceForgeCloudPanel.vue'
 import VoiceForgeCreateTab from './voice-forge/tabs/VoiceForgeCreateTab.vue'
 import VoiceForgeUpdateTab from './voice-forge/tabs/VoiceForgeUpdateTab.vue'
 
@@ -26,6 +30,10 @@ const emit = defineEmits<{
   'voice-creation-started': []
   'upload-flow-active': [active: boolean]
 }>()
+
+/** 与 tts-cloud-config.ttsBackend 同步：本地工坊 / 云端克隆页 */
+const forgeBackend = ref<TtsBackendKind>('local')
+const localQwenAvailable = ref(true)
 
 const workbench = useVoiceForgeWorkbench()
 const creation = useVoiceCreationForm()
@@ -157,6 +165,11 @@ async function loadCorpusForEditingSample(folderId: string): Promise<void> {
 
 async function loadEditorState(): Promise<void> {
   try {
+    const caps = await loadTtsCapabilities(true)
+    localQwenAvailable.value = caps.localQwenModelsReady
+    if (!localQwenAvailable.value) {
+      forgeBackend.value = 'qwen'
+    }
     if (window.electronAPI?.readVoiceForgeConfig) {
       const config = await window.electronAPI.readVoiceForgeConfig()
       activeSampleFolderId.value = config.activeSample?.folderId ?? null
@@ -209,6 +222,9 @@ async function onExperimentalUploadToggle(event: Event): Promise<void> {
   }
 }
 
+watch(forgeBackend, () => {
+  void nextTick(() => emit('layout-change'))
+})
 watch(editingSampleId, (n, p) => { void onEditingSampleChange(n, p) })
 watch(activeTab, () => { parseError.value = ''; void nextTick(() => emit('layout-change')) })
 watch(isUploadFlowActive, (active) => emit('upload-flow-active', active), { immediate: true })
@@ -220,41 +236,54 @@ onUnmounted(() => resetUploadFlow())
 <template>
   <div class="voice-forge" :class="{ 'voice-forge--upload-flow': isUploadFlowActive }">
     <div v-show="!isUploadFlowActive" class="voice-forge__main">
-      <p class="home-hint">{{ VOICE_FORGE_HOME_HINT }}</p>
-      <VoiceForgeTabBar :active-tab="activeTab" @update:active-tab="activeTab = $event" />
-      <VoiceForgeUpdateTab
-        v-if="activeTab === 'update'"
-        :voice-samples="voiceSamples"
-        :editing-sample-id="editingSampleId"
-        :editing-sample-label="editingSampleLabel"
-        :loading-sample-corpus="loadingSampleCorpus"
-        :applying="applying"
-        :applying-corpus="applyingCorpus"
-        :update-corpus="updateCorpus"
-        :can-apply-corpus-prewarm="canApplyCorpusPrewarm"
-        :corpus-prewarm-disabled-reason="corpusPrewarmDisabledReason"
-        @update:editing-sample-id="editingSampleId = $event"
-        @prewarm="onApplyCorpusPrewarm"
-        @add-line="addUpdateLine"
-        @remove-line="removeUpdateLine"
+      <VoiceForgeBackendTabs
+        v-model:forge-backend="forgeBackend"
+        :local-available="localQwenAvailable"
       />
-      <VoiceForgeCreateTab
+
+      <template v-if="forgeBackend === 'local' && localQwenAvailable">
+        <p class="home-hint">{{ VOICE_FORGE_HOME_HINT }}</p>
+        <VoiceForgeTabBar :active-tab="activeTab" @update:active-tab="activeTab = $event" />
+        <VoiceForgeUpdateTab
+          v-if="activeTab === 'update'"
+          :voice-samples="voiceSamples"
+          :editing-sample-id="editingSampleId"
+          :editing-sample-label="editingSampleLabel"
+          :loading-sample-corpus="loadingSampleCorpus"
+          :applying="applying"
+          :applying-corpus="applyingCorpus"
+          :update-corpus="updateCorpus"
+          :can-apply-corpus-prewarm="canApplyCorpusPrewarm"
+          :corpus-prewarm-disabled-reason="corpusPrewarmDisabledReason"
+          @update:editing-sample-id="editingSampleId = $event"
+          @prewarm="onApplyCorpusPrewarm"
+          @add-line="addUpdateLine"
+          @remove-line="removeUpdateLine"
+        />
+        <VoiceForgeCreateTab
+          v-else
+          :instruct="instruct"
+          :create-corpus="createCorpus"
+          :experimental-upload-enabled="experimentalUploadEnabled"
+          :experimental-upload-saving="experimentalUploadSaving"
+          :applying="applying"
+          :uploading-voice="uploadingVoice"
+          :creation-status="creationStatus"
+          @update:instruct="instruct = $event"
+          @generate="onApplyAndRelaunch"
+          @toggle-experimental="onExperimentalUploadToggle"
+          @start-upload="onBeginVoiceUploadFlow"
+          @add-line="addCreateLine"
+          @remove-line="removeCreateLine"
+        />
+        <p v-if="showParseError" class="status error">{{ parseError }}</p>
+      </template>
+
+      <VoiceForgeCloudPanel
         v-else
-        :instruct="instruct"
-        :create-corpus="createCorpus"
-        :experimental-upload-enabled="experimentalUploadEnabled"
-        :experimental-upload-saving="experimentalUploadSaving"
-        :applying="applying"
-        :uploading-voice="uploadingVoice"
-        :creation-status="creationStatus"
-        @update:instruct="instruct = $event"
-        @generate="onApplyAndRelaunch"
-        @toggle-experimental="onExperimentalUploadToggle"
-        @start-upload="onBeginVoiceUploadFlow"
-        @add-line="addCreateLine"
-        @remove-line="removeCreateLine"
+        @voice-creation-started="emit('voice-creation-started')"
+        @layout-change="emit('layout-change')"
       />
-      <p v-if="showParseError" class="status error">{{ parseError }}</p>
     </div>
 
     <VoiceForgeDialogs

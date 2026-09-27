@@ -18,12 +18,17 @@ defineProps<{
   bootProgress: { done: number; total: number } | null
   bootPhase: BootPhase
   reviewStatus: VoiceForgeStatus | null
+  /** 云端 approve 失败后恢复审阅时展示 */
+  reviewError?: string | null
+  /** 云端 design/重新生成失败时展示在 Boot 遮罩 */
+  bootError?: string | null
 }>()
 
 defineEmits<{
   approved: []
   done: []
-  regenerating: []
+  regenerating: [detail: import('../composables/useVoiceEventBus').CloudVoiceForgeStartDetail | null]
+  dismissBootError: []
 }>()
 </script>
 
@@ -41,13 +46,16 @@ defineEmits<{
     :current-step-id="bootCurrentStepId"
     :message="bootMessage"
     :progress="bootProgress"
+    :error="bootError"
+    @dismiss="$emit('dismissBootError')"
   />
 
   <VoiceForgeReviewDialog
     v-if="bootPhase === 'review' && reviewStatus"
     :status="reviewStatus"
+    :initial-error="reviewError || ''"
     @approved="$emit('approved')"
     @done="$emit('done')"
-    @regenerating="$emit('regenerating')"
+    @regenerating="$emit('regenerating', $event)"
   />
 </template>
