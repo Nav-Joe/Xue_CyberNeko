@@ -2,6 +2,7 @@ import { BrowserWindow, type BrowserWindow as BrowserWindowType } from 'electron
 import { join } from 'path'
 
 import { onChatWindowClosed } from '../llama/downloadLifecycle'
+import { resolveAppIconPath } from '../windows/appIcon'
 
 let chatWindow: BrowserWindowType | null = null
 
@@ -38,6 +39,7 @@ export function openChatWindow(loadRenderer: LoadRenderer): { alreadyOpen: boole
     show: false,
     autoHideMenuBar: true,
     title: '文字聊天 · 雪澜',
+    icon: resolveAppIconPath(),
     backgroundColor: '#fdf2f8',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

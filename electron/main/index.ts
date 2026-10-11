@@ -30,6 +30,7 @@ import { registerPetTouchIpc } from './ipc/petTouch'
 import { registerSttIpc } from './ipc/stt'
 import { registerTtsCloudIpc } from './ipc/ttsCloud'
 import { registerScreenCompanionIpc } from './ipc/screenCompanion'
+import { registerSplashIpc } from './ipc/splash'
 import { initMemorySubsystem, finalizeForAppQuit } from './memory/runtime'
 import { stopManagedLlamaServer } from './llama/session'
 import { stopManagedSttService } from './stt/session'
@@ -43,6 +44,11 @@ import {
   setPetWindowOverlay,
   showPetWindowIfNeeded
 } from './windows/petWindow'
+import {
+  createSplashWindow,
+  hideSplashWindowForQuit,
+  setSplashProgress
+} from './windows/splashWindow'
 import {
   reconcileScreenCompanionScheduler,
   stopScreenCompanionScheduler
@@ -127,6 +133,7 @@ function registerIpc(): void {
   registerSttIpc()
   registerTtsCloudIpc()
   registerScreenCompanionIpc()
+  registerSplashIpc()
 }
 
 let quittingFinalizeStarted = false
@@ -151,6 +158,7 @@ app.on('before-quit', (event) => {
 
   const hideAll = (): void => {
     try {
+      hideSplashWindowForQuit()
       getHomeWindow()?.hide()
       getPetWindow()?.hide()
     } catch {
@@ -199,7 +207,11 @@ app.whenReady().then(() => {
 })
 
 function startProductApp(): void {
+  // 尽早写 app 锁并弹出加载窗：bat 侧据此再去起 TTS，用户不必干等环境后的 TTS 黑窗
   appInstanceLock.writeLock(process.pid, 'app')
+  createSplashWindow()
+  setSplashProgress(10)
+
   resetExperimentalFeaturesOnStartup()
   reconcileVoiceRuntimeConfig()
   initMemorySubsystem()
@@ -211,7 +223,15 @@ function startProductApp(): void {
   void reconcileScreenCompanionScheduler().catch((error) => {
     logWarn('main', 'screen companion scheduler reconcile failed', error)
   })
+  setSplashProgress(20)
+
   createPetWindow()
+  setSplashProgress(30)
+  const pet = getPetWindow()
+  pet?.webContents.on('did-finish-load', () => {
+    setSplashProgress(45)
+  })
+
   logInfo('main', 'Application ready')
 
   app.on('activate', () => {

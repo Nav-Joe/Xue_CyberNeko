@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, provide } from 'vue'
 
+import { useHomeAppearance } from '../../composables/useHomeAppearance'
 import { useCharacterCardWorkbench } from '../../composables/chat/useCharacterCardWorkbench'
 import { CHARACTER_CARD_WORKBENCH_KEY } from '../../composables/chat/characterCardWorkbenchContext'
 
@@ -10,7 +11,9 @@ import ChatTtsSettings from './ChatTtsSettings.vue'
 import ChatTtsCloudSettings from './ChatTtsCloudSettings.vue'
 import ChatSttSettings from './ChatSttSettings.vue'
 
+import '../../styles/neko-tokens.css'
 import './chat-panel-theme.css'
+import './chat-appearance.css'
 
 const props = defineProps<{
   ensureLocalLlamaReady?: () => Promise<boolean>
@@ -21,6 +24,7 @@ const emit = defineEmits<{
   changed: []
 }>()
 
+const { appearance } = useHomeAppearance()
 const workbench = useCharacterCardWorkbench()
 provide(CHARACTER_CARD_WORKBENCH_KEY, workbench)
 
@@ -40,7 +44,7 @@ function onCardChanged(): void {
 </script>
 
 <template>
-  <div class="chat-settings">
+  <div class="chat-settings neko-ui" :data-appearance="appearance">
     <header class="chat-settings__header">
       <button type="button" class="chat-settings__back" @click="emit('back')">← 返回聊天</button>
       <div class="chat-settings__title-block">
@@ -50,15 +54,25 @@ function onCardChanged(): void {
     </header>
 
     <div class="chat-settings__body">
-      <ChatTtsSettings @changed="onSettingsChanged" />
-      <ChatTtsCloudSettings @changed="onSettingsChanged" />
-      <ChatSttSettings @changed="onSettingsChanged" />
-      <ChatLlmSettings
-        :card="activeCard"
-        :ensure-local-llama-ready="props.ensureLocalLlamaReady"
-        @changed="onSettingsChanged"
-      />
-      <ChatCharacterCardSettings @changed="onCardChanged" />
+      <section class="chat-settings__section" aria-label="对话语音">
+        <ChatTtsSettings @changed="onSettingsChanged" />
+      </section>
+      <section class="chat-settings__section" aria-label="语音后端">
+        <ChatTtsCloudSettings @changed="onSettingsChanged" />
+      </section>
+      <section class="chat-settings__section" aria-label="语音输入">
+        <ChatSttSettings @changed="onSettingsChanged" />
+      </section>
+      <section class="chat-settings__section" aria-label="对话模型">
+        <ChatLlmSettings
+          :card="activeCard"
+          :ensure-local-llama-ready="props.ensureLocalLlamaReady"
+          @changed="onSettingsChanged"
+        />
+      </section>
+      <section class="chat-settings__section" aria-label="角色卡">
+        <ChatCharacterCardSettings @changed="onCardChanged" />
+      </section>
       <p v-if="workbench.loading.value" class="chat-theme__hint chat-settings__loading">同步角色卡…</p>
     </div>
   </div>
@@ -71,45 +85,52 @@ function onCardChanged(): void {
   width: 100%;
   height: 100%;
   min-height: 0;
-  background: linear-gradient(165deg, #fff 0%, #fdf2f8 48%, #eff6ff 100%);
 }
 
 .chat-settings__header {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  padding: 16px 20px 12px;
-  border-bottom: 1px solid #fce7f3;
-  background: rgba(255, 255, 255, 0.92);
+  gap: var(--home-space-2);
+  padding: var(--home-space-2) 64px var(--home-space-2) var(--home-space-3);
+  border-bottom: 1px solid var(--home-line);
+  background: var(--home-color-surface);
 }
 
 .chat-settings__back {
   margin-top: 6px;
-  padding: 8px 12px;
-  border: 1px solid #fbcfe8;
-  border-radius: 999px;
-  background: #fff;
-  color: #be185d;
-  font-size: 12px;
-  font-weight: 600;
+  min-height: var(--home-target);
+  padding: 8px 14px;
+  border: 1.5px solid var(--home-color-primary);
+  border-radius: var(--home-radius-pill);
+  background: var(--home-color-chip);
+  color: var(--home-color-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
 }
 
+.chat-settings__back:hover {
+  color: var(--home-color-on-accent);
+  border-color: var(--home-color-accent);
+  background: var(--home-color-accent);
+}
+
 .chat-settings__title-block h1 {
   margin: 0;
-  font-size: 22px;
-  color: #111827;
+  font-size: var(--home-font-display);
+  line-height: 1.2;
+  color: var(--home-color-text);
 }
 
 .chat-settings__badge {
   display: inline-block;
   margin: 0 0 8px;
   padding: 4px 12px;
-  border-radius: 999px;
-  background: #fce7f3;
-  color: #be185d;
-  font-size: 11px;
+  border-radius: var(--home-radius-pill);
+  background: var(--home-color-chip);
+  color: var(--home-color-primary);
+  font-size: var(--home-font-meta);
   font-weight: 700;
 }
 
@@ -117,7 +138,7 @@ function onCardChanged(): void {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 16px 20px 24px;
+  padding: var(--home-space-3);
   max-width: 720px;
 }
 

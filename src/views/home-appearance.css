@@ -1,0 +1,219 @@
+/* 家窗口专属：浅色令牌见 neko-tokens.css；深色令牌在 .neko-ui[data-appearance=dark] */
+
+.home :focus-visible {
+  outline: 2px solid var(--home-focus);
+  outline-offset: 3px;
+}
+
+.home .skip-link {
+  position: absolute;
+  left: var(--home-space-2);
+  top: var(--home-space-1);
+  z-index: 40;
+  padding: var(--home-space-1) var(--home-space-2);
+  border-radius: var(--home-radius-pill);
+  background: var(--home-color-surface);
+  color: var(--home-color-text);
+  font-size: var(--home-font-meta);
+  font-weight: 700;
+  transform: translateY(-120%);
+}
+
+.home .skip-link:focus {
+  transform: none;
+}
+
+.home .desk-nav > * {
+  min-width: 0;
+}
+
+.home .memory-entry,
+.home .rel-entry {
+  width: 100%;
+}
+
+.home .memory-entry .memory-entry__btn,
+.home .rel-entry .rel-entry__btn {
+  width: 100%;
+  min-height: var(--home-target);
+  margin: 0;
+  align-self: stretch;
+  border-radius: var(--home-radius-pill);
+  border: 1.5px solid var(--home-color-primary);
+  background: transparent;
+  color: var(--home-color-primary);
+  box-shadow: none;
+  transition:
+    transform var(--home-motion) var(--home-ease),
+    background-color var(--home-motion) var(--home-ease),
+    color var(--home-motion) var(--home-ease);
+}
+
+.home .memory-entry .memory-entry__btn:hover,
+.home .rel-entry .rel-entry__btn:hover {
+  background: var(--home-color-chip);
+  transform: translateY(-1px);
+}
+
+.home .voice-studio .voice-switcher,
+.home .pet-touch-card {
+  margin-bottom: var(--home-space-2);
+  padding: var(--home-space-2);
+  border-radius: 16px;
+  background: var(--home-color-canvas);
+  border: 1px solid var(--home-line);
+  transition:
+    transform var(--home-motion) var(--home-ease),
+    box-shadow var(--home-motion) var(--home-ease);
+}
+
+.home .voice-studio .voice-switcher--embedded,
+.home .voice-studio .cloud-voices--embedded {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.home .pet-touch-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--home-shadow);
+}
+
+.home .voice-switcher .title,
+.home .sample-name,
+.home .pet-touch-card__title,
+.home .pet-touch-card__list strong,
+.home .pet-touch-card__total strong,
+.home .chat-theme__section-title {
+  color: var(--home-color-text);
+}
+
+.home .voice-switcher .hint,
+.home .status,
+.home .sample-meta,
+.home .pet-touch-card__hint,
+.home .pet-touch-card__total,
+.home .pet-touch-card__list,
+.home .volume .label,
+.home .volume .value,
+.home .chat-theme__hint,
+.home .chat-theme__label {
+  color: var(--home-color-muted);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.home .sample-item {
+  border-radius: var(--home-radius-control);
+  border-color: var(--home-line);
+  background: var(--home-color-canvas);
+}
+
+.home .pet-touch-card__refresh {
+  min-height: var(--home-target);
+  border-radius: var(--home-radius-pill);
+  border-color: var(--home-line);
+  color: var(--home-color-primary);
+  background: var(--home-color-surface);
+}
+
+.home .volume {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.home .chat-theme__btn--ghost {
+  min-height: var(--home-target);
+  background: var(--home-color-chip);
+  color: var(--home-color-primary);
+}
+
+.home .sample-active {
+  color: var(--home-color-success);
+}
+
+.home .status.error,
+.home .pet-touch-card__error,
+.home .chat-theme__error {
+  color: var(--home-color-danger);
+}
+
+.home[data-appearance='dark'] .desk {
+  background: var(--home-color-surface);
+  border-color: var(--home-line);
+  box-shadow: var(--home-shadow);
+}
+
+.home[data-appearance='dark'] .stage-bg {
+  filter: blur(1px) brightness(0.58) saturate(0.82);
+}
+
+.home[data-appearance='dark'] .stage-frame {
+  box-shadow:
+    var(--home-shadow),
+    inset 0 0 0 2px rgba(232, 160, 184, 0.28);
+}
+
+.home[data-appearance='dark'] .chat-theme__input,
+.home[data-appearance='dark'] .chat-theme__select,
+.home[data-appearance='dark'] .chat-theme__textarea {
+  background: var(--home-color-inset);
+  color: var(--home-color-text);
+  border-color: var(--home-line);
+}
+
+.home[data-appearance='dark'] .chat-theme__card {
+  background: var(--home-color-panel);
+  border-color: var(--home-line);
+}
+
+.home[data-appearance='dark'] .memory-space__shell,
+.home[data-appearance='dark'] .rel-space__shell {
+  background: var(--home-color-inset);
+}
+
+.home[data-appearance='dark'] .memory-space__header,
+.home[data-appearance='dark'] .rel-space__header {
+  background: var(--home-color-panel);
+  border-bottom-color: var(--home-line);
+}
+
+.home[data-appearance='dark'] .memory-space__title-block h1,
+.home[data-appearance='dark'] .rel-space__title-block h1 {
+  color: var(--home-color-text);
+  font-weight: var(--home-font-display-weight);
+  letter-spacing: var(--home-font-display-tracking);
+}
+
+.home[data-appearance='dark'] .memory-space__icon-btn,
+.home[data-appearance='dark'] .rel-space__icon-btn {
+  background: var(--home-color-panel);
+  color: var(--home-color-primary);
+  border-color: var(--home-line);
+}
+
+.home[data-appearance='dark'] .memory-space__period-box,
+.home[data-appearance='dark'] .memory-space__bubble {
+  background: var(--home-color-panel);
+  border-color: var(--home-line);
+  color: var(--home-color-text);
+}
+
+body:has(.home) {
+  background: var(--home-cream-50, #faf7f5);
+}
+
+body:has(.home[data-appearance='dark']) {
+  background: var(--home-color-canvas);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home,
+  .home * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

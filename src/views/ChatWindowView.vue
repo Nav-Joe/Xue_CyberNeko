@@ -6,12 +6,16 @@ import ChatBootstrapOverlay from '../components/chat/ChatBootstrapOverlay.vue'
 import { useChatLlamaBootstrap } from '../composables/chat/useChatLlamaBootstrap'
 import { useChatSession } from '../composables/chat/useChatSession'
 import { useChatStt } from '../composables/chat/useChatStt'
+import { useHomeAppearance } from '../composables/useHomeAppearance'
 import { useScreenCompanionChatGate } from '../composables/useScreenCompanionChatGate'
 import ChatComposer from '../components/chat/ChatComposer.vue'
 import ChatMessageList from '../components/chat/ChatMessageList.vue'
 import ChatSettingsView from '../components/chat/ChatSettingsView.vue'
+import HomeAppearanceToggle from '../components/home/HomeAppearanceToggle.vue'
 
+import '../styles/neko-tokens.css'
 import '../components/chat/chat-panel-theme.css'
+import '../components/chat/chat-appearance.css'
 
 const {
   messages,
@@ -30,6 +34,7 @@ const {
   sendUserMessage
 } = useChatSession()
 
+const { appearance, isDark, toggleAppearance } = useHomeAppearance()
 const screenCompanionGate = useScreenCompanionChatGate()
 const llamaBootstrap = useChatLlamaBootstrap()
 const composerRef = ref<{ appendDraft: (text: string) => void } | null>(null)
@@ -83,7 +88,8 @@ watch(
   () => messages.value.length,
   async () => {
     await nextTick()
-    messagesEndRef.value?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    messagesEndRef.value?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'end' })
   }
 )
 
@@ -110,7 +116,9 @@ async function onSettingsChanged(): Promise<void> {
 </script>
 
 <template>
-  <div class="chat-window">
+  <div class="chat-window neko-ui" :data-appearance="appearance">
+    <a class="skip-link" href="#chat-panel">跳到对话</a>
+    <HomeAppearanceToggle :dark="isDark" @toggle="toggleAppearance" />
     <ChatBootstrapOverlay
       v-if="llamaBootstrap.chatBooting.value"
       :title="llamaBootstrap.bootTitle.value"
@@ -130,10 +138,12 @@ async function onSettingsChanged(): Promise<void> {
 
     <div v-else class="chat-window__content">
       <aside class="chat-window__stage" aria-label="Live2D 角色展示">
-        <Live2DView mode="chat" class="chat-window__live2d" :interaction-locked="replyPending" />
+        <div class="chat-window__frame">
+          <Live2DView mode="chat" class="chat-window__live2d" :interaction-locked="replyPending" />
+        </div>
       </aside>
 
-      <section class="chat-window__panel">
+      <section id="chat-panel" class="chat-window__panel" tabindex="-1">
         <header class="chat-window__header">
           <div class="chat-window__title-block">
             <p class="chat-window__badge">文字聊天</p>
@@ -216,27 +226,34 @@ async function onSettingsChanged(): Promise<void> {
   width: 100%;
   height: 100%;
   min-height: 0;
-  background: linear-gradient(165deg, #fff 0%, #fdf2f8 48%, #eff6ff 100%);
 }
 
 .chat-window__content {
   flex: 1;
   min-width: 0;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: minmax(200px, 34%) minmax(0, 1fr);
   min-height: 0;
+  gap: var(--home-space-3);
+  padding: var(--home-space-3);
 }
 
 .chat-window__stage {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
   min-height: 0;
-  padding: 8px 4px;
+  padding: 6px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.42);
-  border-right: 1px solid #fce7f3;
+}
+
+.chat-window__frame {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--home-radius-card);
+  background: var(--home-color-inset);
+  box-shadow:
+    inset 0 0 0 2px var(--home-accent-soft),
+    var(--home-shadow);
 }
 
 .chat-window__live2d {
@@ -245,74 +262,86 @@ async function onSettingsChanged(): Promise<void> {
   min-height: 0;
 }
 
+.chat-window__live2d :deep(.live2d-view--chat) {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .chat-window__panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-height: 0;
   min-width: 0;
+  border-radius: var(--home-radius-card);
+  background: var(--home-color-panel);
+  border: 1px solid var(--home-accent-soft);
+  box-shadow: var(--home-shadow);
+  overflow: hidden;
 }
 
 .chat-window__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 16px 20px 12px;
-  border-bottom: 1px solid #fce7f3;
-  background: rgba(255, 255, 255, 0.92);
+  gap: var(--home-space-2);
+  padding: var(--home-space-2) 56px var(--home-space-2) var(--home-space-3);
+  border-bottom: 1px solid var(--home-line);
+  background: var(--home-color-surface);
 }
 
 .chat-window__title-block h1 {
   margin: 0;
-  font-size: 22px;
-  color: #111827;
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  font-weight: var(--home-font-display-weight, 750);
+  letter-spacing: var(--home-font-display-tracking, 0.01em);
+  line-height: 1.25;
+  color: var(--home-color-text);
+  text-wrap: balance;
 }
 
 .chat-window__badge {
   display: inline-block;
-  margin: 0 0 8px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: #fce7f3;
-  color: #be185d;
-  font-size: 11px;
+  margin: 0 0 6px;
+  padding: 3px 12px;
+  border-radius: var(--home-radius-pill);
+  background: var(--home-color-chip);
+  color: var(--home-color-primary);
+  font-size: var(--home-font-meta);
   font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .chat-window__subtitle {
   margin: 6px 0 0;
-  color: #6b7280;
-  font-size: 12px;
+  color: var(--home-color-muted);
+  font-size: var(--home-font-meta);
+  line-height: 1.5;
 }
 
 .chat-window__header-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--home-space-1);
 }
 
 .chat-window__icon-btn {
-  padding: 8px 12px;
-  border: 1px solid #fbcfe8;
-  border-radius: 999px;
-  background: #fff;
-  color: #be185d;
-  font-size: 12px;
+  width: var(--home-target);
+  height: var(--home-target);
+  padding: 0;
+  border: 1.5px solid var(--home-color-primary);
+  border-radius: var(--home-radius-pill);
+  background: var(--home-color-chip);
+  color: var(--home-color-primary);
+  font-size: 18px;
   font-weight: 600;
+  line-height: 1;
   cursor: pointer;
 }
 
-.chat-window__icon-btn--gear {
-  width: 36px;
-  padding: 0;
-  font-size: 18px;
-  line-height: 34px;
-}
-
-.chat-window__icon-btn--close {
-  width: 36px;
-  padding: 0;
-  font-size: 22px;
-  line-height: 34px;
+.chat-window__icon-btn:hover {
+  background: var(--home-color-accent);
+  color: var(--home-color-on-accent);
+  border-color: var(--home-color-accent);
 }
 
 .chat-window__main {
@@ -320,7 +349,7 @@ async function onSettingsChanged(): Promise<void> {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 14px 20px 8px;
+  padding: var(--home-space-2) var(--home-space-3) var(--home-space-1);
 }
 
 .chat-window__messages {
@@ -329,36 +358,44 @@ async function onSettingsChanged(): Promise<void> {
 }
 
 .chat-window__footer {
-  padding: 10px 20px 16px;
-  border-top: 1px solid #fce7f3;
-  background: rgba(255, 255, 255, 0.94);
+  padding: var(--home-space-2) var(--home-space-3) var(--home-space-3);
+  border-top: 1px solid var(--home-line);
+  background: var(--home-color-surface);
 }
 
 .chat-window__toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: var(--home-space-2);
+  margin-bottom: var(--home-space-1);
 }
 
 .chat-window__context-hint {
   margin: 0;
   flex: 1;
   min-width: 0;
-  font-size: 11px;
+  font-size: var(--home-font-meta);
   line-height: 1.45;
-  color: #9ca3af;
+  color: var(--home-color-muted);
 }
 
 .chat-window__ghost-btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 999px;
-  background: #fce7f3;
-  color: #be185d;
-  font-size: 12px;
+  min-height: var(--home-target-sm);
+  padding: 6px 14px;
+  border: 1.5px solid var(--home-color-primary);
+  border-radius: var(--home-radius-pill);
+  background: var(--home-color-panel);
+  color: var(--home-color-primary);
+  font-size: var(--home-font-meta);
+  font-weight: 700;
   cursor: pointer;
+}
+
+.chat-window__ghost-btn:hover:not(:disabled) {
+  color: var(--home-color-on-accent);
+  border-color: var(--home-color-accent);
+  background: var(--home-color-accent);
 }
 
 .chat-window__ghost-btn:disabled {
@@ -369,21 +406,23 @@ async function onSettingsChanged(): Promise<void> {
 .chat-window__status,
 .chat-window__error {
   margin: 0 0 8px;
-  font-size: 12px;
+  font-size: 0.875rem;
   line-height: 1.5;
 }
 
 .chat-window__status {
-  color: #6b7280;
+  color: var(--home-color-muted);
 }
 
 .chat-window__error {
-  color: #b91c1c;
+  color: var(--home-color-danger);
 }
 
 @media (max-width: 820px) {
   .chat-window__content {
-    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-columns: minmax(180px, 32%) minmax(0, 1fr);
+    padding: var(--home-space-1);
+    gap: var(--home-space-1);
   }
 }
 </style>

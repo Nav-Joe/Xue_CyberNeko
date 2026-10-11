@@ -2,6 +2,7 @@ import { app, BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 
 import { attachWindowDiagnostics } from '../logging/registerErrorHandlers'
+import { resolveAppIconPath } from './appIcon'
 import { loadRenderer } from './rendererLoader'
 import { registerPetNarrateTarget, unregisterPetNarrateTarget } from './petNarrateTarget'
 
@@ -15,6 +16,12 @@ let petWindowHeight = PET_BOOTSTRAP_HEIGHT
 /** 猫娘内容区尺寸（不含菜单 overlay 扩展） */
 let petContentWidth = PET_BOOTSTRAP_WIDTH
 let petContentHeight = PET_BOOTSTRAP_HEIGHT
+/** 冷启动加载窗未关完前，禁止 ready-to-show / 尺寸 IPC 提前露出桌宠 */
+let deferPetShow = false
+
+export function setDeferPetWindowShow(defer: boolean): void {
+  deferPetShow = defer
+}
 
 export function getPetWindow(): BrowserWindow | null {
   return petWindow
@@ -105,6 +112,7 @@ export function setPetWindowOverlay(
 }
 
 export function showPetWindowIfNeeded(): void {
+  if (deferPetShow) return
   if (!petWindow || petWindow.isVisible()) return
   petWindow.show()
   petWindow.setIgnoreMouseEvents(true, { forward: true })
@@ -153,11 +161,14 @@ export function createPetWindow(): void {
     hasShadow: false,
     autoHideMenuBar: true,
     title: '雪澜赛博猫娘',
+    icon: resolveAppIconPath(),
     backgroundColor: '#00000000',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // 隐藏等 splash 时仍要跑 Live2D，否则首帧事件永远不来，加载窗卡在末段
+      backgroundThrottling: false
     }
   })
 
@@ -171,6 +182,7 @@ export function createPetWindow(): void {
   })
 
   win.on('ready-to-show', () => {
+    // 冷启动有 splash 时 deferPetShow=true，等加载窗关闭再 show
     showPetWindowIfNeeded()
   })
 

@@ -15,4 +15,8 @@ body,
   margin: 0;
   overflow: hidden;
 }
+
+body {
+  background: #fff7fb;
+}
 </style>

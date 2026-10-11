@@ -16,6 +16,10 @@ interface ElectronAPI {
   setPetWindowSize: (width: number, height: number) => Promise<{ width: number; height: number }>
   setPetWindowOverlay: (width: number, height: number, recenter?: boolean) => Promise<{ width: number; height: number }>
   setPetWindowPosition: (x: number, y: number) => void
+  /** 冷启动：PetApp mounted，推进加载窗进度 */
+  notifySplashRendererReady: () => void
+  /** 冷启动：Live2D 首帧就绪，关闭加载窗并显示桌宠 */
+  notifySplashPetFrameReady: () => void
   onHomeVisibilityChanged: (callback: (visible: boolean) => void) => () => void
   onVoiceConfigChanged: (
     callback: (payload: {

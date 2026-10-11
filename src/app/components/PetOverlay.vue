@@ -21,9 +21,10 @@ defineEmits<{
 </script>
 
 <template>
+  <!-- 冷启动也要挂上 Live2D：若 v-if 等 petReady，会与 splash 互等导致进度条卡死 -->
   <div
-    v-if="petReady"
     class="pet-stage"
+    :class="{ 'pet-stage--waiting': !petReady }"
     :style="{ width: `${petStage.width}px`, height: `${petStage.height}px` }"
   >
     <Live2DView
@@ -59,6 +60,11 @@ defineEmits<{
   bottom: 0;
   transform: translateX(-50%);
   overflow: hidden;
+}
+
+.pet-stage--waiting {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .menu-dismiss-layer {

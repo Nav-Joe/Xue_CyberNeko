@@ -80,9 +80,9 @@ onUnmounted(() => {
   width: 100%;
   margin: 0 0 14px;
   padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid #fce7f3;
-  background: rgba(255, 255, 255, 0.88);
+  border-radius: var(--home-radius-control, 16px);
+  border: 1px solid var(--home-line, rgba(63, 42, 51, 0.12));
+  background: var(--home-color-panel, #fff);
   box-sizing: border-box;
 }
 
@@ -96,18 +96,20 @@ onUnmounted(() => {
 
 .pet-touch-card__title {
   margin: 0;
-  font-size: 15px;
-  color: #9d174d;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--home-color-text, #3f2a33);
 }
 
 .pet-touch-card__refresh {
-  border: 1px solid #f9a8d4;
-  border-radius: 999px;
-  background: #fff;
-  color: #be185d;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 10px;
+  min-height: var(--home-target-sm, 36px);
+  border: 1.5px solid var(--home-color-primary, #9f1239);
+  border-radius: var(--home-radius-pill, 999px);
+  background: var(--home-color-chip, #fde8f0);
+  color: var(--home-color-primary, #9f1239);
+  font-size: var(--home-font-meta, 0.8125rem);
+  font-weight: 700;
+  padding: 4px 12px;
   cursor: pointer;
 }
 
@@ -120,20 +122,21 @@ onUnmounted(() => {
 .pet-touch-card__error,
 .pet-touch-card__total {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
 }
 
 .pet-touch-card__error {
-  color: #b91c1c;
+  color: var(--home-color-danger, #b91c1c);
 }
 
 .pet-touch-card__hint,
 .pet-touch-card__total {
-  color: #6b7280;
+  color: var(--home-color-muted, #5c4150);
 }
 
 .pet-touch-card__total strong {
-  color: #be185d;
+  color: var(--home-color-primary, #9f1239);
 }
 
 .pet-touch-card__list {
@@ -143,8 +146,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
-  color: #374151;
+  font-size: 0.8125rem;
+  color: var(--home-color-muted, #5c4150);
 }
 
 .pet-touch-card__list li {
@@ -154,6 +157,6 @@ onUnmounted(() => {
 }
 
 .pet-touch-card__list strong {
-  color: #9d174d;
+  color: var(--home-color-text, #3f2a33);
 }
 </style>

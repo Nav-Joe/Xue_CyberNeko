@@ -1,0 +1,123 @@
+/* 聊天窗：奶油底 + 粉晕；装饰靠令牌，暗色少写硬编码 */
+
+.chat-window.neko-ui {
+  background-color: var(--home-color-canvas);
+  background-image:
+    radial-gradient(ellipse 55% 42% at 8% 12%, rgba(251, 207, 232, 0.55), transparent 62%),
+    radial-gradient(ellipse 48% 38% at 96% 88%, rgba(253, 164, 175, 0.22), transparent 58%);
+  background-repeat: no-repeat;
+}
+
+.chat-settings.neko-ui {
+  background-color: var(--home-color-canvas);
+  background-image: radial-gradient(
+    ellipse 50% 36% at 90% 0%,
+    rgba(251, 207, 232, 0.5),
+    transparent 58%
+  );
+  background-repeat: no-repeat;
+}
+
+.chat-window .skip-link {
+  position: absolute;
+  left: var(--home-space-2);
+  top: var(--home-space-1);
+  z-index: 40;
+  padding: var(--home-space-1) var(--home-space-2);
+  border-radius: var(--home-radius-pill);
+  background: var(--home-color-surface);
+  color: var(--home-color-text);
+  font-size: var(--home-font-meta);
+  font-weight: 700;
+  transform: translateY(-120%);
+}
+
+.chat-window .skip-link:focus {
+  transform: none;
+}
+
+.chat-settings__section {
+  margin: 0 0 var(--home-space-2);
+  padding: var(--home-space-2);
+  border-radius: var(--home-radius-control);
+  background: var(--home-color-panel);
+  border: 1px solid var(--home-accent-soft);
+  box-shadow:
+    4px 0 0 var(--home-color-accent) inset,
+    0 10px 24px rgba(159, 18, 57, 0.08);
+}
+
+.chat-window.neko-ui[data-appearance='dark'] {
+  background-image:
+    radial-gradient(ellipse 55% 42% at 8% 12%, rgba(212, 119, 154, 0.18), transparent 62%),
+    radial-gradient(ellipse 48% 38% at 96% 88%, rgba(232, 160, 184, 0.1), transparent 58%);
+}
+
+.chat-settings.neko-ui[data-appearance='dark'] {
+  background-image: radial-gradient(
+    ellipse 50% 36% at 90% 0%,
+    rgba(212, 119, 154, 0.16),
+    transparent 58%
+  );
+}
+
+.chat-window[data-appearance='dark'] .chat-window__frame {
+  background: var(--home-color-inset);
+  box-shadow:
+    inset 0 0 0 2px var(--home-accent-soft),
+    var(--home-shadow);
+}
+
+.chat-window[data-appearance='dark'] .chat-window__panel {
+  background: var(--home-color-surface);
+  border-color: var(--home-line);
+}
+
+.chat-window[data-appearance='dark'] .chat-window__header,
+.chat-window[data-appearance='dark'] .chat-window__footer,
+.chat-settings[data-appearance='dark'] .chat-settings__header {
+  background: var(--home-color-panel);
+  border-color: var(--home-line);
+}
+
+.chat-window[data-appearance='dark'] .chat-messages__item--assistant,
+.chat-window[data-appearance='dark'] .chat-composer {
+  background: var(--home-color-panel);
+  border-color: var(--home-line);
+}
+
+.chat-window[data-appearance='dark'] .chat-composer__input {
+  background: var(--home-color-inset);
+  color: var(--home-color-text);
+}
+
+.chat-settings[data-appearance='dark'] .chat-settings__section {
+  background: var(--home-color-panel);
+  border-color: var(--home-line);
+}
+
+.neko-ui[data-appearance='dark'] .chat-theme__input,
+.neko-ui[data-appearance='dark'] .chat-theme__select,
+.neko-ui[data-appearance='dark'] .chat-theme__textarea,
+.neko-ui[data-appearance='dark'] .chat-theme__card {
+  background: var(--home-color-inset);
+  color: var(--home-color-text);
+  border-color: var(--home-line);
+}
+
+.neko-ui[data-appearance='dark'] .chat-theme__card {
+  background: var(--home-color-panel);
+}
+
+body:has(.chat-window[data-appearance='dark']),
+body:has(.chat-settings[data-appearance='dark']) {
+  background: var(--home-color-canvas, #17141a);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-window *,
+  .chat-settings * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

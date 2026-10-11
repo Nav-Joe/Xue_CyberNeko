@@ -234,23 +234,23 @@ onMounted(() => {
 
 .section-label {
   margin: 0 0 8px;
-  font-size: 12px;
+  font-size: var(--home-font-meta, 0.8125rem);
   font-weight: 700;
-  color: #6b7280;
+  color: var(--home-color-primary, #9f1239);
 }
 
 .setting-card {
   padding: 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: #fafafa;
+  border-radius: var(--home-radius-control, 16px);
+  border: 1px solid var(--home-accent-soft, rgba(219, 39, 119, 0.16));
+  background: var(--home-color-inset, #fff7fb);
 }
 
 .hint {
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: 0.8125rem;
   line-height: 1.55;
-  color: #6b7280;
+  color: var(--home-color-muted, #5c4150);
 }
 
 .status-active {

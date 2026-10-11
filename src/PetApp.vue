@@ -221,6 +221,7 @@ function handleMenuAction(action: 'home' | 'quit'): void {
 
 function onPetFrameReady(payload: { width: number; height: number }): void {
   petStage.value = payload
+  window.electronAPI?.notifySplashPetFrameReady?.()
 }
 
 function handleWindowBlur(): void {
@@ -352,6 +353,7 @@ onMounted(() => {
     window.electronAPI?.onVoiceEngineLoadBegin?.((payload) => {
       void runVoiceEngineLoad(payload)
     }) ?? null
+  window.electronAPI?.notifySplashRendererReady?.()
   void boot.evaluateInitialBoot()
   bootTimer = window.setInterval(() => {
     void boot.refreshBootProgress()

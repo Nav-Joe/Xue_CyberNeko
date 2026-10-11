@@ -158,6 +158,39 @@ module.exports = {
   pruneStaleLock
 }
 
+function sleepSync(ms) {
+  try {
+    const { spawnSync } = require('child_process')
+    if (process.platform === 'win32') {
+      spawnSync(
+        'powershell',
+        ['-NoProfile', '-Command', `Start-Sleep -Milliseconds ${Math.max(1, ms)}`],
+        { stdio: 'ignore' }
+      )
+      return
+    }
+    spawnSync('sleep', [String(Math.max(0.05, ms / 1000))], { stdio: 'ignore' })
+  } catch {
+    const end = Date.now() + ms
+    while (Date.now() < end) {
+      /* fallback spin */
+    }
+  }
+}
+
+function waitForAppRole(timeoutMs = 180_000, pollMs = 300) {
+  const started = Date.now()
+  while (Date.now() - started < timeoutMs) {
+    pruneStaleLock()
+    const lock = readLock()
+    if (lock && lock.role === 'app' && pidAlive(lock.pid)) {
+      return true
+    }
+    sleepSync(pollMs)
+  }
+  return false
+}
+
 if (require.main === module) {
   const cmd = process.argv[2]
   if (cmd === 'check') {
@@ -172,6 +205,12 @@ if (require.main === module) {
     clearLock()
     process.exit(0)
   }
-  console.error('Usage: node app-instance-lock.js check|launching|clear')
+  if (cmd === 'wait-app') {
+    // 等 Electron 写入 role=app（加载窗已创建），供启动脚本在此之后再起 TTS
+    const timeoutMs = Number(process.argv[3]) || 180_000
+    const ok = waitForAppRole(timeoutMs)
+    process.exit(ok ? 0 : 1)
+  }
+  console.error('Usage: node app-instance-lock.js check|launching|clear|wait-app')
   process.exit(1)
 }

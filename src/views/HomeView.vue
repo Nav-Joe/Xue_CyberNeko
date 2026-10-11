@@ -1,364 +1,289 @@
 <script setup lang="ts">
-
 import ChatBootstrapOverlay from '../components/chat/ChatBootstrapOverlay.vue'
-
 import Live2DView from '../components/Live2DView.vue'
-
 import VolumeControl from '../components/VolumeControl.vue'
-
-import VoiceSampleSwitcher from '../components/VoiceSampleSwitcher.vue'
-
+import HomeVoiceStudio from '../components/home/HomeVoiceStudio.vue'
 import MemorySpacePanel from '../components/memory/MemorySpacePanel.vue'
 import RelationshipPanel from '../components/relationship/RelationshipPanel.vue'
 import PetTouchStatusCard from '../components/petTouch/PetTouchStatusCard.vue'
+import HomeAppearanceToggle from '../components/home/HomeAppearanceToggle.vue'
 import { useChatEntry } from '../composables/chat/useChatEntry'
+import { useHomeAppearance } from '../composables/useHomeAppearance'
+import '../styles/neko-tokens.css'
+import './home-appearance.css'
 
-
-
-const { chatBooting, bootTitle, bootMessage, bootProgress, canCancelDownload, cancellingDownload, cancelDownload, openChat } = useChatEntry()
-
+const { chatBooting, bootTitle, bootMessage, bootProgress, canCancelDownload, cancellingDownload, cancelDownload, openChat } =
+  useChatEntry()
+const { appearance, isDark, toggleAppearance } = useHomeAppearance()
 </script>
 
-
-
 <template>
-
-  <main class="home">
+  <main class="home neko-ui" :data-appearance="appearance">
+    <a class="skip-link" href="#home-desk">跳到小屋操作台</a>
+    <HomeAppearanceToggle :dark="isDark" @toggle="toggleAppearance" />
 
     <ChatBootstrapOverlay
-
       v-if="chatBooting"
-
       :title="bootTitle"
-
       :message="bootMessage"
-
       :progress="bootProgress"
-
       :show-cancel="canCancelDownload"
-
       :cancelling="cancellingDownload"
-
       @cancel="cancelDownload"
-
     />
 
-
-
-    <section class="stage" aria-label="Live2D 展示区">
-
-      <Live2DView mode="home" />
-
+    <section class="stage" aria-label="她的房间">
+      <div class="stage-bg" aria-hidden="true" />
+      <div class="stage-frame">
+        <Live2DView mode="home" />
+      </div>
     </section>
 
+    <aside id="home-desk" class="desk" tabindex="-1">
+      <header class="desk-head">
+        <p class="badge">雪澜的小屋</p>
+        <h1>欢迎回家</h1>
+      </header>
 
-
-    <aside class="panel">
-
-      <p class="badge">猫娘的家</p>
-
-      <h1>欢迎回家~</h1>
-
-      <p class="subtitle">官方默认可选用精选触摸音频或自定义语料；自定义声线会预热语料。切换时桌宠会暂时隐藏。</p>
-
-
-
-      <VoiceSampleSwitcher />
-
-
-
-      <button type="button" class="chat-entry" :disabled="chatBooting" @click="openChat({ origin: 'home' })">
-
-        {{ chatBooting ? '准备中…' : '文字聊天' }}
-
+      <button
+        type="button"
+        class="chat-entry"
+        :disabled="chatBooting"
+        @click="openChat({ origin: 'home' })"
+      >
+        {{ chatBooting ? '准备中…' : '去跟她聊天' }}
       </button>
 
-      <PetTouchStatusCard />
-      <MemorySpacePanel />
-      <RelationshipPanel />
+      <nav class="desk-nav" aria-label="小屋入口">
+        <MemorySpacePanel />
+        <RelationshipPanel />
+      </nav>
 
-      <ul class="todo">
+      <div class="desk-scroll">
+        <HomeVoiceStudio />
+        <PetTouchStatusCard />
+      </div>
 
-        <li>里程碑 5：语音聊天</li>
-
-      </ul>
-
-
-
-      <VolumeControl />
-
-      <p class="tip">请用「启动.bat」运行桌宠（会自动启动 TTS）。关闭此窗口后，她会回到桌面。</p>
-
+      <footer class="desk-foot">
+        <VolumeControl />
+        <p class="tip">用「启动.bat」运行。关掉窗口，她会回到桌面。</p>
+        <p class="version-tag">版本：V0.7.1（早期开发版本）</p>
+      </footer>
     </aside>
-
-    <p class="version-tag">版本：V0.5.1（早期开发版本）</p>
-
   </main>
-
 </template>
 
-
-
 <style scoped>
-
 .home {
-
   display: flex;
-
-  flex-direction: row;
-
+  flex-direction: column;
   width: 100%;
-
   height: 100%;
-
   min-width: 0;
-
   min-height: 0;
-
   overflow: hidden;
-
-  background: linear-gradient(160deg, #fdf2f8 0%, #eff6ff 55%, #ecfeff 100%);
-
 }
-
-
 
 .stage {
-
-  flex: 1 1 65%;
-
+  position: relative;
+  flex: 1 1 52%;
   min-width: 0;
-
   min-height: 0;
-
   display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  padding: 16px 16px 16px 24px;
-
+  padding: var(--home-space-2);
 }
 
+.stage :deep(.live2d-view) {
+  position: relative;
+  z-index: 1;
+  border-radius: 0;
+  box-shadow: none;
+}
 
+.stage-bg {
+  position: absolute;
+  inset: 0;
+  background-image: url('../assets/home/stage-bg.png');
+  background-size: cover;
+  background-position: center;
+  filter: blur(1px);
+  pointer-events: none;
+}
 
-.panel {
+.stage-frame {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--home-radius-card);
+  box-shadow: var(--home-shadow), inset 0 0 0 2px rgba(255, 255, 255, 0.55);
+  animation: home-rise 280ms var(--home-ease) both;
+}
 
-  flex: 0 0 clamp(280px, 34vw, 360px);
-
-  align-self: stretch;
-
+.desk {
+  flex: 1 1 auto;
   display: flex;
-
   flex-direction: column;
-
-  justify-content: flex-start;
-
   min-height: 0;
-
-  max-height: 100%;
-
-  margin: 16px 20px 16px 0;
-
-  padding: 20px 22px 24px;
-
-  border-radius: 20px;
-
-  background: rgba(255, 255, 255, 0.92);
-
-  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.08);
-
-  overflow-x: hidden;
-
-  overflow-y: auto;
-
-  overscroll-behavior: contain;
-
+  margin: 0 var(--home-space-2) var(--home-space-2);
+  padding: var(--home-space-2);
+  border-radius: var(--home-radius-card);
+  background: var(--home-color-surface);
+  border: 1px solid var(--home-line);
+  box-shadow: var(--home-shadow);
+  animation: home-rise 320ms var(--home-ease) 80ms both;
 }
 
+.desk-head {
+  flex: 0 0 auto;
+  margin-bottom: var(--home-space-2);
+}
 
+.desk-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--home-space-1);
+  margin: 0 0 var(--home-space-2);
+}
+
+.desk-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.desk-foot {
+  flex: 0 0 auto;
+  padding-top: var(--home-space-2);
+  border-top: 1px solid var(--home-line);
+}
 
 .chat-entry {
-
-  align-self: flex-start;
-
-  margin: 0 0 14px;
-
-  padding: 10px 16px;
-
+  position: relative;
+  align-self: stretch;
+  min-height: 48px;
+  margin: 0 0 var(--home-space-2);
+  padding: var(--home-space-1) var(--home-space-2);
+  overflow: hidden;
   border: none;
-
-  border-radius: 999px;
-
-  background: linear-gradient(135deg, #f472b6, #be185d);
-
-  color: #fff;
-
-  font-size: 14px;
-
+  border-radius: var(--home-radius-pill);
+  background: var(--home-color-accent);
+  color: var(--home-color-on-accent);
+  font-size: var(--home-font-body);
   font-weight: 700;
-
   cursor: pointer;
-
-  box-shadow: 0 8px 20px rgba(190, 24, 93, 0.28);
-
+  box-shadow: 0 8px 16px rgba(219, 39, 119, 0.22);
+  transition:
+    transform var(--home-motion) var(--home-ease),
+    box-shadow var(--home-motion) var(--home-ease);
 }
 
-
+.chat-entry::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: translateX(-120%);
+}
 
 .chat-entry:hover:not(:disabled) {
-
-  filter: brightness(1.05);
-
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 14px 24px rgba(219, 39, 119, 0.28);
 }
 
+.chat-entry:hover:not(:disabled)::after {
+  animation: home-sheen 360ms var(--home-ease);
+}
 
+.chat-entry:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
 
 .chat-entry:disabled {
-
   opacity: 0.65;
-
   cursor: wait;
-
 }
-
-
 
 .badge {
-
   display: inline-block;
-
-  margin: 0 0 12px;
-
+  margin: 0 0 var(--home-space-1);
   padding: 4px 12px;
-
-  border-radius: 999px;
-
-  background: #fce7f3;
-
-  color: #be185d;
-
-  font-size: 12px;
-
+  border-radius: var(--home-radius-pill);
+  background: var(--home-color-chip);
+  color: var(--home-color-primary);
+  font-size: var(--home-font-meta);
   font-weight: 700;
-
   line-height: 1.4;
-
 }
-
-
 
 h1 {
-
-  margin: 0 0 10px;
-
-  font-size: 24px;
-
-  color: #111827;
-
-  line-height: 1.35;
-
+  margin: 0 0 var(--home-space-1);
+  font-size: var(--home-font-display);
+  color: var(--home-color-text);
+  font-weight: var(--home-font-display-weight, 750);
+  letter-spacing: var(--home-font-display-tracking, 0.01em);
+  line-height: 1.2;
+  text-wrap: balance;
 }
 
-
-
-.subtitle {
-
-  margin: 0 0 14px;
-
-  color: #6b7280;
-
-  line-height: 1.65;
-
-  font-size: 14px;
-
+.subtitle,
+.tip {
+  margin: 0;
+  color: var(--home-color-muted);
+  font-size: var(--home-font-body);
+  line-height: 1.55;
+  max-width: 32ch;
 }
-
-
-
-.todo {
-
-  margin: 0 0 16px;
-
-  padding-left: 1.2em;
-
-  color: #4b5563;
-
-  line-height: 1.75;
-
-  font-size: 13px;
-
-}
-
-
 
 .tip {
-
-  margin: 0;
-
-  margin-top: auto;
-
-  padding-top: 12px;
-
-  font-size: 12px;
-
-  color: #9ca3af;
-
-  line-height: 1.5;
-
+  margin-top: var(--home-space-1);
+  font-size: var(--home-font-meta);
 }
-
-
 
 .version-tag {
-  position: fixed;
-  left: 14px;
-  bottom: 10px;
-  margin: 0;
-  font-size: 11px;
-  color: #9ca3af;
+  margin: var(--home-space-1) 0 0;
+  font-size: var(--home-font-meta);
+  font-weight: 700;
+  color: var(--home-color-text);
   line-height: 1.4;
-  z-index: 5;
-  pointer-events: none;
-  user-select: none;
 }
 
-
-
-@media (max-width: 720px) {
-
+@media (min-width: 720px) {
   .home {
-
-    flex-direction: column;
-
+    flex-direction: row;
   }
-
-
 
   .stage {
-
-    flex: 1 1 62%;
-
-    padding: 16px;
-
+    flex: 1 1 64%;
+    padding: var(--home-space-3) var(--home-space-1) var(--home-space-3) var(--home-space-3);
   }
 
-
-
-  .panel {
-
-    flex: 1 1 auto;
-
-    max-height: none;
-
-    margin: 0 12px 12px;
-
-    padding: 16px 18px 20px;
-
+  .desk {
+    flex: 0 0 clamp(320px, 34vw, 400px);
+    max-height: 100%;
+    margin: var(--home-space-3) var(--home-space-3) var(--home-space-3) var(--home-space-2);
+    padding: var(--home-space-3) var(--home-space-2) var(--home-space-2);
   }
-
 }
 
-</style>
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
+@keyframes home-sheen {
+  to {
+    transform: translateX(380%);
+  }
+}
+</style>

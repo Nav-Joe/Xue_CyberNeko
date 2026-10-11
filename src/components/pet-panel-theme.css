@@ -1,0 +1,72 @@
+/* 桌宠右键菜单 / 设置面板：跟小屋同令牌，浮在透明窗上 */
+
+.pet-panel.neko-ui {
+  background: transparent;
+}
+
+/* 双类提高优先级，盖过子组件 scoped 灰底 */
+.pet-panel.neko-ui .setting-card {
+  padding: 12px 14px;
+  border-radius: var(--home-radius-control, 16px);
+  background: var(--home-color-inset, #fff7fb);
+  border: 1px solid var(--home-accent-soft, rgba(219, 39, 119, 0.16));
+  box-shadow: 3px 0 0 var(--home-color-accent, #db2777) inset;
+}
+
+.pet-panel.neko-ui[data-appearance='dark'] .setting-card {
+  border-color: var(--home-line);
+}
+
+.pet-panel.neko-ui .section-label {
+  margin: 0 0 8px;
+  font-size: var(--home-font-meta, 0.8125rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--home-color-primary, #9f1239);
+}
+
+.pet-panel.neko-ui .label {
+  color: var(--home-color-text, #3f2a33);
+}
+
+.pet-panel.neko-ui .hint {
+  color: var(--home-color-muted, #5c4150);
+}
+
+.pet-panel.neko-ui .hint.warn {
+  color: var(--home-color-warning, #9a3412);
+}
+
+.pet-panel.neko-ui .error {
+  color: var(--home-color-danger, #b91c1c);
+}
+
+.pet-panel.neko-ui .ios-switch--on .ios-switch__track {
+  background: var(--home-color-accent, #db2777);
+}
+
+.pet-panel.neko-ui .ios-switch__track {
+  background: #d1d5db;
+}
+
+.pet-panel.neko-ui[data-appearance='dark'] .ios-switch__track {
+  background: #4b5563;
+}
+
+.pet-panel.neko-ui .divider {
+  background: var(--home-line, rgba(63, 42, 51, 0.12));
+}
+
+.pet-panel.neko-ui .version {
+  background: var(--home-color-chip, #fde8f0);
+  color: var(--home-color-primary, #9f1239);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-panel *,
+  .pet-panel *::before,
+  .pet-panel *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

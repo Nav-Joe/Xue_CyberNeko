@@ -596,9 +596,9 @@ onBeforeUnmount(() => {
   height: 100%;
   min-height: 0;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.28);
+  background: transparent;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
     0 12px 40px rgba(15, 23, 42, 0.06);
 }
 

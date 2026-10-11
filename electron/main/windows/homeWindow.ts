@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron'
 import { join } from 'path'
 
 import { attachWindowDiagnostics } from '../logging/registerErrorHandlers'
+import { resolveAppIconPath } from './appIcon'
 import { getPetWindow, setPetWindowAtHome } from './petWindow'
 import { loadRenderer } from './rendererLoader'
 
@@ -72,6 +73,7 @@ export function createHomeWindow(): void {
     show: false,
     autoHideMenuBar: true,
     title: '雪澜的家',
+    icon: resolveAppIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

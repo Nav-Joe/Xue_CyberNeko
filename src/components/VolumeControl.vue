@@ -38,27 +38,24 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .label {
   flex-shrink: 0;
-  font-size: 13px;
-  color: #4b5563;
+  font-size: 0.875rem;
+  color: var(--home-color-muted, #5c4150);
 }
 
 input[type='range'] {
   flex: 1;
-  accent-color: #db2777;
+  accent-color: var(--home-color-accent, #db2777);
 }
 
 .value {
   flex-shrink: 0;
   width: 42px;
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 0.8125rem;
+  color: var(--home-color-muted, #5c4150);
   text-align: right;
 }
 </style>

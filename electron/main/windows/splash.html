@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self'"
+    />
+    <title>正在加载</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #fffafc;
+        font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        user-select: none;
+        -webkit-app-region: drag;
+      }
+
+      /* 每只爪完整落在格内；第二层右移半格、下移一行，咬合且不会被拼缝切开 */
+      .cloth {
+        position: absolute;
+        inset: -20px;
+        background-image:
+          url('./assets/cat-paw-pink-tile.svg'),
+          url('./assets/cat-paw-pink-tile.svg');
+        background-repeat: repeat, repeat;
+        background-size: 50px 100px, 50px 100px;
+        background-position: 0 0, 25px 50px;
+        opacity: 0.42;
+        pointer-events: none;
+      }
+
+      .shell {
+        position: relative;
+        z-index: 1;
+        box-sizing: border-box;
+        height: 100%;
+        padding: 28px 32px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+      }
+
+      .msg {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        color: #111827;
+        letter-spacing: 0.02em;
+        padding: 6px 12px;
+        border-radius: 8px;
+        background: rgba(255, 250, 252, 0.78);
+      }
+
+      .track {
+        width: 100%;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(255, 250, 252, 0.9);
+        overflow: hidden;
+        box-shadow: inset 0 0 0 1px rgba(236, 72, 153, 0.08);
+      }
+
+      .bar {
+        height: 100%;
+        width: 10%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #ec4899, #f472b6);
+        transition: width 0.35s ease;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 素材：marutto.art Cat paws（粉）可商用，见 assets/README.md -->
+    <div class="cloth" aria-hidden="true"></div>
+    <div class="shell">
+      <p class="msg">正在加载猫娘喵~</p>
+      <div class="track" aria-hidden="true">
+        <div id="bar" class="bar"></div>
+      </div>
+    </div>
+    <script>
+      window.setSplashProgress = function setSplashProgress(percent) {
+        var n = Math.max(0, Math.min(100, Number(percent) || 0))
+        var el = document.getElementById('bar')
+        if (el) el.style.width = n + '%'
+      }
+    </script>
+  </body>
+</html>

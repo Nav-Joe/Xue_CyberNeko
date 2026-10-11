@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { setTouchFeedbackMode } from '../services/touchModeSettings'
 import { loadTtsCapabilities } from '../services/ttsCapabilities'
+import './home/voice-action-buttons.css'
 
 export interface VoiceSampleItem {
   folderId: string
@@ -11,6 +12,11 @@ export interface VoiceSampleItem {
 }
 
 const OFFICIAL_SAMPLE_ID = 'default_sample'
+
+const props = defineProps<{
+  /** 嵌在声线工作室时不再重复标题 */
+  embedded?: boolean
+}>()
 
 const samples = ref<VoiceSampleItem[]>([])
 const activeFolderId = ref<string | null>(null)
@@ -193,11 +199,17 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="voice-switcher" :class="{ 'voice-switcher--disabled': !voiceForgeSupported }">
-    <h2 class="title">音色切换</h2>
-    <p v-if="!voiceForgeSupported && disabledHint" class="disabled-banner">{{ disabledHint }}</p>
-    <p v-else class="hint">
-      官方默认可选精选音频或语料 TTS（见设置开关）；自定义声线可切换或删除。切换时桌宠会暂时隐藏。
+  <section class="voice-switcher" :class="{ 'voice-switcher--disabled': !voiceForgeSupported, 'voice-switcher--embedded': props.embedded }">
+    <template v-if="!props.embedded">
+      <h2 class="title">本地声线</h2>
+      <p v-if="!voiceForgeSupported && disabledHint" class="disabled-banner">{{ disabledHint }}</p>
+      <p v-else class="hint">
+        官方默认可选精选音频或语料 TTS（见设置开关）；自定义声线可切换或删除。切换时桌宠会暂时隐藏。
+      </p>
+    </template>
+    <p v-else-if="!voiceForgeSupported && disabledHint" class="disabled-banner">{{ disabledHint }}</p>
+    <p v-else-if="props.embedded" class="hint">
+      切换时桌宠会先躲一会儿。创造自定义声线请去音色工坊。
     </p>
 
     <p v-if="loading" class="status">加载中…</p>
@@ -208,7 +220,7 @@ onUnmounted(() => {
         <div class="sample-body">
           <span class="sample-name">{{ item.displayName }}</span>
           <span class="sample-meta">
-            {{ item.kind === 'official' ? '官方 · 精选音频' : '自定义 · 克隆语料' }} · {{ item.folderId }}
+            {{ item.kind === 'official' ? '官方默认' : '自定义克隆' }}
           </span>
           <span v-if="!item.hasReference" class="sample-warn">参考音未就绪</span>
           <span v-else-if="isActive(item.folderId)" class="sample-active">当前使用</span>
@@ -216,7 +228,7 @@ onUnmounted(() => {
         <div class="sample-actions">
           <button
             type="button"
-            class="switch-btn"
+            class="voice-action"
             :disabled="
               !voiceForgeSupported ||
               switching ||
@@ -231,7 +243,7 @@ onUnmounted(() => {
           <button
             v-if="!isOfficialSample(item)"
             type="button"
-            class="delete-btn"
+            class="voice-action voice-action--danger"
             :disabled="!voiceForgeSupported || switching || deletingId !== null"
             :aria-busy="deletingId === item.folderId"
             @click="handleDelete(item.folderId)"
@@ -257,6 +269,13 @@ onUnmounted(() => {
 
 .voice-switcher--disabled {
   opacity: 0.92;
+}
+
+.voice-switcher--embedded {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
 }
 
 .disabled-banner {
@@ -337,48 +356,11 @@ onUnmounted(() => {
   color: #d97706;
 }
 
-.switch-btn {
-  flex-shrink: 0;
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: none;
-  background: #ec4899;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
 .sample-actions {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 6px;
-}
-
-.delete-btn {
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(220, 38, 38, 0.25);
-  background: #fff;
-  color: #dc2626;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.delete-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  color: #9ca3af;
-  border-color: rgba(0, 0, 0, 0.08);
-}
-
-.switch-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  background: #d1d5db;
-  color: #6b7280;
+  gap: 8px;
 }
 
 .status {

@@ -151,6 +151,11 @@ defineExpose({ appendDraft })
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 12px;
+  border-radius: var(--home-radius-control, 16px);
+  background: var(--home-color-panel, #fff);
+  border: 1.5px solid var(--home-accent-soft, rgba(219, 39, 119, 0.16));
+  box-shadow: 0 8px 20px rgba(159, 18, 57, 0.08);
 }
 
 .chat-composer__label {
@@ -163,20 +168,20 @@ defineExpose({ appendDraft })
 
 .chat-composer__input {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #fbcfe8;
-  border-radius: 12px;
-  background: #fff;
-  color: #111827;
-  font-size: 13px;
-  line-height: 1.5;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--home-radius-control, 16px);
+  background: var(--home-color-inset, #fff7fb);
+  color: var(--home-color-text, #3f2a33);
+  font-size: var(--home-font-body, 1rem);
+  line-height: 1.55;
   resize: vertical;
-  min-height: 72px;
+  min-height: 80px;
 }
 
 .chat-composer__input:focus {
-  outline: 2px solid #f9a8d4;
-  outline-offset: 1px;
+  outline: 2px solid var(--home-focus, #9f1239);
+  outline-offset: 2px;
 }
 
 .chat-composer__input:disabled {
@@ -203,8 +208,8 @@ defineExpose({ appendDraft })
 
 .chat-composer__stt-hint {
   margin: 0;
-  font-size: 12px;
-  color: #9d174d;
+  font-size: 0.875rem;
+  color: var(--home-color-muted, #5c4150);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -215,15 +220,15 @@ defineExpose({ appendDraft })
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  height: 36px;
-  padding: 0 10px;
-  border: 1px solid #f9a8d4;
+  min-width: var(--home-target, 44px);
+  height: var(--home-target, 44px);
+  padding: 0 12px;
+  border: 1.5px solid var(--home-color-primary, #9f1239);
   border-radius: 999px;
-  background: #fff;
-  color: #9d174d;
-  font-size: 13px;
-  font-weight: 600;
+  background: var(--home-color-chip, #fde8f0);
+  color: var(--home-color-primary, #9f1239);
+  font-size: 0.875rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -234,14 +239,14 @@ defineExpose({ appendDraft })
 }
 
 .chat-composer__mic:hover:not(:disabled) {
-  background: #fdf2f8;
+  background: var(--home-color-chip, #fde8f0);
 }
 
 .chat-composer__mic--recording {
   padding: 0 14px;
-  background: #be185d;
-  border-color: #be185d;
-  color: #fff;
+  background: var(--home-color-accent, #db2777);
+  border-color: var(--home-color-accent, #db2777);
+  color: var(--home-color-on-accent, #fff);
 }
 
 .chat-composer__mic:disabled {
@@ -250,19 +255,20 @@ defineExpose({ appendDraft })
 }
 
 .chat-composer__send {
-  padding: 8px 16px;
+  min-height: var(--home-target, 44px);
+  padding: 8px 20px;
   border: none;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #f472b6, #be185d);
-  color: #fff;
-  font-size: 13px;
+  border-radius: var(--home-radius-pill, 999px);
+  background: var(--home-color-accent, #db2777);
+  color: var(--home-color-on-accent, #fff);
+  font-size: 0.875rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(190, 24, 93, 0.22);
+  box-shadow: 0 8px 16px rgba(219, 39, 119, 0.22);
 }
 
 .chat-composer__send:hover:not(:disabled) {
-  filter: brightness(1.04);
+  filter: brightness(1.05);
 }
 
 .chat-composer__send:disabled {

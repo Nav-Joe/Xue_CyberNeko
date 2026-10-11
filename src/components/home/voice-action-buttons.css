@@ -1,0 +1,36 @@
+/* 家窗口声线：切换 / 删除同一套描边胶囊，仅用颜色区分动作 */
+
+.voice-action {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 64px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--home-color-primary, #9f1239);
+  background: transparent;
+  color: var(--home-color-primary, #9f1239);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.voice-action--danger {
+  border-color: var(--home-color-danger, #b91c1c);
+  color: var(--home-color-danger, #b91c1c);
+}
+
+.voice-action:hover:not(:disabled) {
+  background: var(--home-color-chip, #fde8f0);
+}
+
+.voice-action--danger:hover:not(:disabled) {
+  background: rgba(185, 28, 28, 0.08);
+}
+
+.voice-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: transparent;
+}

@@ -150,11 +150,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="settings" :class="{ 'settings--dragging': dragging, 'settings--upload-flow': voiceForgeUploadFlowActive }">
+  <div
+    class="settings"
+    :class="{ 'settings--dragging': dragging, 'settings--upload-flow': voiceForgeUploadFlowActive }"
+  >
     <header v-show="!voiceForgeUploadFlowActive" class="header">
       <button type="button" class="back" @click="goBack">← 返回</button>
       <div class="header-drag" title="按住拖动以移动窗口" @pointerdown="onDragHandleDown">
-        <h2 class="title">{{ pageTitle() }}</h2>
+        <div class="header-text">
+          <p class="badge">桌宠设置</p>
+          <h2 class="title">{{ pageTitle() }}</h2>
+        </div>
         <span class="drag-hint" aria-hidden="true">⠿</span>
       </div>
     </header>
@@ -237,7 +243,7 @@ onBeforeUnmount(() => {
   width: min(380px, calc(100vw - 28px));
   min-width: 280px;
   max-height: min(520px, calc(100vh - 20px));
-  padding: 8px;
+  padding: 10px;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -258,8 +264,10 @@ onBeforeUnmount(() => {
 .header {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--home-space-1, 8px);
+  margin-bottom: var(--home-space-1, 8px);
+  padding-bottom: var(--home-space-1, 8px);
+  border-bottom: 1px solid rgba(219, 39, 119, 0.12);
 }
 
 .header-drag {
@@ -268,8 +276,9 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 2px 6px;
-  border-radius: 8px;
+  padding: 4px 8px;
+  border-radius: var(--home-radius-control, 16px);
+  background: var(--home-color-surface, #fff);
   cursor: grab;
   touch-action: none;
 }
@@ -283,41 +292,56 @@ onBeforeUnmount(() => {
   flex: 1;
 }
 
+.badge {
+  display: inline-block;
+  margin: 0 0 4px;
+  padding: 2px 10px;
+  border-radius: var(--home-radius-pill, 999px);
+  background: var(--home-color-chip, #fde8f0);
+  color: var(--home-color-primary, #9f1239);
+  font-size: var(--home-font-meta, 0.8125rem);
+  font-weight: 700;
+}
+
 .back {
   flex-shrink: 0;
-  border: none;
-  background: transparent;
-  color: #6b7280;
-  font-size: 13px;
+  margin-top: 4px;
+  min-height: var(--home-target-sm, 36px);
+  padding: 6px 12px;
+  border: 1.5px solid var(--home-color-primary, #9f1239);
+  border-radius: var(--home-radius-pill, 999px);
+  background: var(--home-color-chip, #fde8f0);
+  color: var(--home-color-primary, #9f1239);
+  font-size: 0.8125rem;
+  font-weight: 700;
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 6px;
+  white-space: nowrap;
 }
 
 .back:hover {
-  background: #f3f4f6;
+  background: var(--home-color-accent, #db2777);
+  border-color: var(--home-color-accent, #db2777);
+  color: var(--home-color-on-accent, #fff);
 }
 
 .title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: #111827;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--home-color-text, #3f2a33);
   line-height: 1.3;
-  flex: 1;
 }
 
 .drag-hint {
   flex-shrink: 0;
   font-size: 14px;
   line-height: 1;
-  color: #9ca3af;
+  color: var(--home-color-muted, #5c4150);
   letter-spacing: -2px;
 }
 
 .section {
-  padding: 8px 6px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 10px 4px 4px;
 }
 
 .section--companion {
@@ -326,9 +350,9 @@ onBeforeUnmount(() => {
 
 .intro {
   margin: 0 0 12px;
-  font-size: 12px;
+  font-size: 0.8125rem;
   line-height: 1.55;
-  color: #6b7280;
+  color: var(--home-color-muted, #5c4150);
 }
 
 .nav-row {
@@ -336,34 +360,43 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   width: 100%;
+  min-height: var(--home-target, 44px);
+  margin: 0 0 10px;
   padding: 12px 14px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
-  background: #fafafa;
+  border: 1px solid var(--home-accent-soft, rgba(219, 39, 119, 0.16));
+  border-radius: var(--home-radius-control, 16px);
+  background: var(--home-color-panel, #fff);
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 6px 14px rgba(159, 18, 57, 0.06);
+  transition:
+    background var(--home-motion, 220ms) var(--home-ease, ease),
+    border-color var(--home-motion, 220ms) var(--home-ease, ease),
+    transform var(--home-motion, 220ms) var(--home-ease, ease);
 }
 
 .nav-row:hover {
-  background: #fdf2f8;
-  border-color: rgba(236, 72, 153, 0.18);
+  background: var(--home-color-chip, #fde8f0);
+  border-color: var(--home-color-accent, #db2777);
+  transform: translateY(-1px);
 }
 
 .nav-row--disabled,
 .nav-row--disabled:hover {
   cursor: not-allowed;
   opacity: 0.55;
-  background: #f3f4f6;
-  border-color: rgba(0, 0, 0, 0.06);
+  background: var(--home-color-chip, #fde8f0);
+  border-color: var(--home-line, rgba(63, 42, 51, 0.12));
+  transform: none;
+  box-shadow: none;
 }
 
 .engine-status {
   margin: 0 0 10px;
   padding: 8px 10px;
-  border-radius: 8px;
-  background: #f3f4f6;
-  color: #374151;
+  border-radius: 12px;
+  background: var(--home-color-chip, #fde8f0);
+  color: var(--home-color-text, #3f2a33);
   font-size: 11px;
   line-height: 1.5;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -372,18 +405,18 @@ onBeforeUnmount(() => {
 .engine-hint {
   margin: 0 0 12px;
   padding: 10px 12px;
-  border-radius: 10px;
-  background: #fff7ed;
-  border: 1px solid rgba(251, 146, 60, 0.35);
-  color: #9a3412;
-  font-size: 12px;
+  border-radius: var(--home-radius-control, 16px);
+  background: var(--home-color-warning-bg, #fff7ed);
+  border: 1px solid var(--home-color-warning-line, rgba(251, 146, 60, 0.35));
+  color: var(--home-color-warning, #9a3412);
+  font-size: 0.8125rem;
   line-height: 1.55;
 }
 
 .engine-hint--info {
-  background: #eff6ff;
-  border-color: rgba(59, 130, 246, 0.35);
-  color: #1d4ed8;
+  background: var(--home-color-chip, #fde8f0);
+  border-color: var(--home-accent-soft, rgba(219, 39, 119, 0.16));
+  color: var(--home-color-primary, #9f1239);
 }
 
 .nav-row__body {
@@ -393,17 +426,17 @@ onBeforeUnmount(() => {
 
 .nav-row__title {
   display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: #111827;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--home-color-text, #3f2a33);
   line-height: 1.4;
 }
 
 .nav-row__desc {
   display: block;
   margin-top: 4px;
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 0.8125rem;
+  color: var(--home-color-muted, #5c4150);
   line-height: 1.45;
 }
 
@@ -411,6 +444,10 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   font-size: 20px;
   line-height: 1;
-  color: #9ca3af;
+  color: var(--home-color-accent, #db2777);
+}
+
+:global(.pet-panel[data-appearance='dark']) .nav-row {
+  box-shadow: none;
 }
 </style>

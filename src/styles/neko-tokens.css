@@ -1,0 +1,83 @@
+/* 小屋共用令牌：家窗口 / 聊天窗 / 桌宠面板同一套语义色与间距 */
+
+.neko-ui {
+  --home-rose-700: #9f1239;
+  --home-rose-500: #db2777;
+  --home-cream-50: #faf7f5;
+  --home-cream-100: #fff7fb;
+  --home-ink-900: #3f2a33;
+  --home-ink-700: #5c4150;
+  --home-surface: rgba(255, 252, 250, 0.88);
+  --home-line: rgba(63, 42, 51, 0.12);
+  --home-focus: #9f1239;
+  --home-accent-soft: rgba(219, 39, 119, 0.16);
+
+  --home-color-canvas: var(--home-cream-100);
+  --home-color-surface: var(--home-surface);
+  /* 不透明面板 / 内嵌软底：暗色改这两项即可，少写组件补丁 */
+  --home-color-panel: #ffffff;
+  --home-color-inset: var(--home-cream-100);
+  --home-color-text: var(--home-ink-900);
+  --home-color-muted: var(--home-ink-700);
+  --home-color-primary: var(--home-rose-700);
+  --home-color-accent: var(--home-rose-500);
+  --home-color-on-accent: #fff;
+  --home-color-chip: #fde8f0;
+  --home-color-success: #166534;
+  --home-color-danger: #b91c1c;
+  --home-color-warning: #9a3412;
+  --home-color-warning-bg: #fff7ed;
+  --home-color-warning-line: rgba(251, 146, 60, 0.35);
+
+  --home-space-1: 8px;
+  --home-space-2: 16px;
+  --home-space-3: 24px;
+  --home-space-4: 32px;
+  --home-radius-card: 24px;
+  --home-radius-control: 16px;
+  --home-radius-pill: 999px;
+  --home-font-display: clamp(1.5rem, 2.2vw, 2rem);
+  --home-font-display-weight: 750;
+  --home-font-display-tracking: 0.01em;
+  --home-font-body: 1rem;
+  --home-font-meta: 0.8125rem;
+  --home-shadow: 0 16px 32px rgba(63, 42, 51, 0.1);
+  /* 主操作 44；次要工具条可用 --home-target-sm */
+  --home-target: 44px;
+  --home-target-sm: 36px;
+  --home-motion: 220ms;
+  --home-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  color: var(--home-color-text);
+  background: var(--home-color-canvas);
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+/* 家窗口 / 聊天窗 / 桌宠面板共用：data-appearance 挂在 .neko-ui 上 */
+.neko-ui[data-appearance='dark'] {
+  color-scheme: dark;
+  --home-accent-soft: rgba(232, 160, 184, 0.28);
+  --home-color-canvas: #17141a;
+  --home-color-surface: rgba(34, 28, 36, 0.92);
+  --home-color-panel: #221c24;
+  --home-color-inset: #17141a;
+  --home-color-text: #e8e0e4;
+  --home-color-muted: #c9bdc4;
+  --home-color-primary: #e8a0b8;
+  --home-color-accent: #d4779a;
+  --home-color-on-accent: #1a1216;
+  --home-color-chip: #3a2a32;
+  --home-color-success: #86efac;
+  --home-color-danger: #fca5a5;
+  --home-color-warning: #fbbf24;
+  --home-color-warning-bg: #3a2a1a;
+  --home-color-warning-line: rgba(251, 191, 36, 0.35);
+  --home-line: rgba(232, 224, 228, 0.14);
+  --home-focus: #e8a0b8;
+  --home-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+}
+
+.neko-ui :focus-visible {
+  outline: 2px solid var(--home-focus);
+  outline-offset: 3px;
+}

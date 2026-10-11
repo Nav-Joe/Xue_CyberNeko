@@ -206,16 +206,16 @@ onUnmounted(() => {
 
 .section-label {
   margin: 0 0 8px;
-  font-size: 12px;
+  font-size: var(--home-font-meta, 0.8125rem);
   font-weight: 700;
-  color: #374151;
+  color: var(--home-color-primary, #9f1239);
 }
 
 .setting-card {
   padding: 12px 14px;
-  border-radius: 12px;
-  background: #fafafa;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--home-radius-control, 16px);
+  background: var(--home-color-inset, #fff7fb);
+  border: 1px solid var(--home-accent-soft, rgba(219, 39, 119, 0.16));
 }
 
 .setting-row {
@@ -226,25 +226,26 @@ onUnmounted(() => {
 }
 
 .label {
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--home-color-text, #3f2a33);
   line-height: 1.4;
 }
 
 .hint {
   margin: 10px 0 0;
-  font-size: 12px;
+  font-size: 0.8125rem;
   line-height: 1.55;
-  color: #6b7280;
+  color: var(--home-color-muted, #5c4150);
 }
 
 .hint.active {
-  color: #374151;
+  color: var(--home-color-text, #3f2a33);
 }
 
 .hint.context {
-  color: #9ca3af;
+  color: var(--home-color-muted, #5c4150);
+  opacity: 0.9;
 }
 
 .error {
@@ -277,7 +278,7 @@ onUnmounted(() => {
 }
 
 .ios-switch--on .ios-switch__track {
-  background: #ec4899;
+  background: var(--home-color-accent, #db2777);
 }
 
 .ios-switch__knob {
