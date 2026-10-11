@@ -13,11 +13,3 @@ The Live2D stage on the home window uses a soft room background so she sits in a
 
 ### Startup splash and app icon
 Cold start shows a short splash while the pet loads. Window / taskbar icons use a custom cutout icon instead of the default Electron logo.
-
-## V0.7.0
-
-### Cloud Qwen3.0-TTS without a mandatory local install
-Local Qwen3.0-TTS is no longer required on first install. Cloud Qwen3.0-TTS APIs cover most of what the local voice pipeline could do.
-
-### Project polish
-General cleanup and stability work around the cloud voice workshop path.
