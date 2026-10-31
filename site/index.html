@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>雪澜 · 桌面猫娘</title>
+    <meta
+      name="description"
+      content="雪澜：会动、会聊、会陪你的 Live2D 桌面 AI 桌宠。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600&family=ZCOOL+QingKe+HuangYou&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles/landing.css" />
+  </head>
+  <body>
+    <div class="ambient" aria-hidden="true">
+      <div class="ambient__base"></div>
+      <div class="ambient__bloom ambient__bloom--warm"></div>
+      <div class="ambient__bloom ambient__bloom--cool"></div>
+      <div class="ambient__horizon"></div>
+      <div class="ambient__motes">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="ambient__grain"></div>
+    </div>
+
+    <div class="page">
+      <header class="topbar" id="site-header">
+        <div class="topbar__shell">
+          <nav class="topbar__nav" aria-label="页面导航" data-i18n-aria="navLabel">
+            <a href="#features" data-i18n="navFeatures">功能</a>
+            <a href="#download" data-i18n="navDownload">下载</a>
+          </nav>
+          <div class="lang">
+            <button
+              type="button"
+              class="lang__toggle"
+              id="langToggle"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="langMenu"
+              title="Language"
+            >
+              <svg class="lang__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6" />
+                <path
+                  d="M3.5 12h17M12 3.5c2.4 2.6 3.6 5.4 3.6 8.5s-1.2 5.9-3.6 8.5c-2.4-2.6-3.6-5.4-3.6-8.5s1.2-5.9 3.6-8.5z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
+              </svg>
+              <span class="lang__current" id="langCurrent">中文</span>
+            </button>
+            <ul class="lang__menu" id="langMenu" role="listbox" hidden></ul>
+          </div>
+        </div>
+      </header>
+
+      <nav class="slide-rail" aria-label="章节导航">
+        <span class="slide-rail__label" data-rail-current>I</span>
+        <a class="slide-rail__dot" href="#hero" data-rail-target="hero" aria-label="首屏" aria-current="true"></a>
+        <a class="slide-rail__dot" href="#features" data-rail-target="features" aria-label="功能" aria-current="false"></a>
+        <a class="slide-rail__dot" href="#chat" data-rail-target="chat" aria-label="聊天" aria-current="false"></a>
+        <a class="slide-rail__dot" href="#forge" data-rail-target="forge" aria-label="音色工坊" aria-current="false"></a>
+        <a class="slide-rail__dot" href="#memory" data-rail-target="memory" aria-label="记忆" aria-current="false"></a>
+        <a class="slide-rail__dot" href="#glance" data-rail-target="glance" aria-label="游戏陪聊" aria-current="false"></a>
+        <a class="slide-rail__dot" href="#diy" data-rail-target="diy" aria-label="自定义" aria-current="false"></a>
+        <a class="slide-rail__dot" href="#steps" data-rail-target="steps" aria-label="开始" aria-current="false"></a>
+        <a class="slide-rail__dot" href="#download" data-rail-target="download" aria-label="下载" aria-current="false"></a>
+      </nav>
+
+      <main>
+        <section class="slide is-active" id="hero">
+          <div class="slide__inner slide__inner--hero slide-reveal">
+            <div class="hero__copy">
+              <p class="hero__eyebrow" data-i18n="heroEyebrow">桌面 Live2D 猫娘</p>
+              <h1 class="hero__brand" data-text="雪澜">雪澜</h1>
+              <div class="prose-accent hero__lead">
+                <span class="prose-accent__mark" aria-hidden="true"></span>
+                <p data-i18n="heroLead">
+                  一个有个性、也许有情绪，能默默陪伴你，也能一起聊天互动的AI猫娘桌宠
+                </p>
+              </div>
+              <div class="hero__actions">
+                <a class="btn btn--primary" href="#download" data-i18n="heroCtaPrimary">获取客户端</a>
+                <a class="btn btn--ghost" href="#features" data-i18n="heroCtaSecondary">看看能做什么</a>
+              </div>
+            </div>
+            <div class="hero__stage">
+              <img class="hero-navi" src="./assets/cute_navi_04.png" alt="" width="572" height="955" />
+            </div>
+          </div>
+          <a class="slide-cue" href="#features" aria-label="向下滑动" data-i18n-aria="scrollCue">
+            <svg class="slide-cue__arrow" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+              <path
+                d="M24 10v24M14 26l10 10 10-10"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </a>
+        </section>
+
+        <section class="slide" id="features">
+          <div class="slide__inner slide__inner--features slide-reveal" data-allow-scroll>
+            <header class="section__head">
+              <h2 data-i18n="featuresTitle">她能做的事，简单，但长期...</h2>
+            </header>
+
+            <div class="feature-demo">
+              <div class="feature-demo__copy">
+                <span class="feature-demo__n" aria-hidden="true">01</span>
+                <h3 data-i18n="f1Title">桌面陪伴</h3>
+                <div class="prose-accent feature-demo__lead">
+                  <span class="prose-accent__mark" aria-hidden="true"></span>
+                  <p data-i18n="f1Desc">
+                    她在你的桌面上安静地呆着，可以随时摸摸她&amp;和她聊天，她会一直陪着你~
+                  </p>
+                </div>
+                <p class="feature-demo__hint" data-i18n="f1DemoHint">
+                  右侧为目前使用的Live2D模型（公开模型桃濑日和）雪澜私有的专属模型还排在日程中...
+                </p>
+              </div>
+
+              <div class="feature-demo__stage" id="petDemoStage">
+                <div class="feature-demo__chrome" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                </div>
+                <p class="feature-demo__badge" data-i18n="f1DemoBadge">官方样板 · 桃濑日和</p>
+                <canvas
+                  class="feature-demo__canvas"
+                  id="petDemoCanvas"
+                  width="640"
+                  height="420"
+                  aria-label="Live2D 演示画布"
+                ></canvas>
+                <button
+                  type="button"
+                  class="feature-demo__pet"
+                  id="petDemoPet"
+                  aria-label="拖动或点击示意角色"
+                  data-i18n-aria="f1DemoPetAria"
+                ></button>
+                <p class="feature-demo__tip" data-i18n="f1DemoTip">加载 Live2D…</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" id="chat">
+          <div class="slide__inner slide-reveal">
+            <div class="feature-demo">
+              <div class="feature-demo__copy">
+                <span class="feature-demo__n" aria-hidden="true">02</span>
+                <h3 data-i18n="f2Title">文字与语音聊天</h3>
+                <div class="prose-accent feature-demo__lead">
+                  <span class="prose-accent__mark" aria-hidden="true"></span>
+                  <p data-i18n="f2Desc">即可文字聊天，也可语音快速发送文字内容，无论哪种，她随时都在，也随时会回应你~</p>
+                </div>
+                <p class="feature-demo__note" data-i18n="f2Note">网络主流大模型接入API_KEY等需自己提供</p>
+                <p class="feature-demo__hint" data-i18n="f2Hint">右侧仅为聊天示意</p>
+              </div>
+
+              <div class="chat-stage" aria-hidden="true">
+                <div class="feature-demo__chrome">
+                  <span></span><span></span><span></span>
+                </div>
+                <p class="feature-demo__badge" data-i18n="f2Badge">文字 · 语音</p>
+                <div class="chat-log">
+                  <p class="chat-bubble chat-bubble--me" data-i18n="f2BubbleMe">今天有点累</p>
+                  <p class="chat-bubble chat-bubble--her" data-i18n="f2BubbleHer">那就休息一下，我随时都在的喵~</p>
+                  <p class="chat-voice">
+                    <span class="chat-voice__mic" aria-hidden="true"></span>
+                    <span data-i18n="f2Voice">语音 · 陪我说说话</span>
+                  </p>
+                  <p class="chat-bubble chat-bubble--her chat-bubble--typing" aria-hidden="true">
+                    <span></span><span></span><span></span>
+                  </p>
+                </div>
+                <div class="chat-composer">
+                  <span class="chat-composer__field" data-i18n="f2Placeholder">说点什么…</span>
+                  <span class="chat-send">
+                    <span class="chat-composer__send" data-i18n="f2Send">发送</span>
+                    <img class="chat-navi" src="./assets/cute-navi.png" alt="" width="1024" height="1024" />
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" id="forge">
+          <div class="slide__inner slide-reveal">
+            <div class="feature-demo">
+              <div class="feature-demo__copy">
+                <span class="feature-demo__n" aria-hidden="true">03</span>
+                <h3 data-i18n="f3Title">音色工坊</h3>
+                <div class="prose-accent feature-demo__lead">
+                  <span class="prose-accent__mark" aria-hidden="true"></span>
+                  <p data-i18n="f3Desc">音色工坊可以通过提示词来生成你想要的音色，并且可以通过自定义触摸语料库，让雪澜做出你最想看到的反应~</p>
+                </div>
+                <p class="feature-demo__note" data-i18n="f3Note">目前仅支持云端Qwen3.0TTS（包括本地推理）+Bert-Vits本地端实现</p>
+                <p class="feature-demo__hint" data-i18n="f3Hint">右侧仅为音色工坊示意</p>
+              </div>
+
+              <div class="forge-stage" id="forgeStage" data-i18n-aria="f3StageAria" aria-label="音色工坊示意">
+                <div class="feature-demo__chrome" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                </div>
+                <p class="feature-demo__badge" data-i18n="f3Badge">音色工坊</p>
+                <div class="forge-tabs" role="tablist">
+                  <button type="button" class="forge-tab is-on" role="tab" aria-selected="true" data-forge-tab="update" data-i18n="f3TabUpdate">更新语料库</button>
+                  <button type="button" class="forge-tab" role="tab" aria-selected="false" data-forge-tab="create" data-i18n="f3TabCreate">创造新音色</button>
+                </div>
+                <div class="forge-panel" data-forge-panel="update">
+                  <p class="forge-sample" data-i18n="f3Sample">当前声线 · 默认配置</p>
+                  <div class="forge-rows">
+                    <p class="forge-row">
+                      <span class="forge-row__part" data-i18n="f3PartHead">头部</span>
+                      <span class="forge-row__line" data-i18n="f3LineHead">别碰耳朵啦</span>
+                    </p>
+                    <p class="forge-row">
+                      <span class="forge-row__part" data-i18n="f3PartBody">身体</span>
+                      <span class="forge-row__line">
+                        <span data-i18n="f3LineBody">今天也要加油喵~</span><i class="forge-caret"></i>
+                      </span>
+                    </p>
+                  </div>
+                  <p class="forge-save" data-i18n="f3Save">保存并预热</p>
+                </div>
+                <div class="forge-panel forge-create" data-forge-panel="create" hidden>
+                  <p class="forge-create__intro" data-i18n="f3CreateIntro">写一段想要的音色，再补两句摸到她时说的话。</p>
+                  <p class="forge-kicker" data-i18n="f3InstructLabel">声线描述</p>
+                  <p class="forge-fake">
+                    <span data-i18n="f3InstructSample">轻一点，尾音软软的，像在耳边说话</span><i class="forge-caret"></i>
+                  </p>
+                  <p class="forge-kicker" data-i18n="f3LinesLabel">触摸台词</p>
+                  <div class="forge-rows">
+                    <p class="forge-row">
+                      <span class="forge-row__part" data-i18n="f3PartHead">头部</span>
+                      <span class="forge-row__line" data-i18n="f3LineHead">别碰耳朵啦</span>
+                    </p>
+                    <p class="forge-row">
+                      <span class="forge-row__part" data-i18n="f3PartBody">身体</span>
+                      <span class="forge-row__line" data-i18n="f3LineBody">今天也要加油喵~</span>
+                    </p>
+                  </div>
+                  <p class="forge-save" data-i18n="f3Generate">生成声线</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" id="memory">
+          <div class="slide__inner slide-reveal">
+            <div class="feature-demo">
+              <div class="feature-demo__copy">
+                <span class="feature-demo__n" aria-hidden="true">04</span>
+                <h3 data-i18n="f4Title">层次丰富的记忆系统</h3>
+                <div class="prose-accent feature-demo__lead">
+                  <span class="prose-accent__mark" aria-hidden="true"></span>
+                  <p data-i18n="f4Desc">雪澜会拥有多层次和多维度的记忆系统，确保能够长期记住与你的瞬间，特别是那些很重要的记忆，她都能记得住~时间久了，她也能越来越了解你~</p>
+                </div>
+                <p class="feature-demo__hint" data-i18n="f4Hint">右侧仅为记忆示意</p>
+              </div>
+
+              <div class="memory-stage" data-allow-scroll aria-hidden="true">
+                <div class="feature-demo__chrome">
+                  <span></span><span></span><span></span>
+                </div>
+                <p class="feature-demo__badge" data-i18n="f4Badge">记忆空间</p>
+
+                <section class="memory-block">
+                  <h4 data-i18n="f4ShortTitle">短记忆总结</h4>
+                  <p data-i18n="f4ShortBody">今天有点累，想先歇一下。夜里喜欢安静地待着。</p>
+                </section>
+                <section class="memory-block">
+                  <h4 data-i18n="f4WeekTitle">周记忆总结</h4>
+                  <p data-i18n="f4WeekBody">这周忙的时候也会过来戳她，聊过想先休息的事。</p>
+                </section>
+                <section class="memory-block">
+                  <h4 data-i18n="f4MonthTitle">月记忆总结</h4>
+                  <p data-i18n="f4MonthBody">这个月大多在夜里陪着，累了会先说一声。</p>
+                </section>
+                <section class="memory-block">
+                  <h4 data-i18n="f4CoreTitle">核心记忆池</h4>
+                  <ul>
+                    <li data-i18n="f4Core1">你喜欢夜里安静地待着</li>
+                    <li data-i18n="f4Core2">累的时候会想先休息</li>
+                    <li data-i18n="f4Core3">忙里也会来找她</li>
+                  </ul>
+                </section>
+                <section class="memory-block">
+                  <h4 data-i18n="f4ProfileTitle">用户画像</h4>
+                  <div class="memory-profile">
+                    <div class="memory-profile__figure" aria-hidden="true">
+                      <svg viewBox="0 0 72 88" focusable="false">
+                        <rect width="72" height="88" rx="16" fill="#fff7fb" />
+                        <circle cx="36" cy="30" r="14" fill="#f9a8d4" />
+                        <path d="M16 78c2-16 12-24 20-24s18 8 20 24" fill="#db2777" opacity="0.85" />
+                      </svg>
+                    </div>
+                    <dl class="memory-table">
+                      <div>
+                        <dt data-i18n="f4NameLabel">称呼</dt>
+                        <dd data-i18n="f4Name">你</dd>
+                      </div>
+                      <div>
+                        <dt data-i18n="f4AgeLabel">年龄</dt>
+                        <dd data-i18n="f4Age">未知</dd>
+                      </div>
+                      <div>
+                        <dt data-i18n="f4PersonalityLabel">性格</dt>
+                        <dd data-i18n="f4Personality">夜里更安静</dd>
+                      </div>
+                      <div>
+                        <dt data-i18n="f4InterestLabel">兴趣</dt>
+                        <dd data-i18n="f4Interest">桌边待着，偶尔聊天</dd>
+                      </div>
+                      <div>
+                        <dt data-i18n="f4AttitudeLabel">对雪澜</dt>
+                        <dd data-i18n="f4Attitude">累了会来找她</dd>
+                      </div>
+                      <div>
+                        <dt data-i18n="f4SummaryLabel">总体</dt>
+                        <dd data-i18n="f4Summary">忙的时候也愿意被陪着</dd>
+                      </div>
+                      <div>
+                        <dt data-i18n="f4HabitLabel">经常会</dt>
+                        <dd data-i18n="f4Habit">夜里说想休息；忙里戳她一下</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </section>
+                <img class="memory-navi" src="./assets/cute_navi_02.png" alt="" width="538" height="987" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" id="glance">
+          <div class="slide__inner slide-reveal">
+            <div class="feature-demo">
+              <div class="feature-demo__copy">
+                <span class="feature-demo__n" aria-hidden="true">05</span>
+                <h3 data-i18n="f5Title">游戏陪聊</h3>
+                <div class="prose-accent feature-demo__lead">
+                  <span class="prose-accent__mark" aria-hidden="true"></span>
+                  <p data-i18n="f5Desc">当游玩Steam启动的游戏，雪澜可以看到你的屏幕内容，然后冷不丁地吐槽两句~</p>
+                </div>
+                <p class="feature-demo__note" data-i18n="f5Note">目前仅支持Steam游戏检测且功能默认关闭，因用视觉模型来实现，视觉模型需自己配备</p>
+                <p class="feature-demo__hint" data-i18n="f5Hint">右侧仅为屏幕感知示意</p>
+              </div>
+
+              <div class="glance-stage">
+                <div class="feature-demo__chrome" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                </div>
+                <p class="feature-demo__badge" data-i18n="f5Badge">屏幕感知</p>
+                <div class="glance-screen">
+                  <p class="glance-screen__bar">
+                    <span class="glance-screen__dot" aria-hidden="true"></span>
+                    <span data-i18n="f5Playing">正在玩 · SuperTuxKart</span>
+                  </p>
+                  <div class="glance-monitor">
+                    <div class="glance-monitor__bezel">
+                      <div class="glance-screen__view">
+                        <!-- 开源游戏画面，CC BY-SA。文件已裁掉来源站水印并缩小。 -->
+                        <img src="./assets/glance-stk.jpg" alt="SuperTuxKart" width="960" height="506" />
+                      </div>
+                      <span class="glance-monitor__cam" aria-hidden="true"></span>
+                    </div>
+                    <span class="glance-monitor__neck" aria-hidden="true"></span>
+                    <span class="glance-monitor__base" aria-hidden="true"></span>
+                  </div>
+                  <p class="glance-screen__credit">
+                    <a
+                      href="https://creativecommons.org/licenses/by-sa/4.0/"
+                      rel="license"
+                      data-i18n="f5Credit"
+                    >SuperTuxKart 贡献者 · CC BY-SA</a>
+                  </p>
+                </div>
+                <p class="glance-line" data-i18n="f5Line">雪澜：这局有点急呀~</p>
+                <img class="glance-navi" src="./assets/cute_navi_03.png" alt="" width="672" height="1003" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" id="diy">
+          <div class="slide__inner slide-reveal">
+            <div class="feature-demo">
+              <div class="feature-demo__copy">
+                <span class="feature-demo__n" aria-hidden="true">06</span>
+                <h3 data-i18n="f6Title">高度自由的自定义化程度</h3>
+                <div class="prose-accent feature-demo__lead">
+                  <span class="prose-accent__mark" aria-hidden="true"></span>
+                  <p data-i18n="f6Desc">与其说是一只桌宠，不如说更像一个开源的桌宠架构。无论是Live2D模型、角色卡、声线、还是引擎系统等，都提供了抽象层接口，只要接得上，就能改装成只属于你的独一无二的雪澜~</p>
+                </div>
+                <p class="feature-demo__hint" data-i18n="f6Hint">右侧仅为自定义示意</p>
+              </div>
+
+              <div class="diy-stage" aria-hidden="true">
+                <div class="feature-demo__chrome">
+                  <span></span><span></span><span></span>
+                </div>
+                <p class="feature-demo__badge" data-i18n="f6Badge">自定义</p>
+                <ul class="diy-list">
+                  <li class="diy-row">
+                    <span class="diy-row__k" data-i18n="f6ArtLabel">立绘</span>
+                    <span data-i18n="f6Art">换成你的 Live2D</span>
+                  </li>
+                  <li class="diy-row">
+                    <span class="diy-row__k" data-i18n="f6PersonaLabel">人设</span>
+                    <span data-i18n="f6Persona">写下她是谁、喜欢什么</span>
+                  </li>
+                  <li class="diy-row">
+                    <span class="diy-row__k" data-i18n="f6VoiceLabel">声音</span>
+                    <span data-i18n="f6Voice">声线，还有摸摸时说的话</span>
+                  </li>
+                  <li class="diy-row">
+                    <span class="diy-row__k" data-i18n="f6ChatLabel">聊天</span>
+                    <span data-i18n="f6Chat">本地模型，或你自己的接口</span>
+                  </li>
+                  <li class="diy-row">
+                    <span class="diy-row__k" data-i18n="f6HookLabel">接口</span>
+                    <span data-i18n="f6Hook">声音、聊天这些引擎，接上就能换</span>
+                  </li>
+                  <li class="diy-more" aria-hidden="true"><span>.</span><span>.</span><span>.</span><span>.</span><span>.</span><span>.</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" id="steps">
+          <div class="slide__inner slide-reveal">
+            <header class="section__head">
+              <h2 data-i18n="stepsTitle">安装简单，只需三步，就能把她带入你的生活</h2>
+            </header>
+            <ol class="steps">
+              <li class="step-card">
+                <span class="step-card__n">1</span>
+                <h3 data-i18n="s1Title">引导式Windows安装包，开盒即用</h3>
+              </li>
+              <li class="step-card">
+                <span class="step-card__n">2</span>
+                <h3 data-i18n="s2Title">自动化环境安装，简单便捷</h3>
+              </li>
+              <li class="step-card">
+                <span class="step-card__n">3</span>
+                <h3 data-i18n="s3Title">即可启动桌宠，享受陪伴~</h3>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="slide" id="download">
+          <div class="slide__inner slide__inner--cta slide-reveal">
+            <div class="cta">
+              <h2 data-i18n="ctaTitle">准备好将她领回家了吗？</h2>
+              <div class="cta__actions">
+                <button type="button" class="btn btn--soon" disabled>
+                  <span class="btn__soon-badge" data-i18n="ctaSoonBadge">即将开放</span>
+                  <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path
+                      fill="currentColor"
+                      d="M3 5.12 10.04 4.1v7.36H3zm8.08-1.22L21 2.5v8.98h-9.92zM3 13.52h7.04V20.9L3 19.84zm8.08.14H21V21.5l-9.92-1.4z"
+                    />
+                  </svg>
+                  <span data-i18n="ctaWin">Windows 下载</span>
+                </button>
+                <a
+                  class="btn btn--ghost"
+                  href="https://github.com/Nav-Joe/Xue_CyberNeko"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path
+                      fill="currentColor"
+                      d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.55-1.14-4.55-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.84c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2Z"
+                    />
+                  </svg>
+                  <span data-i18n="ctaGithub">GitHub</span>
+                </a>
+              </div>
+            </div>
+            <footer class="footer">
+              <p>雪澜 · Xue CyberNeko</p>
+            </footer>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./scripts/i18n.js" defer></script>
+    <script src="./scripts/forgeDemo.js" defer></script>
+    <script src="./scripts/slides.js" defer></script>
+    <script src="./scripts/live2dDemo.js" defer></script>
+  </body>
+</html>

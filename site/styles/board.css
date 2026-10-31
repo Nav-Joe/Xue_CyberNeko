@@ -1,0 +1,297 @@
+/*
+  宣传站背景底板（front-design / skills-src）
+  - color-theory：60 奶油底 / 30 淡玫雾 / 10 品牌字
+  - visual-direction：暖中性底、单点缀色、非对称、留白
+  - design-trends：有深度的简约；气氛动效克制（雾 + 光扫 + 少量光点），忌堆装饰
+*/
+
+:root {
+  --rose-700: #9f1239;
+  --rose-500: #db2777;
+  --cream-50: #faf7f5;
+  --cream-100: #fff7fb;
+  --ink-900: #3f2a33;
+  --ink-700: #5c4150;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  overflow: hidden;
+  color: var(--ink-900);
+  background: var(--cream-100);
+  font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+.board {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* 60%：暖奶油主场，带极淡纵向层次，避免纯白平板 */
+.board__base {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(165deg, #fffafc 0%, var(--cream-100) 42%, #f6ecef 100%);
+}
+
+/* 30%：两团玫雾景深；呼吸幅度要肉眼可见，但不闪不炫 */
+.board__bloom {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(56px);
+  will-change: transform, opacity;
+}
+
+.board__bloom--warm {
+  width: min(72vw, 760px);
+  height: min(72vw, 760px);
+  left: -12%;
+  bottom: -22%;
+  background: radial-gradient(circle, rgba(219, 39, 119, 0.28), transparent 70%);
+  animation: bloom-breathe 7s var(--ease) infinite alternate;
+}
+
+.board__bloom--cool {
+  width: min(50vw, 520px);
+  height: min(50vw, 520px);
+  right: -8%;
+  top: 8%;
+  background: radial-gradient(circle, rgba(159, 18, 57, 0.18), transparent 72%);
+  animation: bloom-drift 9s var(--ease) infinite alternate;
+}
+
+/* 底部雾带：把视线轻轻托到中下，留给以后的角色/下载区 */
+.board__horizon {
+  position: absolute;
+  inset: auto 0 0;
+  height: 42%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 252, 250, 0.45) 40%,
+    rgba(250, 247, 245, 0.88) 100%
+  );
+  pointer-events: none;
+}
+
+/* 斜光扫过：清楚可见，周期短一些，仍不刺眼 */
+.board__sheen {
+  position: absolute;
+  inset: -20% -40%;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 32%,
+    rgba(255, 255, 255, 0.55) 48%,
+    transparent 64%
+  );
+  animation: sheen-sweep 9s var(--ease) infinite;
+}
+
+/* 浮尘光点：仍 5 颗，铺开全场，避开品牌字中心 */
+.board__motes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.board__motes span {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(219, 39, 119, 0.55) 0%,
+    rgba(219, 39, 119, 0.12) 55%,
+    transparent 70%
+  );
+  box-shadow: 0 0 12px rgba(219, 39, 119, 0.2);
+  animation: mote-drift 10s var(--ease) infinite;
+}
+
+.board__motes span:nth-child(1) {
+  left: 12%;
+  top: 16%;
+  animation-delay: 0s;
+}
+.board__motes span:nth-child(2) {
+  left: 78%;
+  top: 22%;
+  width: 7px;
+  height: 7px;
+  animation-delay: -2s;
+  animation-duration: 12s;
+}
+.board__motes span:nth-child(3) {
+  left: 38%;
+  top: 72%;
+  width: 12px;
+  height: 12px;
+  animation-delay: -5s;
+  animation-duration: 11s;
+}
+.board__motes span:nth-child(4) {
+  left: 88%;
+  top: 58%;
+  width: 8px;
+  height: 8px;
+  animation-delay: -1s;
+  animation-duration: 13s;
+}
+.board__motes span:nth-child(5) {
+  left: 22%;
+  top: 48%;
+  animation-delay: -7s;
+  animation-duration: 9.5s;
+}
+
+.board__grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 非对称：字压左中，右侧留给以后的角色剪影 */
+.board__mark {
+  position: absolute;
+  left: clamp(24px, 8vw, 96px);
+  top: 42%;
+  transform: translateY(-50%);
+  z-index: 2;
+  max-width: min(28rem, 78vw);
+}
+
+.board__draft {
+  margin: 0 0 12px;
+  color: var(--ink-700);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+.board__brand {
+  margin: 0;
+  color: var(--rose-700);
+  font-family: 'Zen Maru Gothic', 'Noto Sans SC', sans-serif;
+  font-size: clamp(4rem, 12vw, 7.5rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 0.95;
+  text-indent: 0.08em;
+}
+
+.board__note {
+  margin: 20px 0 0;
+  color: var(--ink-700);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+@keyframes bloom-breathe {
+  from {
+    opacity: 0.65;
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    opacity: 1;
+    transform: translate(6%, -5%) scale(1.12);
+  }
+}
+
+@keyframes bloom-drift {
+  from {
+    opacity: 0.7;
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-8%, 6%) scale(1.1);
+  }
+}
+
+@keyframes sheen-sweep {
+  0% {
+    transform: translateX(-18%);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.75;
+  }
+  45% {
+    opacity: 0.5;
+  }
+  70% {
+    transform: translateX(18%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(18%);
+    opacity: 0;
+  }
+}
+
+@keyframes mote-drift {
+  0% {
+    transform: translate(0, 12px);
+    opacity: 0.2;
+  }
+  25% {
+    transform: translate(18px, -28px);
+    opacity: 0.85;
+  }
+  55% {
+    transform: translate(-14px, -52px);
+    opacity: 0.55;
+  }
+  80% {
+    transform: translate(8px, -72px);
+    opacity: 0.25;
+  }
+  100% {
+    transform: translate(0, -90px);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .board__mark {
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+
+  .board__brand {
+    text-indent: 0.16em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board__bloom,
+  .board__sheen,
+  .board__motes span {
+    animation: none;
+  }
+}

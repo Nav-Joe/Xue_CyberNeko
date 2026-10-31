@@ -4,6 +4,8 @@ node_modules/
 # Build output
 out/
 dist/
+# 安装包暂存：只读根副本和嵌入版 Python，打包时生成，不入库
+/staging/
 
 # Logs
 *.log
@@ -127,6 +129,11 @@ scripts/qwen3-tts/
 public/models/hiyori_pro/
 public/models/**/
 !public/models/README.md
+
+# ── 宣传站部署资源（node scripts/stage-site-assets.mjs 生成；模型较大不入库）──
+site/models/
+site/vendor/
+site/live2d/
 
 # ── 精选触摸音频：manifest + .wav 入库；用户本地追加的 wav 也可提交 ──
 # （不忽略 public/touch_clips/*.wav）
