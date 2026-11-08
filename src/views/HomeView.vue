@@ -66,8 +66,7 @@ const { appearance, isDark, toggleAppearance } = useHomeAppearance()
 
       <footer class="desk-foot">
         <VolumeControl />
-        <p class="tip">用「启动.bat」运行。关掉窗口，她会回到桌面。</p>
-        <p class="version-tag">版本：V0.7.1（早期开发版本）</p>
+        <p class="version-tag">版本：V0.7.2（开发者版本）</p>
       </footer>
     </aside>
   </main>
@@ -228,20 +227,6 @@ h1 {
   letter-spacing: var(--home-font-display-tracking, 0.01em);
   line-height: 1.2;
   text-wrap: balance;
-}
-
-.subtitle,
-.tip {
-  margin: 0;
-  color: var(--home-color-muted);
-  font-size: var(--home-font-body);
-  line-height: 1.55;
-  max-width: 32ch;
-}
-
-.tip {
-  margin-top: var(--home-space-1);
-  font-size: var(--home-font-meta);
 }
 
 .version-tag {

@@ -1,5 +1,8 @@
 @echo off
-rem 调用前当前目录必须是项目根目录
+rem 调用前当前目录必须是可写根。依赖清单在源码根；环境页会传入 XUE_INSTALL_ROOT。
+
+set "XUE_SRC=%CD%"
+if defined XUE_INSTALL_ROOT set "XUE_SRC=%XUE_INSTALL_ROOT%"
 
 call "%~dp0resolve-venv-python.cmd"
 set "PY=%XUE_VENV_PYTHON%"
@@ -30,10 +33,10 @@ echo [提示] 正在向 .venv 安装 TTS 依赖（tts_voice\requirements.txt）.
 echo.
 
 "%PY%" -m pip install -U pip
-"%PY%" -m pip install -r "tts_voice\requirements.txt"
+"%PY%" -m pip install -r "%XUE_SRC%\tts_voice\requirements.txt"
 if errorlevel 1 (
   echo [错误] pip 安装失败。可手动执行:
-  echo        "%PY%" -m pip install -r tts_voice\requirements.txt
+  echo        "%PY%" -m pip install -r "%XUE_SRC%\tts_voice\requirements.txt"
   exit /b 1
 )
 
@@ -73,7 +76,7 @@ echo [提示] 检测到本地 Bert-VITS2\，正在安装私有引擎推理依赖
 echo        来源: tts_voice\requirements-bert-vits2-infer.txt
 echo.
 
-"%PY%" -m pip install -r "tts_voice\requirements-bert-vits2-infer.txt" huggingface_hub
+"%PY%" -m pip install -r "%XUE_SRC%\tts_voice\requirements-bert-vits2-infer.txt" huggingface_hub
 if errorlevel 1 (
   echo [警告] Bert-VITS2 推理依赖安装失败，若私有 TTS 报错请手动 pip install。
 )

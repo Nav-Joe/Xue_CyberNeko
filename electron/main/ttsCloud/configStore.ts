@@ -9,10 +9,15 @@ import {
 } from '../chat/apiKeyAtRest'
 import { resolveActiveQwenVoice, upsertOfficialVcVoice } from './activeVoice'
 import { isSafeCloudLocalVoiceId } from './cloudCachePaths'
+import { defaultEdgeFields, normalizeEdgeFields, normalizeEdgeVoices } from './edgeConfig'
+import { defaultSeedFields, normalizeSeedFields, normalizeSeedVoices } from './seedConfig'
 import {
   DEFAULT_QWEN_BASE_URL,
   DEFAULT_QWEN_VC_MODEL,
   DEFAULT_QWEN_VD_MODEL,
+  DEFAULT_SEED_BASE_URL,
+  DEFAULT_SEED_RESOURCE_ID,
+  DEFAULT_EDGE_WSS_URL,
   type QwenCloudVoice,
   type QwenVoiceKind,
   type TtsBackend,
@@ -44,13 +49,16 @@ export function createDefaultTtsCloudConfig(): TtsCloudConfig {
       activeVoiceLocalId: '',
       apiKey: '',
       secretSave: false
-    }
+    },
+    seed: defaultSeedFields(),
+    edge: defaultEdgeFields()
   }
 }
 
-/** 仅 qwen 为云端；旧 fish/minimax 回落 local */
+/** qwen / seed 为云端；旧 fish/minimax 回落 local */
 function asBackend(raw: unknown): TtsBackend {
-  return raw === 'qwen' ? 'qwen' : 'local'
+  if (raw === 'qwen' || raw === 'seed' || raw === 'edge') return raw
+  return 'local'
 }
 
 function normalizeModel(raw: unknown, fallback: string): string {
@@ -150,6 +158,17 @@ function normalizeDisk(raw: TtsCloudConfigDisk, crypto: ApiKeyCrypto): {
     Boolean(legacyModel) ||
     Boolean(legacyVoiceId)
 
+  const seedRaw = raw.seed
+  const seedKey = resolveApiKeyFromDisk(
+    { apiKey: seedRaw?.apiKey, apiKeyEnc: seedRaw?.apiKeyEnc },
+    crypto
+  )
+  const seed = normalizeSeedFields(seedRaw, seedKey.plain)
+  const seedNeedsEncrypt =
+    Boolean(seed.apiKey.trim()) &&
+    crypto.isAvailable() &&
+    !(typeof seedRaw?.apiKeyEnc === 'string' && seedRaw.apiKeyEnc.trim())
+
   return {
     config: {
       ttsBackend: asBackend(raw.ttsBackend),
@@ -161,14 +180,25 @@ function normalizeDisk(raw: TtsCloudConfigDisk, crypto: ApiKeyCrypto): {
         activeVoiceLocalId,
         apiKey: plain,
         secretSave: q.secretSave === true
-      }
+      },
+      seed,
+      edge: normalizeEdgeFields(raw.edge)
     },
-    shouldRewrite: shouldRewrite || needsEncrypt || needsShapeRewrite || hadLegacyVendor
+    shouldRewrite:
+      shouldRewrite ||
+      needsEncrypt ||
+      needsShapeRewrite ||
+      hadLegacyVendor ||
+      seedKey.shouldRewrite ||
+      seedNeedsEncrypt ||
+      !raw.seed ||
+      !raw.edge
   }
 }
 
 function toDiskPayload(config: TtsCloudConfig, crypto: ApiKeyCrypto): Record<string, unknown> {
   const keyFields = buildDiskApiKeyFields(config.qwen.apiKey, crypto)
+  const seedKeyFields = buildDiskApiKeyFields(config.seed.apiKey, crypto)
   return {
     ttsBackend: config.ttsBackend,
     qwen: {
@@ -179,6 +209,19 @@ function toDiskPayload(config: TtsCloudConfig, crypto: ApiKeyCrypto): Record<str
       activeVoiceLocalId: config.qwen.activeVoiceLocalId,
       secretSave: config.qwen.secretSave,
       ...keyFields
+    },
+    seed: {
+      baseUrl: config.seed.baseUrl.trim() || DEFAULT_SEED_BASE_URL,
+      resourceId: config.seed.resourceId.trim() || DEFAULT_SEED_RESOURCE_ID,
+      voices: config.seed.voices,
+      activeVoiceLocalId: config.seed.activeVoiceLocalId,
+      secretSave: config.seed.secretSave,
+      ...seedKeyFields
+    },
+    edge: {
+      baseUrl: config.edge.baseUrl.trim() || DEFAULT_EDGE_WSS_URL,
+      voices: config.edge.voices,
+      activeVoiceLocalId: config.edge.activeVoiceLocalId
     }
   }
 }
@@ -204,6 +247,23 @@ export function toTtsCloudConfigView(config: TtsCloudConfig): TtsCloudConfigView
       secretSave,
       hasApiKey,
       apiKey: !secretSave && hasApiKey ? apiKey : undefined
+    },
+    seed: {
+      baseUrl: config.seed.baseUrl,
+      resourceId: config.seed.resourceId,
+      voices: config.seed.voices.map((voice) => ({ ...voice })),
+      activeVoiceLocalId: config.seed.activeVoiceLocalId,
+      secretSave: config.seed.secretSave === true,
+      hasApiKey: Boolean(config.seed.apiKey.trim()),
+      apiKey:
+        config.seed.secretSave !== true && config.seed.apiKey.trim()
+          ? config.seed.apiKey.trim()
+          : undefined
+    },
+    edge: {
+      baseUrl: config.edge.baseUrl,
+      voices: config.edge.voices.map((voice) => ({ ...voice })),
+      activeVoiceLocalId: config.edge.activeVoiceLocalId
     }
   }
 }
@@ -245,6 +305,14 @@ export function createTtsCloudConfigStore(deps: TtsCloudConfigStoreDeps) {
       qwen: {
         ...current.qwen,
         voices: current.qwen.voices.map((v) => ({ ...v }))
+      },
+      seed: {
+        ...current.seed,
+        voices: current.seed.voices.map((voice) => ({ ...voice }))
+      },
+      edge: {
+        ...current.edge,
+        voices: current.edge.voices.map((voice) => ({ ...voice }))
       }
     }
     if (patch.qwen) {
@@ -283,11 +351,54 @@ export function createTtsCloudConfigStore(deps: TtsCloudConfigStoreDeps) {
         next.qwen.apiKey = patch.qwen.apiKey.trim()
       }
     }
+    if (patch.seed) {
+      if (typeof patch.seed.baseUrl === 'string') {
+        next.seed.baseUrl = patch.seed.baseUrl.trim() || DEFAULT_SEED_BASE_URL
+      }
+      if (typeof patch.seed.resourceId === 'string') {
+        next.seed.resourceId = patch.seed.resourceId.trim() || DEFAULT_SEED_RESOURCE_ID
+      }
+      if (Array.isArray(patch.seed.voices)) {
+        next.seed.voices = normalizeSeedVoices(patch.seed.voices)
+      }
+      if (typeof patch.seed.activeVoiceLocalId === 'string') {
+        next.seed.activeVoiceLocalId = patch.seed.activeVoiceLocalId.trim()
+      }
+      if (typeof patch.seed.secretSave === 'boolean') {
+        next.seed.secretSave = patch.seed.secretSave
+      }
+      if (typeof patch.seed.apiKey === 'string') {
+        next.seed.apiKey = patch.seed.apiKey.trim()
+      }
+    }
+    if (patch.edge) {
+      if (typeof patch.edge.baseUrl === 'string') {
+        next.edge.baseUrl = patch.edge.baseUrl.trim() || DEFAULT_EDGE_WSS_URL
+      }
+      if (Array.isArray(patch.edge.voices)) {
+        next.edge.voices = normalizeEdgeVoices(patch.edge.voices)
+      }
+      if (typeof patch.edge.activeVoiceLocalId === 'string') {
+        next.edge.activeVoiceLocalId = patch.edge.activeVoiceLocalId.trim()
+      }
+    }
     if (
       next.qwen.activeVoiceLocalId &&
       !next.qwen.voices.some((v) => v.id === next.qwen.activeVoiceLocalId)
     ) {
       next.qwen.activeVoiceLocalId = next.qwen.voices[0]?.id ?? ''
+    }
+    if (
+      next.seed.activeVoiceLocalId &&
+      !next.seed.voices.some((voice) => voice.id === next.seed.activeVoiceLocalId)
+    ) {
+      next.seed.activeVoiceLocalId = next.seed.voices[0]?.id ?? ''
+    }
+    if (
+      next.edge.activeVoiceLocalId &&
+      !next.edge.voices.some((voice) => voice.id === next.edge.activeVoiceLocalId)
+    ) {
+      next.edge.activeVoiceLocalId = next.edge.voices[0]?.id ?? ''
     }
     persist(next)
     return next

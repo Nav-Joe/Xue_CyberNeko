@@ -53,7 +53,7 @@ function nextVoiceLocalId(kind: QwenVoiceKind): string {
   return `${kind}-${Date.now().toString(36)}-${voiceSeq}`
 }
 
-/** preferred_name：数字、字母、下划线，最长 16 */
+/** preferred_name：数字、字母、下划线，最长 16。旧 Qwen3 复刻仍可能用到。 */
 export function sanitizePreferredName(raw: string, fallback: string): string {
   const cleaned = raw
     .trim()
@@ -67,6 +67,14 @@ export function sanitizePreferredName(raw: string, fallback: string): string {
     .replace(/_+/g, '_')
     .slice(0, 16)
   return fb || 'xue_voice'
+}
+
+/** Qwen-Audio-TTS / CosyVoice 的 prefix：只许字母和数字，最长 10。 */
+export function toAudioTtsPrefix(raw: string, fallback: string): string {
+  const cleaned = raw.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)
+  if (cleaned) return cleaned
+  const fb = fallback.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)
+  return fb || 'xuevoice'
 }
 
 /**

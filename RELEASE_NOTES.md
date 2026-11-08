@@ -1,15 +1,9 @@
 # Release Notes
 
-## V0.7.1
+## V0.7.2
 
-### Major home / chat / pet UI polish
-Refreshed the home desk, chat window, and desktop-pet menus so they share one warmer cottage look. Buttons, panels, and settings use the same visual language instead of mismatched styles.
+### Unified cloud TTS interface
+Cloud speech now goes through one provider interface. Aliyun speech uses the current Qwen-Audio-TTS endpoints for cloning, voice design, and synthesis.
 
-### Light and dark appearance
-Home has a light/dark toggle (bulb). Chat follows the same choice and can switch too. The preference stays in sync across open windows.
-
-### Home stage background
-The Live2D stage on the home window uses a soft room background so she sits in a scene, not on a flat panel.
-
-### Startup splash and app icon
-Cold start shows a short splash while the pet loads. Window / taskbar icons use a custom cutout icon instead of the default Electron logo.
+### More cloud voices
+Seed and Edge can be selected beside Aliyun. The voice picker lists each service, then that service's voices.

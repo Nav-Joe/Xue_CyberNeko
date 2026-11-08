@@ -16,12 +16,12 @@ import torch
 
 from text_normalize import normalize_tts_text
 from qwen_model_load import load_qwen3_tts_model, prepare_torch_env, resolve_attn_implementation
+from tts_config import resolve_under_writable_root
 from voice_forge_paths import (
     CUSTOM_SAMPLE_DIR,
     DEFAULT_SAMPLE_DIR,
     LEGACY_CLONE_DIR,
     OFFICIAL_SAMPLE_ID,
-    PROJECT_ROOT,
     REGEN_FLAG,
     custom_sample_dir,
     profile_path,
@@ -38,10 +38,8 @@ DEFAULT_CLONE_REFERENCE_TEXT = (
 
 
 def resolve_project_path(raw: str) -> Path:
-    path = Path(raw)
-    if not path.is_absolute():
-        path = PROJECT_ROOT / path
-    return path.resolve()
+    # 配置里的 Qwen3_TTS/... 是相对数据根的。只读根上没有这些权重。
+    return resolve_under_writable_root(raw).resolve()
 
 
 def voice_design_model_dir(settings: dict) -> Path:

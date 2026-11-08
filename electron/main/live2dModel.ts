@@ -1,22 +1,14 @@
 import { existsSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
 
+import { dataRoot } from './config/roots'
+
 const DEFAULT_MODEL_REL = 'hiyori_pro/runtime/hiyori_pro_t11.model3.json'
 
 const PREFERRED_REL_PATHS = [DEFAULT_MODEL_REL, 'Hiyori/Hiyori.model3.json']
 
-function projectRoot(): string {
-  const candidates = [process.cwd(), join(__dirname, '..', '..'), join(__dirname, '..')]
-  for (const dir of candidates) {
-    if (existsSync(join(dir, 'package.json')) && existsSync(join(dir, 'voice_forge'))) {
-      return dir
-    }
-  }
-  return process.cwd()
-}
-
 function modelsDir(): string {
-  return join(projectRoot(), 'public', 'models')
+  return join(dataRoot(), 'public', 'models')
 }
 
 function toWebPath(relativePath: string): string {

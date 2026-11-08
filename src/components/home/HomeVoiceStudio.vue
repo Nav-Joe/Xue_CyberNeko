@@ -6,6 +6,12 @@ import HomeCloudVoiceSwitcher from './HomeCloudVoiceSwitcher.vue'
 type VoiceTab = 'local' | 'cloud'
 
 const tab = ref<VoiceTab>('local')
+const cloudSwitcher = ref<{ openPicker: () => void } | null>(null)
+
+function openCloudVoices(): void {
+  tab.value = 'cloud'
+  cloudSwitcher.value?.openPicker()
+}
 </script>
 
 <template>
@@ -31,7 +37,7 @@ const tab = ref<VoiceTab>('local')
         :class="{ 'voice-studio__tab--on': tab === 'cloud' }"
         :aria-selected="tab === 'cloud'"
         aria-controls="voice-panel-cloud"
-        @click="tab = 'cloud'"
+        @click="openCloudVoices"
       >
         云端声线
       </button>
@@ -53,7 +59,7 @@ const tab = ref<VoiceTab>('local')
       role="tabpanel"
       aria-labelledby="voice-tab-cloud"
     >
-      <HomeCloudVoiceSwitcher embedded />
+      <HomeCloudVoiceSwitcher ref="cloudSwitcher" embedded />
     </div>
   </section>
 </template>

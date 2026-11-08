@@ -6,6 +6,7 @@ const fetchCloudTouchCacheBlob = vi.fn(async () => null)
 
 vi.mock('../ttsCloudSpeech', () => ({
   isCachedQwenTtsBackend: () => isCachedQwenTtsBackend(),
+  refreshTtsCloudBackendCache: async () => (isCachedQwenTtsBackend() ? 'qwen' : 'local'),
   fetchCloudTtsBlob: (...args: unknown[]) => fetchCloudTtsBlob(...args),
   fetchCloudTouchCacheBlob: (...args: unknown[]) => fetchCloudTouchCacheBlob(...args)
 }))
@@ -19,6 +20,7 @@ vi.mock('../ttsSettings', () => ({
 }))
 
 vi.mock('../live2dLipSync', () => ({
+  runLipSyncFromBlob: async () => {},
   runLipSyncWhilePlaying: async () => {},
   stopLipSync: () => {}
 }))

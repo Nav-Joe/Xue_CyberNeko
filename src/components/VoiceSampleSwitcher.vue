@@ -208,9 +208,6 @@ onUnmounted(() => {
       </p>
     </template>
     <p v-else-if="!voiceForgeSupported && disabledHint" class="disabled-banner">{{ disabledHint }}</p>
-    <p v-else-if="props.embedded" class="hint">
-      切换时桌宠会先躲一会儿。创造自定义声线请去音色工坊。
-    </p>
 
     <p v-if="loading" class="status">加载中…</p>
     <p v-else-if="error" class="status error">{{ error }}</p>

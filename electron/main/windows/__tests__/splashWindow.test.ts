@@ -20,6 +20,7 @@ vi.mock('../petWindow', () => ({
 
 describe('splashWindow dual-gate finish', () => {
   afterEach(() => {
+    vi.useRealTimers()
     vi.resetModules()
     vi.clearAllMocks()
   })
@@ -32,6 +33,18 @@ describe('splashWindow dual-gate finish', () => {
     mod.closeSplashWindow()
     expect(setDeferPetWindowShow).toHaveBeenCalledWith(false)
     expect(showPetWindowIfNeeded).toHaveBeenCalled()
+  })
+
+  it('tts not coming still waits for the pet frame, then releases the pet', async () => {
+    vi.useFakeTimers()
+    const mod = await import('../splashWindow')
+    mod.markSplashTtsNotComing()
+    expect(showPetWindowIfNeeded).not.toHaveBeenCalled()
+
+    mod.markSplashPetFrameReady()
+    await vi.advanceTimersByTimeAsync(220)
+    expect(showPetWindowIfNeeded).toHaveBeenCalled()
+    vi.useRealTimers()
   })
 
   it('closeSplashWindow is idempotent', async () => {

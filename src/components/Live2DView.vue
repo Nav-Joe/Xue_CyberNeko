@@ -13,7 +13,11 @@ import {
 } from '../services/live2dOpaqueBounds'
 import { computePetFrameFromOpaqueBounds, PET_FRAME_PADDING } from '../services/petWindowSize'
 import { configureQuietIdle, QUIET_IDLE_MODEL_OPTIONS } from '../services/live2dIdle'
-import { registerLive2DModelForLipSync, unregisterLive2DModelForLipSync } from '../services/live2dLipSync'
+import {
+  primeAudioPlayback,
+  registerLive2DModelForLipSync,
+  unregisterLive2DModelForLipSync
+} from '../services/live2dLipSync'
 import PetChatShortcut from './pet/PetChatShortcut.vue'
 
 const props = withDefaults(
@@ -326,6 +330,8 @@ function handleCanvasPointerDown(event: PointerEvent): void {
   if (!onModel) return
 
   pointerActive = true
+  // 手势起点唤醒本窗口 AudioContext（小屋与桌宠进程各自一份）
+  void primeAudioPlayback()
   if (isPetMode()) {
     beginPotentialDrag(event)
   }

@@ -2,6 +2,7 @@ import type { Live2DModel } from 'pixi-live2d-display/cubism4'
 import { resolveBodyPart } from './bodyPart'
 import { pickCorpusLine } from './corpus'
 import { isCustomCorpusTouchEnabled } from './touchModeSettings'
+import { primeAudioPlayback } from './live2dLipSync'
 import { playRandomTouchClip } from './touchClipPlayer'
 import { isRealtimeInferenceEnabled } from './ttsSettings'
 import { isRealtimeTouchBusy, speakText } from './ttsPlayer'
@@ -20,6 +21,9 @@ export interface ModelTapPayload {
 }
 
 export async function handleModelTap(payload: ModelTapPayload): Promise<void> {
+  // 小屋与桌宠各有一份 AudioContext；在用户手势里先 resume，再去取缓存
+  await primeAudioPlayback()
+
   const virtualPart = resolveBodyPart(
     payload.model,
     payload.pointX,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import tarfile
 import urllib.error
@@ -22,6 +23,10 @@ MIN_MODEL_BYTES = 100 * 1024 * 1024  # truncated download guard
 
 
 def repo_root() -> Path:
+    # 环境页传入可写根。未设置时仍是脚本上两级，和首次安装一致。
+    override = os.environ.get("XUE_DATA_ROOT", "").strip()
+    if override:
+        return Path(override)
     return Path(__file__).resolve().parent.parent.parent
 
 

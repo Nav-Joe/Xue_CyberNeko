@@ -31,9 +31,11 @@ import { registerSttIpc } from './ipc/stt'
 import { registerTtsCloudIpc } from './ipc/ttsCloud'
 import { registerScreenCompanionIpc } from './ipc/screenCompanion'
 import { registerSplashIpc } from './ipc/splash'
+import { registerRuntimeEnvIpc } from './runtimeEnv/ipc'
 import { initMemorySubsystem, finalizeForAppQuit } from './memory/runtime'
 import { stopManagedLlamaServer } from './llama/session'
 import { stopManagedSttService } from './stt/session'
+import { startPackagedTtsServer, stopManagedTtsServer } from './tts/managedServer'
 import { createVoiceEngineLoadCoordinator } from './voice/engineLoadCoordinator'
 import { createHomeWindow, getHomeWindow, setQuitting } from './windows/homeWindow'
 import {
@@ -53,6 +55,17 @@ import {
   reconcileScreenCompanionScheduler,
   stopScreenCompanionScheduler
 } from './screenCompanion/scheduler'
+import { registerRendererProtocol, registerRendererScheme } from './windows/rendererProtocol'
+import { dataRoot, userDataDir } from './config/roots'
+
+registerRendererScheme()
+
+// 快捷方式可以叫「雪澜」，记忆和配置仍放在 xue-cyber-neko。单实例锁马上会读 userData，所以要先改。
+app.setPath('userData', userDataDir(app.getPath('appData')))
+// 锁文件跟数据根走。开发时数据根就是仓库根，和启动脚本不传变量时的位置相同。
+if (!process.env.XUE_DATA_ROOT) {
+  process.env.XUE_DATA_ROOT = dataRoot()
+}
 
 const require = createRequire(import.meta.url)
 const appInstanceLock = require(join(__dirname, '../../scripts/app-instance-lock.js')) as {
@@ -134,6 +147,7 @@ function registerIpc(): void {
   registerTtsCloudIpc()
   registerScreenCompanionIpc()
   registerSplashIpc()
+  registerRuntimeEnvIpc()
 }
 
 let quittingFinalizeStarted = false
@@ -171,6 +185,7 @@ app.on('before-quit', (event) => {
     try {
       await finalizeForAppQuit(async () => {
         stopManagedSttService()
+        stopManagedTtsServer()
         return stopManagedLlamaServer()
       })
     } catch (error) {
@@ -182,6 +197,7 @@ app.on('before-quit', (event) => {
 })
 
 app.whenReady().then(() => {
+  registerRendererProtocol()
   try {
     if (localPoc) {
       void (async () => {
@@ -207,10 +223,11 @@ app.whenReady().then(() => {
 })
 
 function startProductApp(): void {
-  // 尽早写 app 锁并弹出加载窗：bat 侧据此再去起 TTS，用户不必干等环境后的 TTS 黑窗
+  // 尽早写 app 锁并弹出加载窗。开发时启动脚本据此再去起 TTS；安装包由主进程自己拉起，不挡开窗。
   appInstanceLock.writeLock(process.pid, 'app')
   createSplashWindow()
   setSplashProgress(10)
+  startPackagedTtsServer()
 
   resetExperimentalFeaturesOnStartup()
   reconcileVoiceRuntimeConfig()

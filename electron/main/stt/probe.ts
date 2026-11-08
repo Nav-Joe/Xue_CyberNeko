@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 
-import { projectRoot, runtimeDir } from '../config/paths'
+import { dataRoot, runtimeDir } from '../config/paths'
 import { STT_HOST, STT_PORT_CANDIDATES } from './constants'
 
 export type SttHealthJson = {
@@ -11,7 +11,7 @@ export type SttHealthJson = {
 }
 
 export function resolveVenvPython(): string | null {
-  const root = projectRoot()
+  const root = dataRoot()
   const win = join(root, '.venv', 'Scripts', 'python.exe')
   const unix = join(root, '.venv', 'bin', 'python')
   if (process.platform === 'win32' && existsSync(win)) return win

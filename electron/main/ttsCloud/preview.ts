@@ -1,16 +1,18 @@
+import type { AppFetch } from './appFetch'
 import { getTtsCloudConfigStore } from './configStore'
-import { synthesizeQwenTtsHttp, type QwenFetch } from './qwenTtsClient'
+import { getCloudTtsProvider } from './provider'
+import './providers/qwenProvider'
+import './providers/seedProvider'
+import './providers/edgeProvider'
 import { checkCloudTtsReady } from './readiness'
 import { cloudSynthesizeLock } from './synthesizeLock'
-import { PREVIEW_TEXT_MAX_CHARS, type TtsCloudSynthResult } from './types'
+import { PREVIEW_TEXT_MAX_CHARS, type TtsCloudConfig, type TtsCloudSynthResult } from './types'
 
 export type PreviewCloudTtsOptions = {
   text: string
   signal?: AbortSignal
-  fetchImpl?: QwenFetch
-  readConfig?: () => ReturnType<typeof getTtsCloudConfigStore>['read'] extends () => infer R
-    ? R
-    : never
+  fetchImpl?: AppFetch
+  readConfig?: () => TtsCloudConfig
 }
 
 /**
@@ -38,9 +40,15 @@ export async function previewCloudTts(options: PreviewCloudTtsOptions): Promise<
     return ready
   }
 
+  const providerId = config.ttsBackend === 'seed' || config.ttsBackend === 'edge' ? config.ttsBackend : 'qwen'
+  const provider = getCloudTtsProvider(providerId)
+  if (!provider) {
+    return { ok: false, detail: '当前云端语音服务不可用' }
+  }
+
   return cloudSynthesizeLock.runExclusive(
     (signal) =>
-      synthesizeQwenTtsHttp({
+      provider.synthesize({
         config,
         text,
         signal,

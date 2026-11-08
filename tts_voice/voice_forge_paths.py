@@ -8,12 +8,14 @@ import secrets
 from pathlib import Path
 
 from backend_config import RUNTIME_DIR
+from tts_config import source_root, writable_root
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-VOICE_FORGE_ROOT = PROJECT_ROOT / "voice_forge"
+PROJECT_ROOT = source_root()
+_DATA_ROOT = writable_root()
+VOICE_FORGE_ROOT = _DATA_ROOT / "voice_forge"
 DEFAULT_SAMPLE_DIR = VOICE_FORGE_ROOT / "default_sample"
 CUSTOM_SAMPLE_DIR = VOICE_FORGE_ROOT / "custom_sample"
-LEGACY_CLONE_DIR = PROJECT_ROOT / ".runtime" / "qwen-clone"
+LEGACY_CLONE_DIR = _DATA_ROOT / ".runtime" / "qwen-clone"
 REGEN_FLAG = RUNTIME_DIR / "regenerate-voice-model.flag"
 CORPUS_PREWARM_FLAG = RUNTIME_DIR / "corpus-prewarm.flag"
 REALTIME_INFERENCE_FILE = RUNTIME_DIR / "realtime-inference.env"

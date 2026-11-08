@@ -2,6 +2,16 @@
 
 Electron 主进程（`electron/main/config/`）与 Python TTS（`tts_voice/`）通过 `.runtime/` 与 `voice_forge/` 下的文件交换状态。修改任一侧读写逻辑时，请同步更新本文档。
 
+## 目录根
+
+未打包时，只读根和数据根都是仓库根：从当前目录往上，找到同时有 `package.json` 和 `voice_forge` 的那一层。下表里的「项目根」就是这一层。启动脚本不传 `XUE_DATA_ROOT` / `XUE_INSTALL_ROOT`，Python 仍把 `tts_voice` 的上一级同时当作只读根和数据根，所以两边读写的是同一套 `.runtime/` 和 `voice_forge/`。
+
+打包后只读根是 `resources/app-root`，放程序自带的源码、`tts_voice/qwen_config.json`、`tts_voice/config.yaml` 和默认语料。数据根是 `%LOCALAPPDATA%\xue-cyber-neko`，放 `.runtime`、`.venv`、模型、权重，以及会写入的 `voice_forge`。官方参考音的种子留在只读根；数据根里还没有 `reference.wav` 时，从种子拷过去，不拷 `corpus.snapshot.json` 和触摸缓存。`config.yaml` 仍由 Python 写在只读根的 `tts_voice` 旁边。
+
+语音进程若带了这两个变量：`.runtime`、`voice_forge`，以及 `qwen_config.json` 里的相对模型目录，走数据根。`PROJECT_ROOT` 仍是只读根，默认语料是只读根的 `src/data/corpus.json`。两个变量都没设时行为与现在的启动脚本一致。只有两个根不同时，主进程才拉起 `tts_voice/tts_server.py`（不弹窗，日志在数据根 `.runtime/logs/tts-server.stderr.log`）。端口上已经有服务则不拉、退出也不关。依赖没装好就不拉，加载窗不再干等。开发时主进程不拉语音。
+
+安装包是 NSIS。快捷方式叫「雪澜」，启动时把 `userData` 固定为 `%APPDATA%\xue-cyber-neko`，不跟着产品名走。单实例锁在设置了 `XUE_DATA_ROOT` 时写到数据根的 `.runtime`；启动脚本不传这个变量，锁仍在仓库 `.runtime`。记忆迁移在 `resources/memory-migrations`。嵌入版 Python 在 `resources/python`，由打包步骤下载到暂存目录，不进仓库。
+
 ## 磁盘文件契约
 
 | 文件（相对项目根） | 格式 | TS 读写 | Python 读写 | 字段 / 说明 |

@@ -112,11 +112,12 @@ async function deleteRemoteVoiceBestEffort(options: {
   const apiKey = options.apiKey.trim()
   if (!apiKey || !options.voiceId.trim()) return
   const url = buildQwenEnrollmentUrl(options.baseUrl)
+  if (!url) return
   const fetchImpl = options.fetchImpl ?? getAppFetch()
-  const body =
-    options.kind === 'vd'
-      ? { model: 'qwen-voice-design', input: { action: 'delete', voice: options.voiceId } }
-      : { model: 'qwen-voice-enrollment', input: { action: 'delete', voice: options.voiceId } }
+  const body = {
+    model: 'voice-enrollment',
+    input: { action: 'delete_voice', voice_id: options.voiceId }
+  }
 
   // 故意不走 cloudSynthesizeLock：删除挂起时不得堵住后续 design/prewarm。
   const controller = new AbortController()

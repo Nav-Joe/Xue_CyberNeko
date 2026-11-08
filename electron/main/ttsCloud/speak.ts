@@ -1,5 +1,9 @@
+import type { AppFetch } from './appFetch'
 import { getTtsCloudConfigStore } from './configStore'
-import { synthesizeQwenTtsHttp, type QwenFetch } from './qwenTtsClient'
+import { resolveCloudTtsProvider } from './provider'
+import './providers/qwenProvider'
+import './providers/seedProvider'
+import './providers/edgeProvider'
 import { checkCloudTtsReady } from './readiness'
 import { cloudSynthesizeLock } from './synthesizeLock'
 import type { TtsCloudConfig, TtsCloudSynthResult } from './types'
@@ -7,7 +11,7 @@ import type { TtsCloudConfig, TtsCloudSynthResult } from './types'
 export type SpeakCloudTtsOptions = {
   text: string
   signal?: AbortSignal
-  fetchImpl?: QwenFetch
+  fetchImpl?: AppFetch
   readConfig?: () => TtsCloudConfig
 }
 
@@ -29,9 +33,14 @@ export async function speakCloudTts(options: SpeakCloudTtsOptions): Promise<TtsC
     return ready
   }
 
+  const provider = resolveCloudTtsProvider(config)
+  if (!provider) {
+    return { ok: false, detail: '当前云端语音服务不可用' }
+  }
+
   return cloudSynthesizeLock.runExclusive(
     (signal) =>
-      synthesizeQwenTtsHttp({
+      provider.synthesize({
         config,
         text,
         signal,

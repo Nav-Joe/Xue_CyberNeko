@@ -28,12 +28,12 @@ const error = ref('')
 
 async function syncCloudBackendFlag(): Promise<void> {
   await refreshTtsCloudBackendCache()
-  cloudBackend.value = getCachedTtsBackend() === 'qwen'
+  cloudBackend.value = getCachedTtsBackend() !== 'local'
 }
 
 function onCloudConfigChanged(event: Event): void {
   const detail = (event as CustomEvent<{ ttsBackend?: string }>).detail
-  cloudBackend.value = detail?.ttsBackend === 'qwen'
+  cloudBackend.value = detail?.ttsBackend !== 'local' && Boolean(detail?.ttsBackend)
 }
 
 onMounted(() => {
@@ -101,7 +101,7 @@ async function onLanesChange(): Promise<void> {
 <template>
   <section class="chat-tts-settings">
     <h3 class="chat-theme__section-title">对话语音</h3>
-    <p class="chat-theme__hint">开启后，助手回复将按句朗读并对 Live2D 口型；修改后会自动保存。</p>
+    <p class="chat-theme__hint">开启后，聊天中则可以听到雪澜的声音~</p>
     <label class="chat-tts-settings__toggle">
       <input v-model="ttsEnabled" type="checkbox" :disabled="saving" @change="onTtsToggle" />
       <span>开启对话 TTS</span>

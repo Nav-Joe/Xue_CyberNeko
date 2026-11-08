@@ -239,7 +239,7 @@ interface ElectronAPI {
     | {
         ok: true
         config: {
-          ttsBackend: 'local' | 'qwen'
+          ttsBackend: 'local' | 'qwen' | 'seed' | 'edge'
           qwen: {
             baseUrl: string
             vcModel: string
@@ -259,12 +259,29 @@ interface ElectronAPI {
             hasApiKey: boolean
             apiKey?: string
           }
+          seed?: {
+            baseUrl: string
+            resourceId: string
+            voices: Array<{ id: string; name: string; speaker: string; createdAt: number }>
+            activeVoiceLocalId: string
+            secretSave: boolean
+            hasApiKey: boolean
+            apiKey?: string
+          }
+          edge?: {
+            baseUrl: string
+            voices: Array<{ id: string; name: string; speaker: string; createdAt: number }>
+            activeVoiceLocalId: string
+          }
         }
       }
     | { ok: false; detail: string }
   >
+  listTtsCloudProviders: () => Promise<
+    { ok: true; providers: Array<{ id: 'qwen' | 'seed' | 'edge'; label: string }> } | { ok: false; detail: string }
+  >
   setTtsCloudConfig: (patch: {
-    ttsBackend?: 'local' | 'qwen'
+    ttsBackend?: 'local' | 'qwen' | 'seed' | 'edge'
     qwen?: {
       baseUrl?: string
       vcModel?: string
@@ -282,11 +299,24 @@ interface ElectronAPI {
       apiKey?: string
       secretSave?: boolean
     }
+    seed?: {
+      baseUrl?: string
+      resourceId?: string
+      voices?: Array<{ id: string; name: string; speaker: string; createdAt: number }>
+      activeVoiceLocalId?: string
+      apiKey?: string
+      secretSave?: boolean
+    }
+    edge?: {
+      baseUrl?: string
+      voices?: Array<{ id: string; name: string; speaker: string; createdAt: number }>
+      activeVoiceLocalId?: string
+    }
   }) => Promise<
     | {
         ok: true
         config: {
-          ttsBackend: 'local' | 'qwen'
+          ttsBackend: 'local' | 'qwen' | 'seed' | 'edge'
           qwen: {
             baseUrl: string
             vcModel: string
@@ -306,6 +336,20 @@ interface ElectronAPI {
             hasApiKey: boolean
             apiKey?: string
           }
+          seed?: {
+            baseUrl: string
+            resourceId: string
+            voices: Array<{ id: string; name: string; speaker: string; createdAt: number }>
+            activeVoiceLocalId: string
+            secretSave: boolean
+            hasApiKey: boolean
+            apiKey?: string
+          }
+          edge?: {
+            baseUrl: string
+            voices: Array<{ id: string; name: string; speaker: string; createdAt: number }>
+            activeVoiceLocalId: string
+          }
         }
       }
     | { ok: false; detail: string }
@@ -322,7 +366,7 @@ interface ElectronAPI {
         voiceId: string
         localId: string
         config: {
-          ttsBackend: 'local' | 'qwen'
+          ttsBackend: 'local' | 'qwen' | 'seed' | 'edge'
           qwen: {
             baseUrl: string
             vcModel: string
@@ -357,7 +401,7 @@ interface ElectronAPI {
         voiceId: string
         localId: string
         config: {
-          ttsBackend: 'local' | 'qwen'
+          ttsBackend: 'local' | 'qwen' | 'seed' | 'edge'
           qwen: {
             baseUrl: string
             vcModel: string
@@ -396,7 +440,7 @@ interface ElectronAPI {
         voiceId: string
         localId: string
         config: {
-          ttsBackend: 'local' | 'qwen'
+          ttsBackend: 'local' | 'qwen' | 'seed' | 'edge'
           qwen: {
             baseUrl: string
             vcModel: string
@@ -449,7 +493,7 @@ interface ElectronAPI {
         voiceId: string
         corpus: import('./types/corpus').CorpusData
         config: {
-          ttsBackend: 'local' | 'qwen'
+          ttsBackend: 'local' | 'qwen' | 'seed' | 'edge'
           qwen: {
             baseUrl: string
             vcModel: string
@@ -489,7 +533,7 @@ interface ElectronAPI {
           createdAt: number
         } | null
         config: {
-          ttsBackend: 'local' | 'qwen'
+          ttsBackend: 'local' | 'qwen' | 'seed' | 'edge'
           qwen: {
             baseUrl: string
             vcModel: string
@@ -520,7 +564,7 @@ interface ElectronAPI {
     | {
         ok: true
         config: {
-          ttsBackend: 'local' | 'qwen'
+          ttsBackend: 'local' | 'qwen' | 'seed' | 'edge'
           qwen: {
             baseUrl: string
             vcModel: string
@@ -568,7 +612,7 @@ interface ElectronAPI {
         touchMode: 'custom_corpus'
         corpus: import('./types/corpus').CorpusData
         config: {
-          ttsBackend: 'local' | 'qwen'
+          ttsBackend: 'local' | 'qwen' | 'seed' | 'edge'
           qwen: {
             baseUrl: string
             vcModel: string

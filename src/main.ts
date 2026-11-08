@@ -3,11 +3,21 @@ import { setRuntimeCorpus } from './services/corpus'
 import { installErrorReporter, installVueErrorHandler, reportClientError } from './services/errorReporter'
 import { setRealtimeInferenceEnabled } from './services/ttsSettings'
 import { setTouchFeedbackMode } from './services/touchModeSettings'
+import { refreshTtsCloudBackendCache } from './services/ttsCloudSpeech'
 import './styles/main.css'
 
 installErrorReporter()
 
 async function bootstrapTouchConfig(): Promise<void> {
+  try {
+    await loadTouchFeedbackConfig()
+  } finally {
+    // 每个窗口启动时对齐磁盘上的语音后端，家窗口和桌宠不要各记各的
+    await refreshTtsCloudBackendCache()
+  }
+}
+
+async function loadTouchFeedbackConfig(): Promise<void> {
   if (!window.electronAPI?.readVoiceForgeConfig) {
     if (!window.electronAPI?.readTouchConfig) {
       return
@@ -58,11 +68,15 @@ async function loadRootApp(windowType: string): Promise<Component> {
   if (windowType === 'chat') {
     return (await import('./ChatApp.vue')).default
   }
+  if (windowType === 'env') {
+    return (await import('./EnvApp.vue')).default
+  }
   return (await import('./PetApp.vue')).default
 }
 
 void bootstrapTouchConfig().finally(async () => {
-  const windowType = window.electronAPI?.getWindowType() ?? 'pet'
+  const hash = window.location.hash.replace('#', '')
+  const windowType = hash === 'env' ? 'env' : (window.electronAPI?.getWindowType() ?? 'pet')
   const RootApp = await loadRootApp(windowType)
   const app = createApp(RootApp)
   installVueErrorHandler(app)

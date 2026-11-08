@@ -1,20 +1,34 @@
 /**
  * 单实例锁：供 启动.bat 与 Electron 主进程共用。
  * .runtime/app-instance.lock 存 { pid, startedAt, role }
+ *
+ * 没传 XUE_DATA_ROOT 时，锁写在脚本上一级（仓库根）。启动脚本不传这个变量。
+ * 打包后主进程会传入数据根，避免把锁写进只读的安装目录。
  */
 const fs = require('fs')
 const path = require('path')
 
-const ROOT = path.join(__dirname, '..')
-const LOCK_PATH = path.join(ROOT, '.runtime', 'app-instance.lock')
+function resolveLockRoot(scriptDir, envValue) {
+  const raw = typeof envValue === 'string' ? envValue.trim() : ''
+  if (raw) return path.resolve(raw)
+  return path.resolve(scriptDir, '..')
+}
+
+function lockRoot() {
+  return resolveLockRoot(__dirname, process.env.XUE_DATA_ROOT)
+}
+
+function lockFile() {
+  return path.join(lockRoot(), '.runtime', 'app-instance.lock')
+}
 
 function ensureRuntimeDir() {
-  fs.mkdirSync(path.dirname(LOCK_PATH), { recursive: true })
+  fs.mkdirSync(path.dirname(lockFile()), { recursive: true })
 }
 
 function readLock() {
   try {
-    const raw = fs.readFileSync(LOCK_PATH, 'utf8')
+    const raw = fs.readFileSync(lockFile(), 'utf8')
     const data = JSON.parse(raw)
     if (typeof data?.pid === 'number' && data.pid > 0) {
       return data
@@ -61,7 +75,7 @@ function isAppRunning() {
 function writeLock(pid, role = 'app') {
   ensureRuntimeDir()
   fs.writeFileSync(
-    LOCK_PATH,
+    lockFile(),
     `${JSON.stringify({ pid, role, startedAt: new Date().toISOString() }, null, 2)}\n`,
     'utf8'
   )
@@ -76,7 +90,7 @@ function clearLock(expectedPid) {
     return
   }
   try {
-    fs.unlinkSync(LOCK_PATH)
+    fs.unlinkSync(lockFile())
   } catch {
     // ignore
   }
@@ -86,7 +100,7 @@ function findProjectElectronPids() {
   if (process.platform !== 'win32') {
     return []
   }
-  const rootLower = ROOT.toLowerCase().replace(/\//g, '\\')
+  const rootLower = lockRoot().toLowerCase().replace(/\//g, '\\')
   try {
     const { execFileSync } = require('child_process')
     const out = execFileSync(
@@ -147,7 +161,10 @@ function isAppRunningStrict() {
 }
 
 module.exports = {
-  LOCK_PATH,
+  get LOCK_PATH() {
+    return lockFile()
+  },
+  resolveLockRoot,
   readLock,
   isLockActive,
   isAppRunning,

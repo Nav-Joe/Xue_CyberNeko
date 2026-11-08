@@ -3,7 +3,7 @@
  * Key 不进渲染；合成经 Main IPC。
  */
 
-export type TtsBackendKind = 'local' | 'qwen'
+export type TtsBackendKind = 'local' | 'qwen' | 'seed' | 'edge'
 
 let cachedBackend: TtsBackendKind = 'local'
 
@@ -12,7 +12,7 @@ export function getCachedTtsBackend(): TtsBackendKind {
 }
 
 export function setCachedTtsBackend(backend: TtsBackendKind): void {
-  cachedBackend = backend === 'qwen' ? 'qwen' : 'local'
+  cachedBackend = backend === 'qwen' || backend === 'seed' || backend === 'edge' ? backend : 'local'
 }
 
 export async function refreshTtsCloudBackendCache(): Promise<TtsBackendKind> {
@@ -27,8 +27,9 @@ export async function refreshTtsCloudBackendCache(): Promise<TtsBackendKind> {
   return cachedBackend
 }
 
+/** 聊天/旁白走主进程云端合成。qwen 与 seed 都算云端。 */
 export function isCachedQwenTtsBackend(): boolean {
-  return cachedBackend === 'qwen'
+  return cachedBackend === 'qwen' || cachedBackend === 'seed' || cachedBackend === 'edge'
 }
 
 export async function fetchCloudTtsBlob(text: string): Promise<Blob> {

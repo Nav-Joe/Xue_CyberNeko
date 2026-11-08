@@ -5,7 +5,8 @@ import {
   mapQwenNetworkError
 } from './mapQwenFailure'
 import { resolveActiveQwenVoice } from './activeVoice'
-import { buildQwenMultimodalGenerationUrl } from './readiness'
+import { ALI_TTS_URL_DENIED } from './aliTtsUrl'
+import { buildAliSpeechSynthesizeUrl } from './readiness'
 import type { TtsCloudConfig, TtsCloudSynthResult } from './types'
 
 export type QwenFetch = AppFetch
@@ -33,8 +34,9 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 }
 
 /**
- * C3：百炼非实时合成 B1。
- * 响应多为 audio.url（24h）；有 base64 data 时优先用 data。
+ * 百炼 Qwen-Audio-TTS 非流式合成。
+ * 非流式响应的音频在 audio.url（约 24h）；若带 base64 data 则优先用 data。
+ * format/sample_rate 固定 wav 24k，与云缓存和口型解码一致。
  */
 export async function synthesizeQwenTtsHttp(
   input: SynthesizeQwenInput
@@ -51,7 +53,8 @@ export async function synthesizeQwenTtsHttp(
   }
   const model = active.model
   const voice = active.voiceId
-  const url = buildQwenMultimodalGenerationUrl(qwen.baseUrl)
+  const url = buildAliSpeechSynthesizeUrl(qwen.baseUrl)
+  if (!url) return { ok: false, detail: ALI_TTS_URL_DENIED }
   const fetchImpl = input.fetchImpl ?? getAppFetch()
 
   let response: Response
@@ -67,7 +70,9 @@ export async function synthesizeQwenTtsHttp(
         input: {
           text,
           voice,
-          language_type: 'Chinese'
+          format: 'wav',
+          sample_rate: 24000,
+          language_hints: ['zh']
         }
       }),
       signal: input.signal

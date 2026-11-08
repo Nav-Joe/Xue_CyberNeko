@@ -38,6 +38,12 @@ export const ttsCloudApi = {
     return ipcRenderer.invoke('tts-cloud-get-config')
   },
 
+  listTtsCloudProviders: (): Promise<
+    { ok: true; providers: Array<{ id: 'qwen' | 'seed' | 'edge'; label: string }> } | { ok: false; detail: string }
+  > => {
+    return ipcRenderer.invoke('tts-cloud-list-providers')
+  },
+
   setTtsCloudConfig: (patch: TtsCloudConfigPatch): Promise<SetConfigResult> => {
     return ipcRenderer.invoke('tts-cloud-set-config', patch)
   },

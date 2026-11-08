@@ -3,12 +3,16 @@ setlocal EnableExtensions
 chcp 65001 >nul
 title 安装 Bert-VITS2 v2.3
 
-cd /d "%~dp0.."
+if defined XUE_DATA_ROOT (
+  cd /d "%XUE_DATA_ROOT%"
+) else (
+  cd /d "%~dp0.."
+)
 
 where git >nul 2>&1
 if errorlevel 1 (
   echo [错误] 需要 Git 才能克隆 Bert-VITS2
-  pause
+  if /I not "%XUE_NONINTERACTIVE%"=="1" pause
   exit /b 1
 )
 
@@ -60,5 +64,5 @@ echo.
 echo [完成] Bert-VITS2 v2.3 已安装到 Bert-VITS2\
 echo        你的语音权重仍在 tts_voice\G_900.pth
 echo.
-pause
+if /I not "%XUE_NONINTERACTIVE%"=="1" pause
 exit /b 0

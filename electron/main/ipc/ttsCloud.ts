@@ -17,6 +17,7 @@ import { isSafeCloudLocalVoiceId } from '../ttsCloud/cloudCachePaths'
 import { readCloudVoiceCorpus, resolveCloudCacheWav } from '../ttsCloud/cloudCorpusCache'
 import { prewarmCloudCorpus } from '../ttsCloud/cloudCorpusPrewarm'
 import { getTtsCloudConfigStore } from '../ttsCloud/configStore'
+import { listCloudTtsProviders } from '../ttsCloud/provider'
 import { previewCloudTts } from '../ttsCloud/preview'
 import { removeCloudVoice } from '../ttsCloud/removeCloudVoice'
 import { speakCloudTts } from '../ttsCloud/speak'
@@ -31,6 +32,24 @@ export function registerTtsCloudIpc(): void {
       return {
         ok: false as const,
         detail: error instanceof Error ? error.message : 'get_config_failed'
+      }
+    }
+  })
+
+  ipcMain.handle('tts-cloud-list-providers', () => {
+    try {
+      return {
+        ok: true as const,
+        providers: listCloudTtsProviders().map((provider) => ({
+          id: provider.id,
+          label: provider.label
+        }))
+      }
+    } catch (error) {
+      logWarn('ttsCloud', 'tts-cloud-list-providers failed', error)
+      return {
+        ok: false as const,
+        detail: error instanceof Error ? error.message : 'list_providers_failed'
       }
     }
   })

@@ -7,7 +7,10 @@ const path = require('path')
 const https = require('https')
 const { execSync } = require('child_process')
 
-const PROJECT_ROOT = path.join(__dirname, '..')
+// 环境页传入可写根。未设置时仍写到脚本上一级，npm run setup:model 行为不变。
+const PROJECT_ROOT = process.env.XUE_DATA_ROOT
+  ? path.resolve(process.env.XUE_DATA_ROOT)
+  : path.join(__dirname, '..')
 const OUTPUT_ROOT = path.join(PROJECT_ROOT, 'public', 'models', 'hiyori_pro')
 const TARGET_MODEL_REL = 'runtime/hiyori_pro_t11.model3.json'
 const TARGET_MODEL = path.join(OUTPUT_ROOT, TARGET_MODEL_REL)
@@ -191,7 +194,16 @@ async function main() {
   }
 
   const { ensureCubismCore } = require('./ensure-cubism-core')
-  await ensureCubismCore()
+  try {
+    await ensureCubismCore()
+  } catch (error) {
+    // 安装包里的 Cubism Core 已经打进页面。写不进只读根时，模型本身已经在数据根。
+    if (process.env.XUE_PACKAGED === '1') {
+      console.warn(`[setup:model] 安装包已带 Cubism Core，跳过单独下载: ${error.message}`)
+    } else {
+      throw error
+    }
+  }
 }
 
 main().catch((error) => {

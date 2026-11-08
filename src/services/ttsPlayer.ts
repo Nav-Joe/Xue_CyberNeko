@@ -1,11 +1,16 @@
 import { abortActiveChatTtsSession } from './chatTtsSessionRegistry'
 import { getCachedAudioUrl } from './audioCache'
-import { runLipSyncWhilePlaying, stopLipSync } from './live2dLipSync'
+import { runLipSyncFromBlob, stopLipSync } from './live2dLipSync'
 import { isCustomCorpusTouchEnabled } from './touchModeSettings'
 import { isRealtimeInferenceEnabled } from './ttsSettings'
 import { stopTouchClip } from './touchClipPlayer'
 import { getTtsVolume } from './ttsVolume'
-import { fetchCloudTtsBlob, fetchCloudTouchCacheBlob, isCachedQwenTtsBackend } from './ttsCloudSpeech'
+import {
+  fetchCloudTtsBlob,
+  fetchCloudTouchCacheBlob,
+  isCachedQwenTtsBackend,
+  refreshTtsCloudBackendCache
+} from './ttsCloudSpeech'
 
 const TTS_URL = 'http://127.0.0.1:8000/tts'
 const TTS_BATCH_URL = 'http://127.0.0.1:8000/tts/batch'
@@ -93,12 +98,15 @@ async function playBlob(blob: Blob): Promise<void> {
   currentAudio.volume = getTtsVolume()
 
   const audio = currentAudio
-  void runLipSyncWhilePlaying(audio).catch(() => {})
+  // 扬声器走 HTMLAudioElement；口型用解码副本，避免 createMediaElementSource 劫持后静音
+  const lipSyncDone = runLipSyncFromBlob(blob, audio).catch(() => {})
 
   try {
     await audio.play()
     await waitForAudioPlaybackEnd(audio)
+    await lipSyncDone
   } catch (error) {
+    console.error('[TTS] 播放失败', error)
     cleanupAudio()
     throw error
   }
@@ -283,7 +291,10 @@ export async function speakText(text: string, speakerIdOrOptions?: number | Spea
     return
   }
 
-  // 云端模式：触摸只播本地云缓存；未命中不打百炼、不回落侧车
+  // 家窗口和桌宠各有一份内存。触摸前读磁盘上的同一份 ttsBackend，避免一边播云缓存、一边播本机缓存。
+  await refreshTtsCloudBackendCache()
+
+  // 云端模式：触摸只播该云端声线的本地缓存；未命中不打百炼、不回落本机侧车
   if (isCachedQwenTtsBackend()) {
     cleanupAudio()
     const hit = await playCloudTouchCachedText(text)

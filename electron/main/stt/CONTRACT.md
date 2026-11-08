@@ -35,4 +35,4 @@ Preload：`electron/preload/sttApi.ts` → 扁平挂 `electronAPI`。
 ## Python
 
 开发态：仓库根 `.venv`（Win：`Scripts/python.exe`；Unix：`bin/python`）。  
-cwd = `projectRoot()`；端口仍由侧车按 8767–8772 自选。
+cwd 用只读根（未打包时就是仓库根），侧车才能以 `python -m stt_service` 启动。端口仍由侧车按 8767–8772 自选。

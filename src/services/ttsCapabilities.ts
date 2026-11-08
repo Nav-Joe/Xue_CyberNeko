@@ -59,7 +59,7 @@ export async function loadTtsCapabilities(force = false): Promise<TtsCapabilitie
     hint = `config.yaml 已设为 ${configuredEngine}，但 TTS 进程仍在使用 ${health?.backend}。请关闭 TTS 窗口后重新运行「启动.bat」，新引擎才会生效。`
   } else if (!localQwenModelsReady && !hint) {
     hint =
-      '未检测到本地 Qwen3 模型权重，音色工坊仅显示云端页。需要本地工坊时请运行 scripts\\win\\install-qwen-models.cmd'
+      '未检测到本地 Qwen3 模型权重，音色工坊仅显示云端页。需要本地工坊时请到桌宠设置「环境」安装。'
   }
 
   if (altEngineCorpusSupported) {

@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 
 import { notifyTtsCloudConfigChanged } from '../../services/ttsCloudSpeech'
+import VoiceForgeCloudCloneCorpusDialog from './VoiceForgeCloudCloneCorpusDialog.vue'
 import VoiceForgeCloudCorpusTab from './VoiceForgeCloudCorpusTab.vue'
 import VoiceForgeCloudCreateTab from './VoiceForgeCloudCreateTab.vue'
 
@@ -32,6 +33,9 @@ const error = ref('')
 
 const customName = ref('')
 const customTranscript = ref('')
+
+const cloneCorpusOpen = ref(false)
+const cloneVoice = ref<{ localId: string; name: string } | null>(null)
 
 onMounted(() => {
   void reload()
@@ -135,14 +139,40 @@ async function onEnrollOfficial(): Promise<void> {
       return
     }
     applyConfig(result.config)
-    status.value = `官方样本云克隆成功：${result.voiceId}`
-    tab.value = 'list'
+    const localId = result.localId || result.config.qwen.activeVoiceLocalId
+    const name =
+      result.config.qwen.voices.find((row) => row.id === localId)?.name || '官方样本云克隆'
+    if (!localId) {
+      error.value = '云端声线已登记，但没有拿到本地音色 id，无法继续写语料'
+      status.value = ''
+      return
+    }
+    cloneVoice.value = { localId, name }
+    cloneCorpusOpen.value = true
+    status.value = `云端声线已登记：${result.voiceId}。请编写触摸语料并预热。`
   } catch (err) {
     error.value = err instanceof Error ? err.message : '云克隆失败'
     status.value = ''
   } finally {
     busy.value = false
   }
+}
+
+function closeCloneCorpusDialog(): void {
+  cloneCorpusOpen.value = false
+  status.value = '云端声线已登记，尚未预热触摸缓存。可稍后在「更新语料」里补。'
+}
+
+function onCloneCorpusFinished(payload: {
+  status: string
+  config: Parameters<typeof applyConfig>[0]
+}): void {
+  applyConfig(payload.config)
+  status.value = payload.status
+  error.value = ''
+  cloneCorpusOpen.value = false
+  cloneVoice.value = null
+  tab.value = 'list'
 }
 
 async function onEnrollCustom(): Promise<void> {
@@ -181,7 +211,7 @@ defineExpose({ reload })
 <template>
   <section class="vf-cloud-panel">
     <p class="vf-cloud-panel__hint">
-      云端链路对齐本地工坊：创造走设计→试听确认→预热；克隆可快速入库。API Key / 双模型在聊天设置。
+      云端链路：创造走设计→试听确认→预热。官方样本云克隆会先登记声线，再编写语料并预热。自定义 WAV 仍可直接入库。API Key / 双模型在聊天设置。
     </p>
     <p class="vf-cloud-panel__meta">
       VC：{{ vcModel || '（未配置）' }} · VD：{{ vdModel || '（未配置）' }}
@@ -265,7 +295,9 @@ defineExpose({ reload })
 
     <div v-else-if="tab === 'clone'" class="vf-cloud-panel__card">
       <h4 class="vf-cloud-panel__title">快速克隆（VC）</h4>
-      <p class="vf-cloud-panel__meta">官方样本或 WAV 直接入库（不等同创造流程的审阅链）。完整体验请用「创造音色」。</p>
+      <p class="vf-cloud-panel__meta">
+        官方样本会先向百炼登记声线，再弹出语料编辑，确认后用这条云端声线预热触摸缓存。自定义 WAV 只登记入库。
+      </p>
       <button type="button" class="vf-cloud-panel__btn" :disabled="busy" @click="onEnrollOfficial">
         官方样本云克隆
       </button>
@@ -300,6 +332,14 @@ defineExpose({ reload })
 
     <p v-if="status" class="vf-cloud-panel__status">{{ status }}</p>
     <p v-if="error" class="vf-cloud-panel__error">{{ error }}</p>
+
+    <VoiceForgeCloudCloneCorpusDialog
+      :open="cloneCorpusOpen"
+      :local-id="cloneVoice?.localId || ''"
+      :voice-name="cloneVoice?.name || '官方样本云克隆'"
+      @finished="onCloneCorpusFinished"
+      @cancel="closeCloneCorpusDialog"
+    />
   </section>
 </template>
 

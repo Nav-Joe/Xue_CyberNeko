@@ -4,9 +4,10 @@ import {
   mapQwenHttpFailure,
   mapQwenNetworkError
 } from './mapQwenFailure'
+import { ALI_TTS_URL_DENIED } from './aliTtsUrl'
 import { buildQwenEnrollmentUrl } from './readiness'
 import { DEFAULT_QWEN_VC_MODEL, type TtsCloudConfig } from './types'
-import { sanitizePreferredName } from './activeVoice'
+import { sanitizePreferredName, toAudioTtsPrefix } from './activeVoice'
 
 export type EnrollVcHttpOk = { ok: true; voiceId: string; model: string }
 export type EnrollVcHttpErr = { ok: false; detail: string }
@@ -34,23 +35,22 @@ export async function enrollQwenVcHttp(input: EnrollVcHttpInput): Promise<Enroll
   }
 
   const model = input.config.qwen.vcModel.trim() || DEFAULT_QWEN_VC_MODEL
-  const url = buildQwenEnrollmentUrl(input.config.qwen.baseUrl)
   const fetchImpl = input.fetchImpl ?? getAppFetch()
   const label = input.failureLabel ?? '云克隆'
   const wrap = (detail: string) => mapQwenEnrollmentFailure(detail, label)
+  const url = buildQwenEnrollmentUrl(input.config.qwen.baseUrl)
+  if (!url) return { ok: false, detail: wrap(ALI_TTS_URL_DENIED) }
 
   const base64 = Buffer.from(input.wavBytes).toString('base64')
   const dataUri = `data:${input.mime};base64,${base64}`
-  const preferred = sanitizePreferredName(input.preferredName, 'xue_vc')
+  const preferred = toAudioTtsPrefix(sanitizePreferredName(input.preferredName, 'xuevc'), 'xuevc')
   const bodyInput: Record<string, unknown> = {
-    action: 'create',
+    action: 'create_voice',
     target_model: model,
-    preferred_name: preferred,
-    audio: { data: dataUri },
-    language: 'zh'
+    prefix: preferred,
+    audio: dataUri,
+    language_hints: ['zh']
   }
-  const text = input.referenceText?.trim()
-  if (text) bodyInput.text = text
 
   let response: Response
   try {
@@ -61,7 +61,7 @@ export async function enrollQwenVcHttp(input: EnrollVcHttpInput): Promise<Enroll
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'qwen-voice-enrollment',
+        model: 'voice-enrollment',
         input: bodyInput
       }),
       signal: input.signal
@@ -84,14 +84,14 @@ export async function enrollQwenVcHttp(input: EnrollVcHttpInput): Promise<Enroll
   let voiceId = ''
   try {
     const parsed = JSON.parse(bodyText) as {
-      output?: { voice?: string }
+      output?: { voice?: string; voice_id?: string }
       code?: string
       message?: string
     }
     if (parsed.code && parsed.message) {
       return { ok: false, detail: wrap(parsed.message) }
     }
-    voiceId = typeof parsed.output?.voice === 'string' ? parsed.output.voice.trim() : ''
+    voiceId = (parsed.output?.voice_id || parsed.output?.voice || '').trim()
   } catch {
     return { ok: false, detail: wrap('返回无法解析') }
   }

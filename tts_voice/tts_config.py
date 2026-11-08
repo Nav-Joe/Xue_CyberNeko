@@ -12,10 +12,41 @@ try:
 except ImportError:  # pragma: no cover - 开发环境应安装 PyYAML
     yaml = None
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+def _path_from_env(name: str) -> Path | None:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return None
+    return Path(raw)
+
+
+def _default_project_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def source_root() -> Path:
+    """只读根。安装包里由主进程传入；没传时就是 tts_voice 的上一级。"""
+    return _path_from_env("XUE_INSTALL_ROOT") or _default_project_root()
+
+
+def writable_root() -> Path:
+    """数据根。安装包里放 .runtime、voice_forge 和权重；没传时与只读根相同。"""
+    return _path_from_env("XUE_DATA_ROOT") or _default_project_root()
+
+
+def resolve_under_writable_root(raw: str) -> Path:
+    """相对路径挂在数据根上。绝对路径保持原样，避免把用户给的盘符再拼一次。"""
+    path = Path(raw)
+    if path.is_absolute():
+        return path
+    return writable_root() / path
+
+
+# 进程启动时读一次环境变量。开发脚本不传这两个变量，所以两个根仍是同一目录。
+# PROJECT_ROOT 必须留在只读根：默认语料在 src/data，不能跟 .runtime 一起挪到数据根。
+PROJECT_ROOT = source_root()
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "config.yaml"
-RUNTIME_DIR = PROJECT_ROOT / ".runtime"
+RUNTIME_DIR = writable_root() / ".runtime"
 
 VALID_ENGINES = frozenset({"qwen", "bert_vits2", "style_bert_vits2"})
 

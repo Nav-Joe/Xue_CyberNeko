@@ -15,6 +15,7 @@ type SettingsPage = 'main' | 'advanced' | 'voice-forge' | 'screen-companion'
 
 const ADVANCED_TITLE = '高级设置'
 const SCREEN_COMPANION_TITLE = '屏幕偷窥'
+const RUNTIME_ENV_TITLE = '环境'
 
 const emit = defineEmits<{
   back: []
@@ -38,6 +39,10 @@ let dragStartWindow = { x: 0, y: 0 }
 
 function openAdvanced(): void {
   page.value = 'advanced'
+}
+
+function openRuntimeEnv(): void {
+  void window.electronAPI?.openRuntimeEnvWindow?.()
 }
 
 function openScreenCompanion(): void {
@@ -174,6 +179,14 @@ onBeforeUnmount(() => {
           <span class="nav-row__body">
             <span class="nav-row__title">{{ SCREEN_COMPANION_TITLE }}</span>
             <span class="nav-row__desc">屏幕检测配置（目前只支持检测Steam游戏）</span>
+          </span>
+          <span class="nav-row__chevron" aria-hidden="true">›</span>
+        </button>
+
+        <button type="button" class="nav-row" @click="openRuntimeEnv">
+          <span class="nav-row__body">
+            <span class="nav-row__title">{{ RUNTIME_ENV_TITLE }}</span>
+            <span class="nav-row__desc">打开环境窗口，查看已安装和未安装的官方组件</span>
           </span>
           <span class="nav-row__chevron" aria-hidden="true">›</span>
         </button>

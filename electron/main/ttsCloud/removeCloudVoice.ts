@@ -7,6 +7,7 @@ import {
   mapQwenHttpFailure,
   mapQwenNetworkError
 } from './mapQwenFailure'
+import { ALI_TTS_URL_DENIED } from './aliTtsUrl'
 import { buildQwenEnrollmentUrl } from './readiness'
 import { cloudSynthesizeLock } from './synthesizeLock'
 import type { QwenVoiceKind, TtsCloudConfig, TtsCloudConfigPatch, TtsCloudConfigView } from './types'
@@ -28,17 +29,12 @@ async function deleteRemoteVoice(options: {
   }
 
   const url = buildQwenEnrollmentUrl(options.config.qwen.baseUrl)
+  if (!url) return { ok: false, detail: ALI_TTS_URL_DENIED }
   const fetchImpl = options.fetchImpl ?? getAppFetch()
-  const isVd = options.kind === 'vd'
-  const body = isVd
-    ? {
-        model: 'qwen-voice-design',
-        input: { action: 'delete', voice: options.bailianVoiceId }
-      }
-    : {
-        model: 'qwen-voice-enrollment',
-        input: { action: 'delete', voice: options.bailianVoiceId }
-      }
+  const body = {
+    model: 'voice-enrollment',
+    input: { action: 'delete_voice', voice_id: options.bailianVoiceId }
+  }
 
   let response: Response
   try {

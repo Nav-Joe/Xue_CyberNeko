@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { setActiveCloudVoiceForTests } from '../activeVoice'
 import { createDefaultTtsCloudConfig } from '../configStore'
 import {
+  buildAliSpeechSynthesizeUrl,
   buildQwenEnrollmentUrl,
-  buildQwenMultimodalGenerationUrl,
   checkCloudTtsReady
 } from '../readiness'
 
@@ -23,23 +23,50 @@ describe('ttsCloud readiness', () => {
     ).toBe('https://dashscope.aliyuncs.com/api/v1/services/audio/tts/customization')
   })
 
-  it('buildQwenMultimodalGenerationUrl avoids double paths', () => {
-    expect(buildQwenMultimodalGenerationUrl('https://dashscope.aliyuncs.com')).toBe(
-      'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
+  it('buildAliSpeechSynthesizeUrl avoids double paths', () => {
+    expect(buildAliSpeechSynthesizeUrl('https://dashscope.aliyuncs.com')).toBe(
+      'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer'
+    )
+    expect(buildAliSpeechSynthesizeUrl('https://dashscope.aliyuncs.com/api/v1')).toBe(
+      'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer'
     )
   })
 
-  it('strips pasted clone/synth full URLs back to host before rebuilding', () => {
+  it('rewrites the retired multimodal URL and keeps an explicit SpeechSynthesizer URL', () => {
+    const synth = 'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer'
+    const legacy =
+      'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
+    expect(buildAliSpeechSynthesizeUrl(synth)).toBe(synth)
+    expect(buildAliSpeechSynthesizeUrl(legacy)).toBe(synth)
+    expect(buildQwenEnrollmentUrl(synth)).toBe(
+      'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/customization'
+    )
+    expect(buildAliSpeechSynthesizeUrl('https://dashscope-intl.aliyuncs.com')).toBe(
+      'https://dashscope-intl.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer'
+    )
     expect(
-      buildQwenMultimodalGenerationUrl(
+      buildAliSpeechSynthesizeUrl(
         'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/customization'
       )
-    ).toBe('https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation')
+    ).toBe(synth)
+    expect(buildQwenEnrollmentUrl(legacy)).toBe(
+      'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/customization'
+    )
     expect(
-      buildQwenEnrollmentUrl(
-        'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
+      buildAliSpeechSynthesizeUrl(
+        'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SomeOtherApi'
       )
-    ).toBe('https://dashscope.aliyuncs.com/api/v1/services/audio/tts/customization')
+    ).toBe(synth)
+    expect(
+      buildAliSpeechSynthesizeUrl('https://ws1.cn-beijing.maas.aliyuncs.com')
+    ).toBe('https://ws1.cn-beijing.maas.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer')
+  })
+
+  it('refuses to attach a request to a non-Aliyun host', () => {
+    expect(buildAliSpeechSynthesizeUrl('https://evil.example/api/v1')).toBe('')
+    expect(buildQwenEnrollmentUrl('http://dashscope.aliyuncs.com')).toBe('')
+    expect(buildAliSpeechSynthesizeUrl('https://user:pw@dashscope.aliyuncs.com')).toBe('')
+    expect(buildAliSpeechSynthesizeUrl('not a url')).toBe('')
   })
 
   it('preview allows local backend when credentials and active voice filled', () => {

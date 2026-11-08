@@ -14,20 +14,17 @@ if not errorlevel 1 goto :already_done
 echo.
 echo ========================================
 echo   雪澜赛博猫娘 - 首次安装
-echo   将依次安装：
-echo     - Node.js / Python ^(缺失时自动安装，见 scripts\win\runtime-versions.cmd^)
-echo     - Node.js 依赖 ^(npm install^)
-echo     - Python 虚拟环境 ^(.venv^)
-echo     - Qwen3-TTS 引擎依赖与 PyTorch
-echo     - STT 侧车依赖 ^(sherpa-onnx 等，stt_service\requirements.txt^)
-echo     - SenseVoice STT 模型 ^(约 230MB，.runtime\stt-models\^)
+echo   必要项：
+echo     - Node.js / Python ^(缺失时自动安装^)
+echo     - Node.js 依赖与 Python 虚拟环境
+echo     - Live2D 模型（下载前需同意官方无偿素材许可，或已自备模型）
 echo.
-echo   可选：本地 Qwen3 语音模型（音色工坊本地创造/克隆）
-echo   Live2D 模型将在安装完成后引导下载（桃濑日和）
+echo   语音合成、听写、本地 Qwen 权重、本地聊天模型
+echo   不再在这里安装，装好后到桌宠设置「环境」里按需安装。
 echo ========================================
 echo.
 
-echo [步骤 1/5] 检测运行环境...
+echo [步骤 1/4] 检测运行环境...
 echo.
 
 call "%~dp0win\check-node.cmd"
@@ -37,11 +34,11 @@ call "%~dp0win\check-python.cmd"
 if errorlevel 1 exit /b 1
 
 echo.
-call "%~dp0win\check-disk-space.cmd" 15
+call "%~dp0win\check-disk-space.cmd" 4
 if errorlevel 1 exit /b 1
 
 echo.
-echo [步骤 2/5] 安装 Node 依赖...
+echo [步骤 2/4] 安装 Node 依赖...
 echo.
 
 call "%~dp0win\check-disk-space.cmd" 3
@@ -51,7 +48,7 @@ call npm install
 if errorlevel 1 exit /b 1
 
 echo.
-echo [步骤 3/5] 创建 Python 虚拟环境 ^(.venv^)...
+echo [步骤 3/4] 创建 Python 虚拟环境 ^(.venv^)...
 echo.
 
 call "%~dp0win\check-disk-space.cmd" 6
@@ -61,38 +58,11 @@ call "%~dp0win\ensure-venv.cmd"
 if errorlevel 1 exit /b 1
 
 echo.
-echo [步骤 4/5] 安装 TTS / Qwen3-TTS 依赖与 PyTorch...
+echo [步骤 4/4] 安装 Live2D 模型（必装，下载前确认许可）...
 echo.
 
-call "%~dp0win\check-disk-space.cmd" 8
+call "%~dp0win\prompt-live2d-model.cmd"
 if errorlevel 1 exit /b 1
-
-call "%~dp0win\install-tts-deps.cmd"
-if errorlevel 1 exit /b 1
-
-echo.
-echo [步骤 5/5] 安装 STT 侧车依赖...
-echo.
-
-call "%~dp0win\check-disk-space.cmd" 1
-if errorlevel 1 exit /b 1
-
-call "%~dp0win\install-stt-deps.cmd"
-if errorlevel 1 exit /b 1
-
-echo.
-echo [附加] 下载 SenseVoice STT 模型权重...
-echo.
-
-call "%~dp0win\install-stt-models.cmd"
-if errorlevel 1 exit /b 1
-
-echo.
-echo [附加] 可选下载本地 Qwen3 语音模型权重…
-echo.
-
-call "%~dp0win\prompt-qwen-models.cmd"
-rem 跳过下载不视为失败；下载失败也仅警告，不阻断首次安装
 
 call "%~dp0win\check-setup-complete.cmd"
 if errorlevel 1 (
@@ -101,23 +71,13 @@ if errorlevel 1 (
 )
 
 echo.
-call "%~dp0win\prompt-live2d-model.cmd"
-if errorlevel 1 (
-  echo [WARN] Live2D model not ready yet. Close this window, place the model, then relaunch.
-)
-
 echo.
 echo ========================================
-echo   [OK] First-time setup is complete.
-echo   Close this window, then run the launcher bat in the repo root.
+echo   [OK] 必要环境已装好（含 Live2D 模型）。
+echo   关掉本窗口后，用仓库根目录的启动脚本运行。
+echo   语音合成、听写、本地模型请到桌宠设置「环境」里安装。
 echo ========================================
 echo.
-call "%~dp0win\check-qwen-models.cmd"
-if errorlevel 1 (
-  echo   提示：未安装本地 Qwen3 模型时，音色工坊仅显示云端页。
-  echo   需要本地工坊时运行：scripts\win\install-qwen-models.cmd
-  echo.
-)
 pause
 exit /b 0
 
@@ -130,8 +90,7 @@ echo   No need to install again. You can close this window.
 echo   Next: run the launcher bat in the repo root.
 echo ========================================
 echo.
-echo   Optional local Qwen models: scripts/win/install-qwen-models.cmd
-echo   Re-download STT model: scripts/win/install-stt-models.cmd
+echo   非必要组件请到桌宠设置「环境」里安装或卸载。
 echo.
 pause
 exit /b 0

@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 
+import { dataRoot, installRoot } from './config/roots'
+
 const VALID_ENGINES = new Set(['qwen', 'bert_vits2', 'style_bert_vits2'])
 
 const ENGINE_ALIASES: Record<string, string> = {
@@ -13,16 +15,6 @@ const ENGINE_ALIASES: Record<string, string> = {
   'style-bert-vits2': 'style_bert_vits2',
   style_bert_vits: 'style_bert_vits2',
   stylebertvits2: 'style_bert_vits2',
-}
-
-function projectRoot(): string {
-  const candidates = [process.cwd(), join(__dirname, '..', '..'), join(__dirname, '..')]
-  for (const dir of candidates) {
-    if (existsSync(join(dir, 'package.json')) && existsSync(join(dir, 'tts_voice'))) {
-      return dir
-    }
-  }
-  return process.cwd()
 }
 
 export function normalizeEngineName(value: string | null | undefined): string | null {
@@ -48,7 +40,7 @@ export function readConfiguredTtsEngine(): string {
     return envEngine
   }
 
-  const configPath = join(projectRoot(), 'tts_voice', 'config.yaml')
+  const configPath = join(installRoot(), 'tts_voice', 'config.yaml')
   if (!existsSync(configPath)) {
     return 'qwen'
   }
@@ -76,7 +68,7 @@ const QWEN_BASE_CONFIG = join(
 )
 
 /** 本地音色工坊所需权重是否已落盘（与 scripts/win/check-qwen-models.cmd 对齐） */
-export function localQwenModelsReady(root: string = projectRoot()): boolean {
+export function localQwenModelsReady(root: string = dataRoot()): boolean {
   return existsSync(join(root, QWEN_VD_CONFIG)) && existsSync(join(root, QWEN_BASE_CONFIG))
 }
 
@@ -98,6 +90,6 @@ export function readTtsEngineCapabilities(): TtsEngineCapabilities {
     localQwenModelsReady: modelsReady,
     hint: modelsReady
       ? null
-      : '未检测到本地 Qwen3 模型权重，音色工坊仅显示云端页。需要本地工坊时请运行 scripts\\win\\install-qwen-models.cmd'
+      : '未检测到本地 Qwen3 模型权重，音色工坊仅显示云端页。需要本地工坊时请到桌宠设置「环境」安装。'
   }
 }

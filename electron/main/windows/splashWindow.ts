@@ -121,6 +121,17 @@ function startTtsReadyPoll(): void {
   ttsPollTimer = setInterval(tick, TTS_POLL_MS)
 }
 
+/**
+ * 安装包确认本地语音不会起来（没装依赖，或自己拉起的进程已退出）。
+ * 开发时不要调用：启动脚本可能还在拉语音，加载窗要继续等。
+ */
+export function markSplashTtsNotComing(): void {
+  if (splashClosed || ttsReady) return
+  ttsReady = true
+  setSplashProgress(petFrameReady ? 95 : 85)
+  tryFinishSplash()
+}
+
 /** Live2D 首帧就绪（尚不关窗，等 TTS） */
 export function markSplashPetFrameReady(): void {
   if (splashClosed) return

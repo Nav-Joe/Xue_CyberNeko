@@ -129,9 +129,9 @@ describe('cloud create staging / review', () => {
     }
     expect(readCloudPendingCreate(dir)).toBeNull()
     expect(deleteCalls.length).toBeGreaterThan(0)
-    expect((deleteCalls[0] as { input?: { action?: string; voice?: string } }).input?.action).toBe(
-      'delete'
+    expect((deleteCalls[0] as { input?: { action?: string; voice_id?: string } }).input?.action).toBe(
+      'delete_voice'
     )
-    expect((deleteCalls[0] as { input?: { voice?: string } }).input?.voice).toBe('vd-tmp')
+    expect((deleteCalls[0] as { input?: { voice_id?: string } }).input?.voice_id).toBe('vd-tmp')
   })
 })

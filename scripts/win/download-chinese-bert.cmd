@@ -2,7 +2,11 @@
 setlocal EnableExtensions
 chcp 65001 >nul
 
-cd /d "%~dp0..\.."
+if defined XUE_DATA_ROOT (
+  cd /d "%XUE_DATA_ROOT%"
+) else (
+  cd /d "%~dp0..\.."
+)
 
 call "%~dp0resolve-venv-python.cmd"
 set "PY=%XUE_VENV_PYTHON%"

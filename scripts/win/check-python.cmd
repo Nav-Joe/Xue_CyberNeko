@@ -1,5 +1,15 @@
 @echo off
 rem 检测 Python 3.10+；仅当 XUE_AUTO_INSTALL_RUNTIME=1 时自动安装（首次安装.bat）
+rem 安装包里的环境页不装系统 Python，只认已经准备好的解释器。
+if /I "%XUE_PACKAGED%"=="1" (
+  if defined XUE_VENV_PYTHON if exist "%XUE_VENV_PYTHON%" (
+    echo [通过] 使用安装包自带的 Python
+    exit /b 0
+  )
+  echo [错误] 安装包未带上可用的 Python。
+  exit /b 1
+)
+
 call "%~dp0ensure-system-path.cmd"
 call "%~dp0runtime-versions.cmd"
 call "%~dp0refresh-shell-path.cmd"

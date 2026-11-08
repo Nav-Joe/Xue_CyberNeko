@@ -62,7 +62,7 @@ describe('cloud voice ops phase 2', () => {
       }
     })
 
-    expect(seenModel).toBe('qwen-voice-design')
+    expect(seenModel).toBe('voice-enrollment')
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.voiceId).toBe('vd-voice-1')

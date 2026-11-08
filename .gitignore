@@ -83,6 +83,9 @@ memory.db
 **/pet-touch-export*.json
 # 若把整包 userData 拷进仓库根目录
 /userData/
+# 本机数据目录名。正规位置是 %APPDATA%\xue-cyber-neko 或 %LOCALAPPDATA%\xue-cyber-neko。
+# 整目录忽略，连同 Cookies、Local Storage 等不会被下面单文件规则盖住的内容。
+xue-cyber-neko/
 **/AppData/**/memory.db
 **/AppData/**/chat-config.json
 **/AppData/**/character-cards.json

@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'child_process'
 import { mkdirSync, openSync, closeSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
-import { projectRoot, runtimeDir } from '../config/paths'
+import { installRoot, runtimeDir } from '../config/paths'
 import { logError, logInfo, logWarn } from '../logging/logger'
 import { createSingleFlight } from '../llama/singleFlight'
 import { STT_HEALTH_POLL_MS, STT_READY_TIMEOUT_MS } from './constants'
@@ -50,7 +50,7 @@ async function spawnSttService(): Promise<string> {
     throw new Error('未找到仓库 .venv 中的 Python，请先创建虚拟环境并安装 stt_service 依赖')
   }
 
-  const root = projectRoot()
+  const root = installRoot()
   const logs = join(runtimeDir(), 'logs')
   mkdirSync(logs, { recursive: true })
   const stderrLogPath = join(logs, 'stt-service.stderr.log')

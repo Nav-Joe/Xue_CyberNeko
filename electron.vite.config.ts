@@ -39,7 +39,8 @@ function optionalLocalScreenCompanionPocPlugin(): Plugin {
     },
     load(id) {
       if (id !== virtualId) return null
-      if (!existsSync(localFile)) {
+      // 打安装包时即使本机有试验文件，也不把它编进产物。
+      if (process.env.XUE_PACK_INSTALLER === '1' || !existsSync(localFile)) {
         return 'export const localPoc = null\n'
       }
       const importPath = localFile.replace(/\\/g, '/')

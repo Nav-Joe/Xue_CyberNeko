@@ -102,15 +102,15 @@ call "%~dp0check-live2d-model.cmd"
 
 if errorlevel 1 (
 
-  echo [警告] 当前仍未检测到 Live2D 模型，桌宠可能无法正常显示。
+  echo [错误] 未检测到 Live2D 模型。没有模型时桌宠无法显示。
 
-  echo          放置模型后请重新运行「启动.bat」。
+  echo        请重新选择同意下载，或放入自备模型后再试。
 
-) else (
-
-  echo [通过] 已检测到自备 Live2D 模型。
+  exit /b 1
 
 )
+
+echo [通过] 已检测到自备 Live2D 模型。
 
 exit /b 0
 

@@ -78,11 +78,13 @@ describe('enrollOfficialSampleCloud', () => {
       expect(result.config.qwen.voiceId).toBe('qwen-voice-xyz')
       expect(result.config.qwen.activeKind).toBe('vc')
     }
-    expect(seenBody?.model).toBe('qwen-voice-enrollment')
+    expect(seenBody?.model).toBe('voice-enrollment')
     const input = seenBody?.input as Record<string, unknown>
-    expect(input.action).toBe('create')
+    expect(input.action).toBe('create_voice')
     expect(input.target_model).toBe('qwen3-tts-vc-2026-01-22')
-    expect(input.text).toBe('你好雪澜')
+    expect(input.audio).toMatch(/^data:audio\/wav;base64,/)
+    expect(input.language_hints).toEqual(['zh'])
+    expect(input.prefix).toBeTruthy()
   })
 
   it('maps network error without AbortSignal (no aborted crash)', async () => {

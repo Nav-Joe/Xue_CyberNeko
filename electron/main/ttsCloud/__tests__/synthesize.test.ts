@@ -39,12 +39,17 @@ describe('ttsCloud synthesizer (C3)', () => {
     config.qwen.apiKey = 'k'
 
     let seenModel = ''
+    let seenInput: Record<string, unknown> | null = null
     await synthesizeQwenTtsHttp({
       config,
       text: '你好',
       fetchImpl: async (_url, init) => {
-        const body = JSON.parse(String(init?.body)) as { model?: string }
+        const body = JSON.parse(String(init?.body)) as {
+          model?: string
+          input?: Record<string, unknown>
+        }
         seenModel = body.model ?? ''
+        seenInput = body.input ?? null
         return new Response(
           JSON.stringify({
             output: { audio: { data: Buffer.from([1]).toString('base64'), url: '' } }
@@ -55,6 +60,14 @@ describe('ttsCloud synthesizer (C3)', () => {
     })
 
     expect(seenModel).toBe('qwen3-tts-vd-2026-01-26')
+    expect(seenInput).toMatchObject({
+      text: '你好',
+      voice: 'vd-voice',
+      format: 'wav',
+      sample_rate: 24000,
+      language_hints: ['zh']
+    })
+    expect(seenInput).not.toHaveProperty('language_type')
   })
 
   it('lock runs requests serially', async () => {

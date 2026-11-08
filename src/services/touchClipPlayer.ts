@@ -1,4 +1,4 @@
-import { runLipSyncWhilePlaying, stopLipSync } from './live2dLipSync'
+import { runLipSyncFromBlob, stopLipSync } from './live2dLipSync'
 import { getTtsVolume } from './ttsVolume'
 
 const MANIFEST_URL = '/touch_clips/manifest.json'
@@ -78,25 +78,42 @@ export async function playRandomTouchClip(): Promise<boolean> {
   if (!fileName) return false
 
   const url = `/touch_clips/${fileName.replace(/^\/+/, '')}`
-  currentAudio = new Audio(url)
+
+  let blob: Blob
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.warn('[TouchClips] 音频文件不可用', url, response.status)
+      return false
+    }
+    blob = await response.blob()
+  } catch (error) {
+    console.error('[TouchClips] 加载音频失败', url, error)
+    return false
+  }
+
+  const objectUrl = URL.createObjectURL(blob)
+  currentAudio = new Audio(objectUrl)
   currentAudio.volume = getTtsVolume()
 
   currentAudio.addEventListener(
     'ended',
     () => {
+      URL.revokeObjectURL(objectUrl)
       cleanupAudio()
     },
     { once: true }
   )
 
   try {
-    const lipSyncDone = runLipSyncWhilePlaying(currentAudio)
+    const lipSyncDone = runLipSyncFromBlob(blob, currentAudio).catch(() => {})
     await currentAudio.play()
     console.info('[TouchClips] 播放', url)
     await lipSyncDone
     return true
   } catch (error) {
     console.error('[TouchClips] 播放失败', url, error)
+    URL.revokeObjectURL(objectUrl)
     cleanupAudio()
     return false
   }

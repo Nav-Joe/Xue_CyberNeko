@@ -7,6 +7,7 @@ import { sttApi } from './sttApi'
 import { ttsCloudApi } from './ttsCloudApi'
 import { screenCompanionApi } from './screenCompanionApi'
 import { splashApi } from './splashApi'
+import { runtimeEnvApi } from './runtimeEnvApi'
 
 export type WindowType = 'pet' | 'home' | 'chat'
 
@@ -477,6 +478,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ...ttsCloudApi,
   ...screenCompanionApi,
   ...splashApi,
+  ...runtimeEnvApi,
 
   reportClientError: (payload: {
     scope?: string

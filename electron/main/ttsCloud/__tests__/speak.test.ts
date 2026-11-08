@@ -38,7 +38,7 @@ describe('speakCloudTts', () => {
       readConfig: () => config,
       fetchImpl: async (url) => {
         calls += 1
-        if (String(url).includes('multimodal-generation')) {
+        if (String(url).includes('SpeechSynthesizer')) {
           return new Response(
             JSON.stringify({
               output: {

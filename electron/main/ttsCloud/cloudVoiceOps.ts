@@ -1,7 +1,7 @@
 import type { CorpusData } from '../../../src/types/corpus'
 import { formatFetchError, getAppFetch, type AppFetch } from './appFetch'
 import { getTtsCloudConfigStore } from './configStore'
-import { addCloudVoice, sanitizePreferredName } from './activeVoice'
+import { addCloudVoice, sanitizePreferredName, toAudioTtsPrefix } from './activeVoice'
 import { enrollQwenVcHttp } from './enrollVcHttp'
 import {
   mapQwenDesignFailure,
@@ -10,6 +10,7 @@ import {
 } from './mapQwenFailure'
 import { prepareOfficialSampleForEnrollment, prepareWavBytesForEnrollment } from './prepareOfficialSample'
 import { clearCloudPendingCreate, writeCloudPendingCreate } from './pendingCloudCreate'
+import { ALI_TTS_URL_DENIED } from './aliTtsUrl'
 import { buildQwenEnrollmentUrl } from './readiness'
 import { cloudSynthesizeLock } from './synthesizeLock'
 import {
@@ -196,8 +197,9 @@ export async function designCloudVoice(options: {
   const displayName = options.displayName.trim() || '云端设计音色'
   const model = config.qwen.vdModel.trim() || DEFAULT_QWEN_VD_MODEL
   const url = buildQwenEnrollmentUrl(config.qwen.baseUrl)
+  if (!url) return { ok: false, detail: ALI_TTS_URL_DENIED }
   const fetchImpl = options.fetchImpl ?? getAppFetch()
-  const preferred = sanitizePreferredName(displayName, 'xue_vd')
+  const preferred = toAudioTtsPrefix(sanitizePreferredName(displayName, 'xuevd'), 'xuevd')
 
   return cloudSynthesizeLock.runExclusive(async (signal) => {
     let response: Response
@@ -209,14 +211,14 @@ export async function designCloudVoice(options: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'qwen-voice-design',
+          model: 'voice-enrollment',
           input: {
-            action: 'create',
+            action: 'create_voice',
             target_model: model,
-            preferred_name: preferred,
+            prefix: preferred,
             voice_prompt: voicePrompt,
             preview_text: previewText,
-            language: 'zh'
+            language_hints: ['zh']
           },
           parameters: {
             sample_rate: 24000,
@@ -249,6 +251,7 @@ export async function designCloudVoice(options: {
       const parsed = JSON.parse(bodyText) as {
         output?: {
           voice?: string
+          voice_id?: string
           preview_audio?: { data?: string; response_format?: string }
         }
         code?: string
@@ -257,7 +260,7 @@ export async function designCloudVoice(options: {
       if (parsed.code && parsed.message) {
         return { ok: false, detail: mapQwenDesignFailure(parsed.message) }
       }
-      voiceId = typeof parsed.output?.voice === 'string' ? parsed.output.voice.trim() : ''
+      voiceId = (parsed.output?.voice_id || parsed.output?.voice || '').trim()
       previewB64 =
         typeof parsed.output?.preview_audio?.data === 'string'
           ? parsed.output.preview_audio.data.trim()

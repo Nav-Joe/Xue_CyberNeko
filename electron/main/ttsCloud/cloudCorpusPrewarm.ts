@@ -13,7 +13,8 @@ import {
   writeCloudVoiceCorpus
 } from './cloudCorpusCache'
 import { getTtsCloudConfigStore } from './configStore'
-import { synthesizeQwenTtsHttp } from './qwenTtsClient'
+import { getCloudTtsProvider } from './provider'
+import './providers/qwenProvider'
 import { checkCloudTtsReady } from './readiness'
 import { cloudSynthesizeLock } from './synthesizeLock'
 import type { TtsCloudConfig, TtsCloudConfigView } from './types'
@@ -106,9 +107,14 @@ export async function prewarmCloudCorpus(options: {
     if (options.signal?.aborted) {
       return { ok: false, detail: '云端语料预热已取消' }
     }
+    const provider = getCloudTtsProvider('qwen')
+    if (!provider) {
+      failures.push({ line, detail: '当前云端语音服务不可用' })
+      continue
+    }
     const synth = await cloudSynthesizeLock.runExclusive(
       (signal) =>
-        synthesizeQwenTtsHttp({
+        provider.synthesize({
           config: workingConfig,
           text: line,
           signal,

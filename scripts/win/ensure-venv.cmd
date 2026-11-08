@@ -5,6 +5,11 @@ call "%~dp0resolve-venv-python.cmd"
 
 if exist "%XUE_VENV_PYTHON%" goto :ready
 
+if /I "%XUE_PACKAGED%"=="1" (
+  echo [错误] 安装包里的 Python 还没准备好。
+  exit /b 1
+)
+
 where python >nul 2>&1
 if errorlevel 1 (
   echo [错误] 未找到系统 Python 3.10+，无法创建虚拟环境。
@@ -12,7 +17,11 @@ if errorlevel 1 (
   exit /b 1
 )
 
-for %%I in ("%~dp0..\..") do set "ROOT=%%~fI"
+if defined XUE_DATA_ROOT (
+  set "ROOT=%XUE_DATA_ROOT%"
+) else (
+  for %%I in ("%~dp0..\..") do set "ROOT=%%~fI"
+)
 
 echo.
 echo [提示] 正在创建项目虚拟环境 .venv

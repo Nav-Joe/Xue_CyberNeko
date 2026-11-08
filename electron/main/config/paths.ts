@@ -1,32 +1,19 @@
-import { existsSync } from 'fs'
 import { join } from 'path'
 
 import { readConfiguredTtsEngine } from '../ttsEngineInfo'
 
+import { dataRoot, ensureOfficialSampleSeed, installRoot } from './roots'
 import { OFFICIAL_SAMPLE_ID, RUNTIME_ARTIFACTS } from './types/runtime-config'
+
+export { dataRoot, installRoot }
 
 export const CORPUS_SNAPSHOT_NAME = 'corpus.snapshot.json'
 export const ALT_ENGINE_PREWARM_TARGET = '__alt_engine__'
 export const TOUCH_CACHE_DIR_NAME = 'touch_cache'
 export const TOUCH_CACHE_POINTER_NAME = 'touch_cache.json'
 
-export function projectRoot(): string {
-  const candidates = [
-    process.cwd(),
-    join(__dirname, '..', '..', '..'),
-    join(__dirname, '..', '..'),
-    join(__dirname, '..')
-  ]
-  for (const dir of candidates) {
-    if (existsSync(join(dir, 'package.json')) && existsSync(join(dir, 'voice_forge'))) {
-      return dir
-    }
-  }
-  return process.cwd()
-}
-
 export function runtimeDir(): string {
-  return join(projectRoot(), '.runtime')
+  return join(dataRoot(), '.runtime')
 }
 
 export function touchModeFile(): string {
@@ -38,7 +25,7 @@ export function customCorpusFile(): string {
 }
 
 export function voiceForgeRoot(): string {
-  return join(projectRoot(), 'voice_forge')
+  return join(dataRoot(), 'voice_forge')
 }
 
 export function customSampleRoot(): string {
@@ -46,7 +33,9 @@ export function customSampleRoot(): string {
 }
 
 export function defaultSampleDir(): string {
-  return join(voiceForgeRoot(), 'default_sample')
+  const data = dataRoot()
+  ensureOfficialSampleSeed(installRoot(), data)
+  return join(data, 'voice_forge', 'default_sample')
 }
 
 export function sampleDirForId(folderId: string): string {
@@ -86,9 +75,9 @@ export function voiceForgeSessionFile(): string {
 }
 
 export function qwenConfigFile(): string {
-  return join(projectRoot(), 'tts_voice', 'qwen_config.json')
+  return join(installRoot(), 'tts_voice', 'qwen_config.json')
 }
 
 export function defaultCorpusFile(): string {
-  return join(projectRoot(), 'src', 'data', 'corpus.json')
+  return join(installRoot(), 'src', 'data', 'corpus.json')
 }

@@ -1,6 +1,6 @@
 {
   "name": "xue-cyber-neko",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "雪澜赛博猫娘 - Live2D 桌面 AI 桌宠",
   "main": "./out/main/index.js",
   "author": "Xue_CyberNeko Contributors",
@@ -19,27 +19,97 @@
     "setup:model": "node scripts/download-sample-model.js",
     "tts": ".venv\\Scripts\\python.exe tts_voice/tts_server.py",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "dist:win": "node scripts/run-dist-win.mjs"
+  },
+  "build": {
+    "appId": "app.xue.cyberneko",
+    "productName": "雪澜",
+    "npmRebuild": false,
+    "asar": true,
+    "artifactName": "Xue-Setup-${version}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "!out/renderer/models/**",
+      "package.json",
+      "scripts/app-instance-lock.js",
+      "node_modules/better-sqlite3/**/*",
+      "!node_modules/better-sqlite3/deps/**",
+      "!node_modules/better-sqlite3/**/*.{pdb,iobj,ipdb,lib,obj,exp,ilk}",
+      "!node_modules/better-sqlite3/build/Release/obj/**",
+      "!node_modules/better-sqlite3/build/Release/test_extension.*",
+      "node_modules/bindings/**/*",
+      "node_modules/file-uri-to-path/**/*",
+      "!node_modules/prebuild-install/**",
+      "!node_modules/node-gyp/**",
+      "!node_modules/node-addon-api/**",
+      "node_modules/drizzle-orm/**/*",
+      "!node_modules/drizzle-orm/**/*.md",
+      "!node_modules/drizzle-orm/**/*.d.ts",
+      "!node_modules/drizzle-orm/**/*.d.cts",
+      "!node_modules/drizzle-orm/**/*.d.mts",
+      "!node_modules/**/{test,tests,__tests__}/**",
+      "!**/*.map"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ],
+    "extraResources": [
+      {
+        "from": "staging/app-root",
+        "to": "app-root"
+      },
+      {
+        "from": "staging/python",
+        "to": "python"
+      },
+      {
+        "from": "electron/main/memory/migrations",
+        "to": "memory-migrations"
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "executableName": "Xue",
+      "icon": "electron/main/windows/assets/app-icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "雪澜",
+      "uninstallDisplayName": "雪澜",
+      "deleteAppDataOnUninstall": false,
+      "installerLanguages": ["zh_CN"],
+      "unicode": true
+    }
   },
   "dependencies": {
     "@langchain/core": "^1.2.1",
-    "@pixi/unsafe-eval": "^6.5.10",
-    "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "^11.8.1",
-    "drizzle-orm": "^0.39.3",
-    "pixi-live2d-display": "^0.4.0",
-    "pixi.js": "^6.5.10",
-    "vue": "^3.5.13"
+    "drizzle-orm": "^0.39.3"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.2.0",
+    "@pixi/unsafe-eval": "^6.5.10",
+    "@types/better-sqlite3": "^7.6.13",
     "@vitejs/plugin-vue": "^5.2.1",
     "drizzle-kit": "^0.30.4",
     "electron": "^34.0.0",
+    "electron-builder": "^26.18.0",
     "electron-vite": "^2.3.0",
     "happy-dom": "^17.1.1",
     "typescript": "^5.7.3",
+    "pixi-live2d-display": "^0.4.0",
+    "pixi.js": "^6.5.10",
     "vite": "^5.4.14",
+    "vue": "^3.5.13",
     "vite-plugin-node-polyfills": "^0.28.0",
     "vitest": "^3.0.5",
     "vue-tsc": "^2.2.0"
